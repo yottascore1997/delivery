@@ -1,0 +1,297 @@
+// Hyperlocal marketplace — MySQL + Prisma
+// Run from `website`: npm run db:generate | db:push | db:migrate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  STORE_OWNER
+  DELIVERY
+  ADMIN
+}
+
+enum StoreStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OrderStatus {
+  PLACED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentType {
+  COD
+}
+
+enum DeliveryStatus {
+  ASSIGNED
+  ACCEPTED
+  PICKED_UP
+  DELIVERED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  role      UserRole @default(CUSTOMER)
+  /// Profile photo (HTTPS URL, e.g. Cloudinary)
+  imageUrl  String?  @db.VarChar(2048)
+  createdAt DateTime @default(now())
+
+  ownedStores Store[]       @relation("StoreOwner")
+  orders      Order[]
+  deliveries  Delivery[]    @relation("DeliveryBoy")
+  otps        OtpCode[]
+  addresses   UserAddress[]
+
+  @@index([phone])
+  @@index([role])
+}
+
+model UserAddress {
+  id         String   @id @default(cuid())
+  userId     String
+  label      String   @default("Home") @db.VarChar(32)
+  address    String   @db.Text
+  latitude   Float
+  longitude  Float
+  isDefault  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isDefault])
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  userId    String?
+  phone     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([phone])
+  @@index([expiresAt])
+}
+
+model Store {
+  id           String      @id @default(cuid())
+  name         String
+  ownerId      String
+  address      String      @db.Text
+  latitude     Float
+  longitude    Float
+  status       StoreStatus @default(PENDING)
+  /// Shop browse category: grocery | fruits-vegetables | food | electronics
+  shopVertical String      @default("food") @db.VarChar(32)
+  imageUrl     String?     @db.VarChar(2048)
+  /// Second listing photo (registration requires at least 2 images: imageUrl + imageUrl2).
+  imageUrl2    String?     @db.VarChar(2048)
+  /// When true, customers only see the store as open between openingTime–closingTime (Asia/Kolkata).
+  openingHoursEnabled Boolean   @default(false)
+  openingTime         String?   @db.VarChar(5)
+  closingTime         String?   @db.VarChar(5)
+  createdAt    DateTime    @default(now())
+
+  owner      User         @relation("StoreOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  categories Category[]
+  products   Product[]
+  orders     Order[]
+  subscriptions Subscription[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([shopVertical, status])
+  @@index([latitude, longitude])
+}
+
+model Category {
+  id      String @id @default(cuid())
+  storeId String
+  name    String
+
+  store    Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@index([storeId])
+}
+
+/// Platform-wide master category (template)
+model MasterMainCategory {
+  id        String @id @default(cuid())
+  key       String @unique @db.VarChar(32) // grocery | food | etc
+  name      String @db.VarChar(80) // Grocery | Food
+  sortOrder Int    @default(0)
+
+  subcategories MasterCategory[]
+
+  @@index([sortOrder])
+}
+
+/// Platform-wide master subcategory (template)
+model MasterCategory {
+  id         String  @id @default(cuid())
+  mainCategoryId String
+  name       String  @db.VarChar(120)
+  imageUrl   String? @db.VarChar(2048)
+  sortOrder  Int     @default(0)
+
+  mainCategory MasterMainCategory @relation(fields: [mainCategoryId], references: [id], onDelete: Cascade)
+  products   MasterProduct[]
+
+  @@index([mainCategoryId, sortOrder])
+  @@unique([mainCategoryId, name])
+}
+
+/// Platform-wide master product (template)
+model MasterProduct {
+  id              String  @id @default(cuid())
+  masterCategoryId String
+  name            String  @db.VarChar(200)
+  description     String  @db.Text
+  imageUrl        String? @db.VarChar(2048)
+  unitLabel       String? @db.VarChar(40)
+  sortOrder       Int     @default(0)
+
+  masterCategory MasterCategory @relation(fields: [masterCategoryId], references: [id], onDelete: Cascade)
+  storeProducts  Product[]
+
+  @@index([masterCategoryId, sortOrder])
+  @@unique([masterCategoryId, name])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  storeId     String
+  categoryId  String
+  masterProductId String?
+  name        String
+  description String   @db.Text
+  price       Decimal  @db.Decimal(10, 2)
+  stock       Int      @default(0)
+  imageUrl    String?  @db.VarChar(2048)
+  /// Pack / unit shown to customers (e.g. 500 g, 1 kg, 1 L, 1 pc) — copied from master on import
+  unitLabel   String?  @db.VarChar(40)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  store    Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  masterProduct MasterProduct? @relation(fields: [masterProductId], references: [id], onDelete: SetNull)
+  items    OrderItem[]
+
+  @@index([storeId])
+  @@index([categoryId])
+  @@index([masterProductId])
+  @@unique([storeId, masterProductId])
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  userId      String
+  storeId     String
+  totalAmount Decimal     @db.Decimal(10, 2)
+  status      OrderStatus @default(PLACED)
+  paymentType PaymentType @default(COD)
+  deliveryAddress String  @db.Text
+  deliveryLat     Float
+  deliveryLng     Float
+  createdAt   DateTime    @default(now())
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store   Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  items   OrderItem[]
+  delivery Delivery?
+
+  @@index([userId])
+  @@index([storeId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Delivery {
+  id             String         @id @default(cuid())
+  orderId        String         @unique
+  deliveryBoyId  String
+  status         DeliveryStatus @default(ASSIGNED)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  deliveryBoy User  @relation("DeliveryBoy", fields: [deliveryBoyId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryBoyId])
+  @@index([status])
+}
+
+model Subscription {
+  id         String   @id @default(cuid())
+  storeId    String
+  planName   String
+  price      Decimal  @db.Decimal(10, 2)
+  expiryDate DateTime
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([expiryDate])
+}
+
+/// Platform-wide settings (e.g. commission percent)
+model PlatformSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String @db.Text
+}
+
+/// Admin-defined subscription plans for stores
+model SubscriptionPlan {
+  id           String   @id @default(cuid())
+  name         String
+  price        Decimal  @db.Decimal(10, 2)
+  durationDays Int
+  createdAt    DateTime @default(now())
+}
+
+/// Expo push token per user (optional notifications)
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}

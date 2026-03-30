@@ -1,0 +1,310 @@
+/* Customer shop — premium marketplace: layered surfaces, soft depth, brand warmth */
+.shop-shell {
+  --shop-brand: #e23744;
+  --shop-brand-hover: #c81d2e;
+  --shop-accent: #ff5200;
+  --shop-blinkit: #f7d000;
+  --shop-bg: #f4f3f7;
+  --shop-card: #ffffff;
+  --shop-ink: #1e293b;
+  --shop-muted: #64748b;
+  --shop-line: rgba(15, 23, 42, 0.08);
+  /* Mobile shop header — Swiggy-style layers (location + tabs + search); sync with ShopSiteHeader */
+  --shop-header-sticky: 8.75rem;
+  position: relative;
+  isolation: isolate;
+  color: var(--shop-ink);
+  min-height: 100dvh;
+  background:
+    radial-gradient(ellipse 100% 80% at 50% -20%, rgba(226, 55, 68, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 30%, rgba(255, 82, 0, 0.05) 0%, transparent 45%),
+    linear-gradient(180deg, #faf9fc 0%, var(--shop-bg) 38%, #f0eff4 100%);
+}
+
+@media (min-width: 768px) {
+  .shop-shell {
+    --shop-header-sticky: 4.75rem;
+  }
+}
+
+.shop-site-header {
+  background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 52%, #7c3aed 100%);
+  backdrop-filter: blur(20px) saturate(1.35);
+  -webkit-backdrop-filter: blur(20px) saturate(1.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 767px) {
+  .shop-site-header {
+    background: transparent;
+    border-bottom: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.shop-btn-primary {
+  background: linear-gradient(
+    165deg,
+    #ff7a5c 0%,
+    var(--shop-brand) 42%,
+    #b91c2c 100%
+  );
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 8px 24px rgba(226, 55, 68, 0.42),
+    0 2px 8px rgba(185, 28, 44, 0.2);
+}
+
+.shop-btn-primary:hover {
+  filter: brightness(1.04);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.3) inset,
+    0 12px 32px rgba(226, 55, 68, 0.48);
+}
+
+.shop-btn-ghost {
+  border: 1px solid var(--shop-line);
+  background: #fff;
+  color: var(--shop-ink);
+  font-weight: 700;
+}
+
+.shop-btn-add {
+  background: #fff;
+  border: 1.5px solid #60b246;
+  color: #3d9b40;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  font-size: 0.75rem;
+}
+
+.shop-btn-add:hover {
+  background: #f4fbf4;
+}
+
+.shop-card-elevated {
+  background: var(--shop-card);
+  border: 1px solid var(--shop-line);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.shop-card-premium {
+  background: linear-gradient(165deg, #ffffff 0%, #fafafa 100%);
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 16px 48px rgba(15, 23, 42, 0.09);
+  transition:
+    box-shadow 0.4s cubic-bezier(0.34, 1.2, 0.64, 1),
+    transform 0.4s cubic-bezier(0.34, 1.2, 0.64, 1),
+    border-color 0.3s ease;
+}
+
+.shop-card-premium:hover {
+  border-color: rgba(226, 55, 68, 0.14);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 4px 8px rgba(15, 23, 42, 0.04),
+    0 24px 56px rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(226, 55, 68, 0.06);
+}
+
+.shop-text-gradient {
+  background: linear-gradient(135deg, var(--shop-brand) 0%, var(--shop-accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Hero — editorial strip + soft spotlight card */
+.shop-hero-strip {
+  background: #0b0b0f;
+  color: #ffffff;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-shadow: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.shop-hero-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(155deg, #ffffff 0%, #fff8f7 42%, #fff5f3 100%);
+  border: 1px solid rgba(226, 55, 68, 0.12);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 20px 50px -12px rgba(226, 55, 68, 0.18),
+    0 12px 40px rgba(15, 23, 42, 0.08);
+}
+
+.shop-hero-card::before {
+  content: "";
+  position: absolute;
+  inset: -40% -20% auto auto;
+  width: min(90vw, 28rem);
+  height: min(90vw, 28rem);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(226, 55, 68, 0.14) 0%, transparent 68%);
+  pointer-events: none;
+}
+
+.shop-hero-card::after {
+  content: "";
+  position: absolute;
+  inset: auto auto -30% -15%;
+  width: min(70vw, 20rem);
+  height: min(70vw, 20rem);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 82, 0, 0.1) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.shop-hero-card-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.shop-category-ring {
+  border: 1px solid var(--shop-line);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Category showcase — subtle hover (avoid layout shift / overflow) */
+.shop-category-showcase-card {
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+.shop-category-showcase-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 20px 44px -12px rgba(15, 23, 42, 0.14),
+    0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+/* Section labels — boutique marketplace */
+.shop-section-eyebrow {
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--shop-muted);
+}
+
+.shop-section-title {
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: var(--shop-ink);
+}
+
+/* Bottom nav — frosted dock */
+.shop-mobile-nav {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 -8px 32px rgba(15, 23, 42, 0.06);
+}
+
+/* Nearby store tiles — editorial card */
+.shop-store-card {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 2px 4px rgba(15, 23, 42, 0.03),
+    0 20px 50px -12px rgba(15, 23, 42, 0.12);
+}
+
+.shop-store-card:hover {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.98) inset,
+    0 4px 12px rgba(15, 23, 42, 0.05),
+    0 28px 60px -14px rgba(226, 55, 68, 0.14),
+    0 0 0 1px rgba(226, 55, 68, 0.08);
+}
+
+.shop-store-card-media {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Store menu page (/shop/[id]) */
+.shop-store-hero-wrap {
+  box-shadow:
+    0 4px 6px rgba(15, 23, 42, 0.04),
+    0 24px 48px -12px rgba(15, 23, 42, 0.14);
+}
+
+.shop-store-cat-bar {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+}
+
+.shop-menu-item-card {
+  background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%);
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 4px 20px rgba(15, 23, 42, 0.05);
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.35s cubic-bezier(0.34, 1.2, 0.64, 1),
+    transform 0.3s ease;
+}
+
+.shop-menu-item-card:hover {
+  border-color: rgba(226, 55, 68, 0.12);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.98) inset,
+    0 12px 36px rgba(15, 23, 42, 0.08),
+    0 0 0 1px rgba(226, 55, 68, 0.06);
+}
+
+.shop-btn-add-premium {
+  background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
+  border: 2px solid #22c55e;
+  color: #15803d;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2);
+}
+
+.shop-btn-add-premium:hover:not(:disabled) {
+  background: linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%);
+  border-color: #16a34a;
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.28);
+}
+
+.shop-btn-add-premium:disabled {
+  border-color: #e4e4e7;
+  background: #f4f4f5;
+  color: #a1a1aa;
+  box-shadow: none;
+}
+
+.shop-mood-chip {
+  transition:
+    transform 0.25s cubic-bezier(0.34, 1.45, 0.64, 1),
+    box-shadow 0.25s ease;
+}
+.shop-mood-chip:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 14px 28px -10px rgba(0, 0, 0, 0.18);
+}
+.shop-mood-chip:active {
+  transform: translateY(-1px) scale(1.02);
+}
