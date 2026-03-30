@@ -55,12 +55,16 @@ function LoginForm() {
       setStep(1);
     }
     if (customerHint) {
-      setMode("register-customer");
+      // Customer logins should use Firebase OTP even from "Login" flow.
+      setMode("login");
       setStep(1);
     }
   }, [next, adminHint, customerHint]);
 
-  const useFirebaseForCustomer = mode === "register-customer";
+  const isShopNext = Boolean(next && next.startsWith("/shop"));
+  const useFirebaseForCustomer =
+    mode === "register-customer" ||
+    (mode === "login" && !adminHint && next !== "/admin" && (customerHint || isShopNext));
 
   async function sendOtp() {
     setLoading(true);
