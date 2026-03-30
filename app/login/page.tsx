@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { api, setSession } from "@/lib/client-api";
+import { api, setSession, updateSessionUser } from "@/lib/client-api";
 import { getFirebaseAuth } from "@/lib/firebase-client";
 import {
   RecaptchaVerifier,
@@ -37,34 +37,32 @@ function LoginForm() {
   const next = readNext(searchParams.get("next"));
   const adminHint = searchParams.get("admin") === "1";
   const customerHint = searchParams.get("customer") === "1";
-
-  const [mode, setMode] = useState<
-    "login" | "register-store" | "register-customer"
-  >("login");
   const [phone, setPhone] = useState("");
-  const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [fbConfirm, setFbConfirm] = useState<ConfirmationResult | null>(null);
+  const [fbIdToken, setFbIdToken] = useState<string | null>(null);
+
+  // Onboarding (only for new customers)
+  const [onboardName, setOnboardName] = useState("");
+  const [onboardAddr, setOnboardAddr] = useState("");
+  const [onboardLat, setOnboardLat] = useState<number | null>(null);
+  const [onboardLng, setOnboardLng] = useState<number | null>(null);
+  const [onboardFile, setOnboardFile] = useState<File | null>(null);
+  const [savingOnboard, setSavingOnboard] = useState(false);
 
   useEffect(() => {
-    if (next === "/admin" || adminHint) {
-      setMode("login");
-      setStep(1);
-    }
-    if (customerHint) {
-      // Customer logins should use Firebase OTP even from "Login" flow.
-      setMode("login");
-      setStep(1);
-    }
+    setStep(1);
+    setMsg(null);
+    setOtp("");
+    setFbConfirm(null);
+    setFbIdToken(null);
   }, [next, adminHint, customerHint]);
 
-  const isShopNext = Boolean(next && next.startsWith("/shop"));
-  const useFirebaseForCustomer =
-    mode === "register-customer" ||
-    (mode === "login" && !adminHint && next !== "/admin" && (customerHint || isShopNext));
+  const isAdminFlow = next === "/admin" || adminHint;
+  const useFirebaseForCustomer = !isAdminFlow;
 
   async function sendOtp() {
     setLoading(true);
@@ -86,7 +84,7 @@ function LoginForm() {
 
         const confirm = await signInWithPhoneNumber(auth, e164, verifier);
         setFbConfirm(confirm);
-        setMsg("OTP भेज दिया गया।");
+        setMsg("OTP sent.");
         setStep(2);
       } catch (e: any) {
         setMsg(e?.message || "Could not send OTP");
@@ -96,28 +94,84 @@ function LoginForm() {
       return;
     }
 
-    const path =
-      mode === "login" ? "/api/auth/login" : "/api/auth/register";
-    const body =
-      mode === "login"
-        ? { phone }
-        : {
-            phone,
-            name,
-            role:
-              mode === "register-store" ? "STORE_OWNER" : "CUSTOMER",
-          };
-    const res = await api(path, {
+    const res = await api("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify({ phone }),
     });
     setLoading(false);
     if (!res.ok) {
       setMsg(res.error || "Failed");
       return;
     }
-    setMsg("OTP भेज दिया गया। Dev में 123456 आज़माएँ।");
+    setMsg("OTP sent. In dev, try 123456.");
     setStep(2);
+  }
+
+  async function saveOnboarding() {
+    setSavingOnboard(true);
+    setMsg(null);
+    try {
+      if (!onboardName.trim()) {
+        setMsg("Name is required.");
+        return;
+      }
+
+      const nameRes = await api<{ user: { id: string; name: string; phone: string; role: string; imageUrl?: string | null } }>(
+        "/api/user/profile",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ name: onboardName.trim() }),
+        },
+      );
+      if (!nameRes.ok) {
+        setMsg(nameRes.error || "Could not save name");
+        return;
+      }
+      if (nameRes.data?.user) updateSessionUser({ name: nameRes.data.user.name });
+
+      // Address is optional at onboarding. If provided, try to save it.
+      if (onboardAddr.trim()) {
+        if (typeof onboardLat !== "number" || typeof onboardLng !== "number") {
+          setMsg("To save address, please capture location first.");
+          return;
+        }
+        const addrRes = await api<{ address: any }>("/api/user/address", {
+          method: "POST",
+          body: JSON.stringify({
+            label: "Home",
+            address: onboardAddr.trim(),
+            latitude: onboardLat,
+            longitude: onboardLng,
+          }),
+        });
+        if (!addrRes.ok) {
+          setMsg(addrRes.error || "Could not save address");
+          return;
+        }
+      }
+
+      if (onboardFile) {
+        const fd = new FormData();
+        fd.set("file", onboardFile);
+        const up = await fetch("/api/user/avatar", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("dlf_token") ?? ""}`,
+          },
+          body: fd,
+        });
+        const j = (await up.json().catch(() => null)) as any;
+        if (!up.ok) {
+          setMsg(j?.error || "Could not upload photo");
+          return;
+        }
+        if (j?.user?.imageUrl) updateSessionUser({ imageUrl: j.user.imageUrl });
+      }
+
+      router.push(next && next.startsWith("/shop") ? next : "/shop");
+    } finally {
+      setSavingOnboard(false);
+    }
   }
 
   async function verify() {
@@ -133,18 +187,26 @@ function LoginForm() {
         }
         const cred = await fbConfirm.confirm(otp);
         const idToken = await cred.user.getIdToken();
+        setFbIdToken(idToken);
         const res = await api<{
           token: string;
+          needsProfile?: boolean;
           user: { id: string; name: string; phone: string; role: string; imageUrl?: string | null };
         }>("/api/auth/firebase", {
           method: "POST",
-          body: JSON.stringify({ idToken, name, role: "CUSTOMER" }),
+          body: JSON.stringify({ idToken, role: "CUSTOMER" }),
         });
         if (!res.ok || !res.data) {
           setMsg(res.error || "Verification failed");
           return;
         }
         setSession(res.data.token, res.data.user);
+        if (res.data.needsProfile) {
+          setOnboardName(res.data.user.name && res.data.user.name !== "Customer" ? res.data.user.name : "");
+          setStep(3);
+          setMsg("Complete your profile to continue.");
+          return;
+        }
         router.push(next && next.startsWith("/shop") ? next : "/shop");
       } catch (e: any) {
         setMsg(e?.message || "Invalid OTP");
@@ -332,75 +394,14 @@ function LoginForm() {
               <div className="mt-6 rounded-2xl border border-fresh-200 bg-fresh-50/90 px-4 py-3 text-sm text-fresh-950">
                 <p className="font-bold">Web shop</p>
                 <p className="mt-1 text-fresh-900">
-                  Order karne ke liye <strong>New customer</strong> se register karein ya same number se{" "}
-                  <strong>Login</strong> — role <strong>CUSTOMER</strong> hona chahiye.
+                  Customer login now uses Firebase OTP. If you’re new, we’ll ask for name + address after OTP.
                 </p>
               </div>
             )}
 
-            <div className="mt-8 grid grid-cols-1 gap-1 rounded-2xl bg-stone-100 p-1.5 sm:grid-cols-3">
-              <button
-                type="button"
-                className={`rounded-xl py-3 text-sm font-bold transition ${
-                  mode === "login"
-                    ? "bg-white text-ink shadow-sm"
-                    : "text-stone-500 hover:text-ink"
-                }`}
-                onClick={() => {
-                  setMode("login");
-                  setStep(1);
-                }}
-              >
-                Login
-              </button>
-              <button
-                type="button"
-                className={`rounded-xl py-3 text-sm font-bold transition ${
-                  mode === "register-store"
-                    ? "bg-white text-ink shadow-sm"
-                    : "text-stone-500 hover:text-ink"
-                }`}
-                onClick={() => {
-                  setMode("register-store");
-                  setStep(1);
-                }}
-              >
-                Store partner
-              </button>
-              <button
-                type="button"
-                className={`rounded-xl py-3 text-sm font-bold transition ${
-                  mode === "register-customer"
-                    ? "bg-white text-ink shadow-sm"
-                    : "text-stone-500 hover:text-ink"
-                }`}
-                onClick={() => {
-                  setMode("register-customer");
-                  setStep(1);
-                }}
-              >
-                New customer
-              </button>
-            </div>
-
             <div className="mt-8 rounded-3xl border border-stone-100 bg-white p-6 shadow-card-lg sm:p-8">
               {step === 1 && (
                 <div className="space-y-5">
-                  {(mode === "register-store" || mode === "register-customer") && (
-                    <div>
-                      <label className="ui-label">Full name</label>
-                      <input
-                        className="ui-input"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder={
-                          mode === "register-store"
-                            ? "जैसे राम किराना"
-                            : "Your name"
-                        }
-                      />
-                    </div>
-                  )}
                   <div>
                     <label className="ui-label">Mobile number</label>
                     <input
@@ -452,6 +453,76 @@ function LoginForm() {
                     onClick={() => setStep(1)}
                   >
                     Change phone number
+                  </button>
+                </div>
+              )}
+
+              {step === 3 && (
+                <div className="space-y-5">
+                  <div>
+                    <label className="ui-label">Full name (required)</label>
+                    <input
+                      className="ui-input"
+                      value={onboardName}
+                      onChange={(e) => setOnboardName(e.target.value)}
+                      placeholder="Your name"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="ui-label">Delivery address (optional)</label>
+                    <textarea
+                      className="ui-input min-h-[72px] !py-3"
+                      value={onboardAddr}
+                      onChange={(e) => setOnboardAddr(e.target.value)}
+                      placeholder="Flat / house no, street, landmark, city"
+                    />
+                    <button
+                      type="button"
+                      className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-black text-zinc-800 shadow-sm hover:bg-zinc-50 disabled:opacity-60"
+                      disabled={savingOnboard}
+                      onClick={() => {
+                        if (!navigator.geolocation) {
+                          setMsg("Geolocation not supported in this browser.");
+                          return;
+                        }
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            setOnboardLat(pos.coords.latitude);
+                            setOnboardLng(pos.coords.longitude);
+                            setMsg("Location captured.");
+                          },
+                          () => setMsg("Location permission denied."),
+                          { enableHighAccuracy: true, timeout: 12000 },
+                        );
+                      }}
+                    >
+                      Capture location (only needed if saving address)
+                    </button>
+                    {typeof onboardLat === "number" && typeof onboardLng === "number" ? (
+                      <p className="text-xs font-semibold text-zinc-500">
+                        Lat {Math.round(onboardLat * 10000) / 10000}, Lng {Math.round(onboardLng * 10000) / 10000}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <label className="ui-label">Photo (optional)</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="ui-input !py-3"
+                      onChange={(e) => setOnboardFile(e.target.files?.[0] ?? null)}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={savingOnboard}
+                    onClick={saveOnboarding}
+                    className="ui-btn-rush w-full !py-4"
+                  >
+                    {savingOnboard ? "Saving…" : "Continue"}
                   </button>
                 </div>
               )}

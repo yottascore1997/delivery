@@ -36,6 +36,11 @@ export async function POST(request: Request) {
 
     if (phone10.length < 8) return jsonError("Invalid phone number", 400);
 
+    const existing = await prisma.user.findUnique({
+      where: { phone: phone10 },
+      select: { id: true, name: true },
+    });
+
     const user = await prisma.user.upsert({
       where: { phone: phone10 },
       create: {
@@ -48,9 +53,12 @@ export async function POST(request: Request) {
       },
     });
 
+    const needsProfile = !existing || user.name.trim() === "Customer";
+
     const token = signToken(user);
     return jsonOk({
       token,
+      needsProfile,
       user: {
         id: user.id,
         name: user.name,
