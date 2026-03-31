@@ -157,6 +157,10 @@ export default function StorePanelPage() {
   const [productShowInactive, setProductShowInactive] = useState(true);
   const [productPage, setProductPage] = useState(0);
 
+  const [masterMains, setMasterMains] = useState<
+    { id: string; key: string; name: string }[]
+  >([]);
+
   // Add Product: cascading master category -> subcategory (but product name/details manual)
   const [addMasterCatalog, setAddMasterCatalog] = useState<{
     mainCategory?: { id: string; key: string; name: string };
@@ -292,6 +296,12 @@ export default function StorePanelPage() {
       return;
     }
     void loadStores();
+    void (async () => {
+      const res = await api<{ mains: { id: string; key: string; name: string }[] }>(
+        "/api/master/mains",
+      );
+      if (res.ok && res.data?.mains) setMasterMains(res.data.mains);
+    })();
   }, [router]);
 
   useEffect(() => {
@@ -1708,32 +1718,38 @@ export default function StorePanelPage() {
             </div>
           ) : null}
           <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-3xl border border-violet-200/60 bg-gradient-to-br from-violet-50/50 to-white p-6 shadow-lg lg:col-span-2">
-              <h3 className="font-display text-lg font-bold text-zinc-900">
+            <div className="rounded-3xl border border-violet-200/60 bg-gradient-to-br from-violet-50/50 to-white p-4 shadow-lg lg:col-span-2 sm:p-5">
+              <h3 className="font-display text-base font-bold text-zinc-900">
                 {t("storeAddProd")}
               </h3>
-              <div className="mt-4 space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2">
+              <div className="mt-3 space-y-2.5">
+                <div className="grid gap-2.5 sm:grid-cols-2">
                   <div>
                     <label className="ui-label">Master category</label>
                     <select
-                      className="ui-input"
+                      className="ui-input !py-2"
                       value={addMainKey}
                       onChange={(e) => {
                         setAddMainKey(e.target.value);
                         setAddSubCatId("");
                       }}
                     >
-                      <option value="grocery">Grocery</option>
-                      <option value="food-beverages">Food &amp; Beverages</option>
-                      <option value="electronics">Electronics</option>
-                      <option value="fruits-vegetables">Fruits &amp; Vegetables</option>
+                      {(masterMains.length ? masterMains : [
+                        { id: "grocery", key: "grocery", name: "Grocery" },
+                        { id: "food-beverages", key: "food-beverages", name: "Food & Beverages" },
+                        { id: "electronics", key: "electronics", name: "Electronics" },
+                        { id: "fruits-vegetables", key: "fruits-vegetables", name: "Fruits & Vegetables" },
+                      ]).map((m) => (
+                        <option key={m.id} value={m.key}>
+                          {m.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
                     <label className="ui-label">Subcategory</label>
                     <select
-                      className="ui-input"
+                      className="ui-input !py-2"
                       value={addSubCatId}
                       onChange={async (e) => {
                         const next = e.target.value;
@@ -1761,16 +1777,16 @@ export default function StorePanelPage() {
                 <div>
                   <label className="ui-label">{t("storeNameLabel")}</label>
                   <input
-                    className="ui-input"
+                    className="ui-input !py-2"
                     value={pName}
                     onChange={(e) => setPName(e.target.value)}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
                     <label className="ui-label">{t("adminPrice")}</label>
                     <input
-                      className="ui-input"
+                      className="ui-input !py-2"
                       value={pPrice}
                       onChange={(e) => setPPrice(e.target.value)}
                     />
@@ -1778,7 +1794,7 @@ export default function StorePanelPage() {
                   <div>
                     <label className="ui-label">{t("storeStock")}</label>
                     <input
-                      className="ui-input"
+                      className="ui-input !py-2"
                       value={pStock}
                       onChange={(e) => setPStock(e.target.value)}
                     />
@@ -1787,7 +1803,7 @@ export default function StorePanelPage() {
                 <div>
                   <label className="ui-label">Unit / pack (customer)</label>
                   <input
-                    className="ui-input"
+                    className="ui-input !py-2"
                     list="store-unit-presets"
                     placeholder="e.g. 500 g, 1 pc"
                     maxLength={40}
@@ -1797,13 +1813,13 @@ export default function StorePanelPage() {
                 </div>
                 <div>
                   <label className="ui-label">Product photos (optional) — 2 images</label>
-                  <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3">
+                  <div className="mt-2 grid gap-2.5 sm:grid-cols-2">
+                    <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-2.5">
                       <label className="text-xs font-bold text-zinc-700">Photo 1</label>
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
-                        className="mt-2 block w-full text-xs"
+                        className="mt-1.5 block w-full text-xs"
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           e.target.value = "";
@@ -1819,16 +1835,16 @@ export default function StorePanelPage() {
                         <img
                           src={pImage}
                           alt=""
-                          className="mt-2 h-24 w-full rounded-lg object-cover"
+                          className="mt-2 h-20 w-full rounded-lg object-cover"
                         />
                       ) : null}
                     </div>
-                    <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3">
+                    <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-2.5">
                       <label className="text-xs font-bold text-zinc-700">Photo 2</label>
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
-                        className="mt-2 block w-full text-xs"
+                        className="mt-1.5 block w-full text-xs"
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           e.target.value = "";
@@ -1844,7 +1860,7 @@ export default function StorePanelPage() {
                         <img
                           src={pImage2}
                           alt=""
-                          className="mt-2 h-24 w-full rounded-lg object-cover"
+                          className="mt-2 h-20 w-full rounded-lg object-cover"
                         />
                       ) : null}
                     </div>
@@ -1853,7 +1869,7 @@ export default function StorePanelPage() {
                 <button
                   type="button"
                   onClick={() => void addProduct()}
-                  className="ui-btn-primary w-full !rounded-2xl"
+                  className="ui-btn-primary w-full !rounded-2xl !py-3"
                 >
                   {t("storePublish")}
                 </button>
@@ -1884,10 +1900,16 @@ export default function StorePanelPage() {
                         setImportPrices({});
                       }}
                     >
-                      <option value="grocery">Grocery</option>
-                      <option value="food-beverages">Food &amp; Beverages</option>
-                      <option value="electronics">Electronics</option>
-                      <option value="fruits-vegetables">Fruits &amp; Vegetables</option>
+                      {(masterMains.length ? masterMains : [
+                        { id: "grocery", key: "grocery", name: "Grocery" },
+                        { id: "food-beverages", key: "food-beverages", name: "Food & Beverages" },
+                        { id: "electronics", key: "electronics", name: "Electronics" },
+                        { id: "fruits-vegetables", key: "fruits-vegetables", name: "Fruits & Vegetables" },
+                      ]).map((m) => (
+                        <option key={m.id} value={m.key}>
+                          {m.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="w-full min-w-0 sm:w-[200px]">

@@ -9,6 +9,10 @@ export async function OPTIONS() {
   return emptyOptions();
 }
 
+function storeVerticalToMainKey(v: string) {
+  return v === "food" ? "food-beverages" : v;
+}
+
 /** Full catalog for store owner (any store status). */
 export async function GET(request: Request) {
   const auth = await requireAuth(request, [UserRole.STORE_OWNER]);
@@ -35,12 +39,51 @@ export async function GET(request: Request) {
 
   if (!store) return jsonError("Forbidden", 403);
 
+  // Auto-sync: ensure store categories exist for admin master subcategories.
+  // This keeps Store panel aligned with Admin-managed catalog, without exposing "create category" UI in store.
+  try {
+    const mainKey = storeVerticalToMainKey(store.shopVertical || "grocery");
+    const master = await prisma.masterMainCategory.findUnique({
+      where: { key: mainKey },
+      select: { subcategories: { select: { name: true }, orderBy: { sortOrder: "asc" } } },
+    });
+    if (master?.subcategories?.length) {
+      const have = new Set(store.categories.map((c) => c.name.trim()));
+      const missing = master.subcategories
+        .map((s) => s.name.trim())
+        .filter((name) => name.length > 0 && !have.has(name));
+      for (const name of missing) {
+        // Best-effort; Category has no unique constraint, so we avoid duplicates by checking `have`.
+        await prisma.category.create({ data: { storeId: store.id, name } });
+        have.add(name);
+      }
+    }
+  } catch {
+    // best-effort sync; ignore failures
+  }
+
+  const fresh = await prisma.store.findFirst({
+    where: { id: storeId, ownerId: auth.user.id },
+    include: {
+      categories: {
+        orderBy: { name: "asc" },
+        include: {
+          products: {
+            orderBy: { name: "asc" },
+            include: { masterProduct: { select: { unitLabel: true } } },
+          },
+        },
+      },
+    },
+  });
+  if (!fresh) return jsonError("Forbidden", 403);
+
   return jsonOk({
     store: {
-      id: store.id,
-      name: store.name,
-      status: store.status,
-      categories: store.categories.map((c) => ({
+      id: fresh.id,
+      name: fresh.name,
+      status: fresh.status,
+      categories: fresh.categories.map((c) => ({
         id: c.id,
         name: c.name,
         products: c.products.map((p) => ({
@@ -50,6 +93,7 @@ export async function GET(request: Request) {
           price: dec(p.price),
           stock: p.stock,
           imageUrl: p.imageUrl,
+          imageUrl2: (p as any).imageUrl2 ?? null,
           categoryId: p.categoryId,
           isActive: p.isActive,
           masterProductId: p.masterProductId,
