@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       include: {
         store: { select: { id: true, name: true, address: true } },
         items: {
-          include: { product: { select: { id: true, name: true } } },
+          include: { product: { select: { id: true, name: true, imageUrl: true, imageUrl2: true } } },
         },
         delivery: true,
       },

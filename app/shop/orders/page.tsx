@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { api, getToken, getUser } from "@/lib/client-api";
+import { ProductThumb } from "@/components/shop/shop-visual";
 
 type OrderRow = {
   id: string;
@@ -11,7 +12,11 @@ type OrderRow = {
   totalAmount: number;
   createdAt: string;
   store: { name: string };
-  items: { quantity: number; price: number; product: { name: string } }[];
+  items: {
+    quantity: number;
+    price: number;
+    product: { name: string; imageUrl?: string | null; imageUrl2?: string | null };
+  }[];
 };
 
 const statusTone: Record<string, string> = {
@@ -105,27 +110,73 @@ function OrdersInner() {
                 {o.status.replace(/_/g, " ")}
               </span>
             </div>
-            <div className="p-5">
-              <p className="font-display text-lg font-black text-[#1a1a1a]">{o.store.name}</p>
-              <p className="mt-1 text-sm text-[#686b78]">
+            <div className="p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex -space-x-2">
+                  {o.items.slice(0, 2).map((it, idx) => {
+                    const img =
+                      it.product.imageUrl?.trim() || it.product.imageUrl2?.trim() || null;
+                    return (
+                      <div
+                        key={`${it.product.name}-${idx}`}
+                        className="h-10 w-10 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm"
+                        style={{ zIndex: 2 - idx }}
+                      >
+                        <ProductThumb
+                          name={it.product.name}
+                          imageUrl={img}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    );
+                  })}
+                  {o.items.length > 2 ? (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-[11px] font-black text-slate-600 shadow-sm">
+                      +{o.items.length - 2}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-[#1a1a1a]">
+                    {o.items[0]?.product.name ?? "Order"}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs font-semibold text-[#686b78]">
+                    {o.store.name}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-display text-lg font-black text-orange-600">
+                    ₹{o.totalAmount}
+                  </p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-zinc-500">COD</p>
+                </div>
+              </div>
+
+              <p className="mt-2 text-xs text-[#686b78]">
                 {new Date(o.createdAt).toLocaleString(undefined, {
                   dateStyle: "medium",
                   timeStyle: "short",
                 })}
               </p>
-              <ul className="mt-4 space-y-2 border-t border-zinc-100 pt-4">
-                {o.items.map((i, j) => (
-                  <li key={j} className="flex justify-between text-sm font-semibold text-zinc-700">
-                    <span>
-                      {i.quantity}× {i.product.name}
-                    </span>
-                    <span className="text-zinc-500">₹{Math.round(i.price * i.quantity * 100) / 100}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-4">
-                <span className="text-sm font-bold text-zinc-500">Total paid (COD)</span>
-                <span className="font-display text-xl font-black text-orange-600">₹{o.totalAmount}</span>
+
+              <div className="mt-3 rounded-2xl border border-zinc-100 bg-zinc-50/70 p-3">
+                <ul className="space-y-1.5">
+                  {o.items.slice(0, 3).map((i, j) => (
+                    <li key={j} className="flex items-center justify-between gap-3 text-xs font-semibold text-zinc-700">
+                      <span className="min-w-0 truncate">
+                        <span className="font-black">{i.quantity}×</span> {i.product.name}
+                      </span>
+                      <span className="shrink-0 text-zinc-500">
+                        ₹{Math.round(i.price * i.quantity * 100) / 100}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {o.items.length > 3 ? (
+                  <p className="mt-2 text-[11px] font-bold text-zinc-500">
+                    +{o.items.length - 3} more items
+                  </p>
+                ) : null}
               </div>
             </div>
           </li>

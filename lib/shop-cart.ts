@@ -4,6 +4,8 @@ export type ShopCartLine = {
   productId: string;
   storeId: string;
   name: string;
+  /** Optional product thumbnail (older carts may not have it). */
+  imageUrl?: string | null;
   price: number;
   quantity: number;
   /** Pack / unit (e.g. 500 g, 1 pc) — optional for older cart JSON */
@@ -42,17 +44,23 @@ export function addToShopCart(
     line.unitLabel?.trim() ||
     (idx >= 0 ? cart[idx].unitLabel?.trim() : "") ||
     undefined;
+  const nextImage =
+    line.imageUrl?.trim() ||
+    (idx >= 0 ? cart[idx].imageUrl?.trim() : "") ||
+    undefined;
   if (idx >= 0) {
     cart[idx] = {
       ...cart[idx],
       quantity: cart[idx].quantity + q,
       ...(nextUnit ? { unitLabel: nextUnit } : {}),
+      ...(nextImage ? { imageUrl: nextImage } : {}),
     };
   } else {
     cart.push({
       productId: line.productId,
       storeId: line.storeId,
       name: line.name,
+      ...(line.imageUrl?.trim() ? { imageUrl: line.imageUrl.trim() } : {}),
       price: line.price,
       quantity: q,
       ...(line.unitLabel?.trim() ? { unitLabel: line.unitLabel.trim() } : {}),

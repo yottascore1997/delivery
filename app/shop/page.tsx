@@ -117,7 +117,7 @@ export default function ShopStoresPage() {
     setErr(null);
     setLoading(true);
     const res = await api<{ stores: StoreItem[] }>(
-      `/api/stores/nearby?lat=${la}&lng=${ln}&radiusKm=25&limit=30`,
+      `/api/stores/nearby?lat=${la}&lng=${ln}&radiusKm=60&limit=30`,
     );
     setLoading(false);
     if (isFirst) setInitialLoad(false);

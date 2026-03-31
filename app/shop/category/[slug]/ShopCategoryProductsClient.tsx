@@ -85,7 +85,7 @@ export function ShopCategoryProductsClient({
       const q = new URLSearchParams({
         lat: String(la),
         lng: String(ln),
-        radiusKm: "25",
+        radiusKm: "60",
         limit: "48",
         vertical: slug,
       });
@@ -149,6 +149,7 @@ export function ShopCategoryProductsClient({
       productId: p.id,
       storeId: p.store.id,
       name: p.name,
+      imageUrl: p.imageUrl ?? null,
       price: p.price,
       quantity: 1,
       ...(p.unitLabel?.trim() ? { unitLabel: p.unitLabel.trim() } : {}),
@@ -202,6 +203,7 @@ export function ShopCategoryProductsClient({
               const closed =
                 Boolean(p.store.openingHours?.enabled) &&
                 p.store.openingHours?.isOpenNow === false;
+              const outOfStock = p.stock < 1;
               return (
               <li key={p.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                 <Link href={`/shop/product/${p.id}`} className="block">
@@ -226,6 +228,9 @@ export function ShopCategoryProductsClient({
                     {p.store.name}
                     {p.store.distanceKm != null ? ` · ${p.store.distanceKm} km` : ""}
                   </p>
+                  {outOfStock ? (
+                    <p className="mt-1 text-[10px] font-black text-rose-600">Out of stock</p>
+                  ) : null}
                   <div className="mt-2">
                     {qtyInCart(p.id) > 0 ? (
                       <div className="flex items-center justify-between rounded-lg border border-violet-200 bg-violet-50 px-2 py-1">
@@ -239,7 +244,7 @@ export function ShopCategoryProductsClient({
                         <span className="text-xs font-black text-violet-800">{qtyInCart(p.id)}</span>
                         <button
                           type="button"
-                          disabled={closed}
+                          disabled={closed || outOfStock}
                           className="h-7 w-7 text-lg font-black text-violet-700 disabled:cursor-not-allowed disabled:opacity-35"
                           onClick={() => updateShopLineQty(p.id, qtyInCart(p.id) + 1)}
                         >
@@ -249,11 +254,11 @@ export function ShopCategoryProductsClient({
                     ) : (
                       <button
                         type="button"
-                        disabled={closed}
+                        disabled={closed || outOfStock}
                         onClick={() => addQuickProduct(p)}
                         className="w-full rounded-lg border border-emerald-700 bg-emerald-600 py-1.5 text-[10px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        {closed ? "Store closed" : "Add To Cart"}
+                        {closed ? "Store closed" : outOfStock ? "Out of stock" : "Add To Cart"}
                       </button>
                     )}
                   </div>

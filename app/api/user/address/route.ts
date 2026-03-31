@@ -16,7 +16,7 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: Request) {
-  const auth = await requireAuth(request, [UserRole.CUSTOMER]);
+  const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
 
   const addr = await (prisma as any).userAddress.findFirst({
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireAuth(request, [UserRole.CUSTOMER]);
+  const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
 
   try {

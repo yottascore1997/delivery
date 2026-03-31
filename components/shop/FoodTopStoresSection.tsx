@@ -48,7 +48,7 @@ export function FoodTopStoresSection({
       const q = new URLSearchParams({
         lat: String(DEFAULT_LAT),
         lng: String(DEFAULT_LNG),
-        radiusKm: "25",
+        radiusKm: "60",
         limit: "12",
         vertical: "food",
       });

@@ -8,14 +8,17 @@ import {
   clearShopCart,
   getShopCart,
   shopCartTotal,
+  setShopCart,
   updateShopLineQty,
   type ShopCartLine,
 } from "@/lib/shop-cart";
 import { emitDeliveryAddressUpdated } from "@/lib/shop-delivery-address";
+import { ProductThumb } from "@/components/shop/shop-visual";
 
 export default function ShopCartPage() {
   const router = useRouter();
   const [lines, setLines] = useState<ShopCartLine[]>([]);
+  const [imgByProductId, setImgByProductId] = useState<Record<string, string>>({});
   const [storeInfo, setStoreInfo] = useState<{
     id: string;
     name: string;
@@ -54,6 +57,37 @@ export default function ShopCartPage() {
     window.addEventListener("dlf-cart", refresh);
     return () => window.removeEventListener("dlf-cart", refresh);
   }, []);
+
+  useEffect(() => {
+    // Hydrate missing product images for older carts.
+    const missing = lines
+      .filter((l) => !(l.imageUrl && l.imageUrl.trim()))
+      .map((l) => l.productId);
+    if (missing.length === 0) return;
+    void (async () => {
+      const cache: Record<string, string> = {};
+      for (const pid of missing.slice(0, 24)) {
+        const res = await api<{ product: { imageUrl?: string | null; imageUrl2?: string | null } }>(
+          `/api/shop/product/${pid}`,
+        );
+        if (res.ok && res.data?.product) {
+          const u =
+            res.data.product.imageUrl?.trim() ||
+            res.data.product.imageUrl2?.trim() ||
+            "";
+          if (u) cache[pid] = u;
+        }
+      }
+      if (Object.keys(cache).length === 0) return;
+      setImgByProductId((m) => ({ ...m, ...cache }));
+      const next = getShopCart().map((l) => ({
+        ...l,
+        ...(cache[l.productId] ? { imageUrl: cache[l.productId] } : {}),
+      }));
+      setShopCart(next);
+      setLines(next);
+    })();
+  }, [lines]);
 
   useEffect(() => {
     return () => {
@@ -393,8 +427,12 @@ export default function ShopCartPage() {
                   className="shop-card-elevated rounded-2xl border border-white/90 bg-white px-3 py-3.5 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.25)] sm:px-3.5 sm:py-4"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-50 to-amber-100 text-sm">
-                      🍽️
+                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                      <ProductThumb
+                        name={l.name}
+                        imageUrl={l.imageUrl ?? imgByProductId[l.productId] ?? null}
+                        className="h-full w-full object-cover"
+                      />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-display truncate text-sm font-black text-[#1a1a1a]">

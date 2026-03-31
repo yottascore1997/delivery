@@ -77,6 +77,7 @@ export default function ShopStorePage() {
       productId: p.id,
       storeId,
       name: p.name,
+      imageUrl: p.imageUrl ?? null,
       price: p.price,
       quantity: 1,
       ...(p.unitLabel?.trim() ? { unitLabel: p.unitLabel.trim() } : {}),

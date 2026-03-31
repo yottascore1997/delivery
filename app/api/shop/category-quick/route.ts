@@ -140,7 +140,6 @@ export async function GET(request: Request) {
     where: {
       storeId: { in: storeIds },
       isActive: true,
-      stock: { gt: 0 },
     },
     include: {
       category: { select: { name: true } },

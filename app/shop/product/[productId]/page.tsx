@@ -138,6 +138,7 @@ export default function ShopProductPage() {
       productId: item.id,
       storeId: item.store.id,
       name: item.name,
+      imageUrl: item.imageUrl ?? null,
       price: item.price,
       quantity: 1,
       ...(item.unitLabel?.trim() ? { unitLabel: item.unitLabel.trim() } : {}),
@@ -240,7 +241,7 @@ export default function ShopProductPage() {
               </Link>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {suggested.map((s) => (
                 <div
                   key={s.id}
@@ -301,6 +302,7 @@ export default function ShopProductPage() {
                               productId: s.id,
                               storeId: item.store.id,
                               name: s.name,
+                              imageUrl: s.imageUrl ?? null,
                               price: s.price,
                               quantity: 1,
                               ...(s.unitLabel?.trim() ? { unitLabel: s.unitLabel.trim() } : {}),

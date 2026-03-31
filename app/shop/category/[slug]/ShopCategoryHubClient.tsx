@@ -138,7 +138,7 @@ export function ShopCategoryHubClient({ slug }: { slug: ShopVerticalSlug }) {
       vertical: "food",
       lat: String(la),
       lng: String(ln),
-      radiusKm: "25",
+      radiusKm: "60",
       limit: "14",
     });
     const res = await api<{ products: QuickProduct[] }>(
