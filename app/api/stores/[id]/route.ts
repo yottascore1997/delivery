@@ -35,6 +35,7 @@ export async function GET(
         orderBy: { name: "asc" },
         include: {
           products: {
+            where: { isActive: true },
             orderBy: { name: "asc" },
             include: { masterProduct: { select: { unitLabel: true } } },
           },
@@ -57,23 +58,25 @@ export async function GET(
       latitude: store.latitude,
       longitude: store.longitude,
       openingHours,
-      categories: store.categories.map((c) => ({
-        id: c.id,
-        name: c.name,
-        products: c.products.map((p) => ({
-          id: p.id,
-          name: p.name,
-          description: p.description,
-          price: dec(p.price),
-          stock: p.stock,
-          imageUrl: p.imageUrl,
-          categoryId: p.categoryId,
-          unitLabel: effectiveProductUnitLabel(
-            p.unitLabel,
-            p.masterProduct?.unitLabel,
-          ),
+      categories: store.categories
+        .filter((c) => c.products.length > 0)
+        .map((c) => ({
+          id: c.id,
+          name: c.name,
+          products: c.products.map((p) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            price: dec(p.price),
+            stock: p.stock,
+            imageUrl: p.imageUrl,
+            categoryId: p.categoryId,
+            unitLabel: effectiveProductUnitLabel(
+              p.unitLabel,
+              p.masterProduct?.unitLabel,
+            ),
+          })),
         })),
-      })),
     },
   });
 }

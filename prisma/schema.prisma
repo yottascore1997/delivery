@@ -103,6 +103,8 @@ model Store {
   status       StoreStatus @default(PENDING)
   /// Shop browse category: grocery | fruits-vegetables | food | electronics
   shopVertical String      @default("food") @db.VarChar(32)
+  /// Optional per-store commission override (percent). If null, platform default applies.
+  commissionPercent Float?
   imageUrl     String?     @db.VarChar(2048)
   /// Second listing photo (registration requires at least 2 images: imageUrl + imageUrl2).
   imageUrl2    String?     @db.VarChar(2048)

@@ -347,8 +347,9 @@ function LoginForm() {
           <div className="pointer-events-none absolute -bottom-8 right-0 h-64 w-64 rounded-full bg-rush-400/40 blur-3xl" />
         </div>
 
-        <div className="flex flex-col justify-center px-4 py-10 sm:px-8 lg:px-14">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 lg:mb-8">
+        <div className="relative flex flex-col justify-center px-4 py-10 sm:px-8 lg:px-14">
+          {/* Desktop/tablet header */}
+          <div className="mb-6 hidden flex-wrap items-center justify-between gap-3 lg:mb-8 lg:flex">
             <Link
               href="/"
               className="text-sm font-semibold text-fresh-600 hover:text-fresh-700"
@@ -385,26 +386,159 @@ function LoginForm() {
             </div>
           </div>
 
-          <div className="mx-auto w-full max-w-md">
-            <div className="mb-5 overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_18px_55px_-30px_rgba(15,23,42,0.5)] lg:hidden">
-              <div className="relative h-36 w-full">
+          {/* Mobile: hero + bottom-sheet login (Blinkit/Zomato style) */}
+          <div className="lg:hidden">
+            <div className="relative -mx-4 min-h-screen overflow-hidden bg-black">
+              <div className="absolute inset-0">
                 <Image
-                  src="https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=900&h=450&fit=crop&q=80"
+                  src="https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?w=1400&h=1800&fit=crop&q=80"
                   alt={t("loginImgAltHeroMobile")}
                   fill
-                  className="object-cover"
+                  className="object-cover opacity-95"
+                  priority
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/55 to-black/15" />
               </div>
-              <div className="px-4 py-3">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/90">
-                  {t("loginMobileHeroBrand")}
-                </p>
-                <p className="mt-1 text-sm font-semibold text-white/80">
-                  {isStorePartner ? t("loginSubHeroPartner") : t("loginSubHeroCustomer")}
-                </p>
+
+              <div className="relative z-10 px-4 pt-6">
+                <div className="flex items-center justify-between">
+                  <Link
+                    href="/"
+                    className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white/90 backdrop-blur hover:bg-white/15"
+                  >
+                    {t("loginHomeMobile")}
+                  </Link>
+                  {!isStorePartner ? (
+                    <Link
+                      href="/shop"
+                      className="rounded-full bg-white/10 px-4 py-2 text-xs font-black text-white/90 backdrop-blur hover:bg-white/15"
+                    >
+                      Skip
+                    </Link>
+                  ) : null}
+                </div>
+
+                <div className="mt-16">
+                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/75">
+                    {t("loginMobileHeroBrand")}
+                  </p>
+                  <h1 className="font-display mt-4 max-w-sm text-4xl font-black leading-[1.05] tracking-tight text-white">
+                    {isStorePartner ? t("loginTitlePartner") : t("loginTitleCustomer")}
+                  </h1>
+                  <p className="mt-3 max-w-sm text-sm font-semibold text-white/80">
+                    {isStorePartner ? t("loginSubPartner") : t("loginSubCustomer")}
+                  </p>
+                </div>
+              </div>
+
+              {/* Bottom sheet */}
+              <div className="absolute inset-x-0 bottom-0 z-20">
+                <div className="rounded-t-[28px] border border-white/15 bg-white/95 px-4 pb-6 pt-5 shadow-2xl backdrop-blur">
+                  <p className="text-center text-sm font-black text-[#1a1a1a]">
+                    Choose your account
+                  </p>
+                  <p className="mt-1 text-center text-xs font-semibold text-zinc-500">
+                    Log in or sign up with OTP
+                  </p>
+
+                  {step === 1 && (
+                    <div className="mt-4 space-y-3">
+                      {isStorePartner ? (
+                        <div>
+                          <label className="ui-label">{t("loginOwnerLabel")}</label>
+                          <input
+                            className="ui-input !rounded-2xl !py-3.5 !text-[15px] !font-semibold"
+                            value={storePartnerName}
+                            onChange={(e) => setStorePartnerName(e.target.value)}
+                            placeholder={t("loginOwnerPh")}
+                          />
+                        </div>
+                      ) : null}
+
+                      <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-3 shadow-sm">
+                        <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-sm font-bold text-zinc-800">
+                          +91
+                        </div>
+                        <input
+                          className="w-full bg-transparent text-[15px] font-semibold text-zinc-900 outline-none placeholder:text-zinc-400"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder={t("loginMobilePh")}
+                          inputMode="tel"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={sendOtp}
+                        className="w-full rounded-2xl bg-emerald-600 py-4 text-sm font-black text-white shadow-[0_14px_34px_-18px_rgba(16,185,129,0.65)] disabled:opacity-50"
+                      >
+                        {loading ? t("loginSending") : "Send OTP via WhatsApp"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={sendOtp}
+                        className="w-full rounded-2xl border border-emerald-200 bg-white py-3.5 text-sm font-black text-emerald-700 disabled:opacity-50"
+                      >
+                        {loading ? t("loginSending") : "Send OTP via SMS"}
+                      </button>
+                    </div>
+                  )}
+
+                  {step === 2 && (
+                    <div className="mt-4 space-y-3">
+                      <div>
+                        <label className="ui-label">{t("loginOtpLabel")}</label>
+                        <input
+                          className="ui-input !rounded-2xl !py-4 text-center font-display text-2xl tracking-[0.45em]"
+                          value={otp}
+                          onChange={(e) =>
+                            setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                          }
+                          placeholder="••••••"
+                          inputMode="numeric"
+                          maxLength={6}
+                          autoComplete="one-time-code"
+                        />
+                        <p className="mt-2 text-xs font-semibold text-zinc-500">
+                          {t("loginOtpTo")}{" "}
+                          <span className="font-black text-zinc-800">
+                            {phone || t("loginOtpYourNumber")}
+                          </span>
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={verify}
+                        className="w-full rounded-2xl bg-emerald-600 py-4 text-sm font-black text-white shadow-[0_14px_34px_-18px_rgba(16,185,129,0.65)] disabled:opacity-50"
+                      >
+                        {loading ? t("loginVerifying") : t("loginVerify")}
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full text-center text-sm font-semibold text-stone-500 hover:text-ink"
+                        onClick={() => setStep(1)}
+                      >
+                        {t("loginChangePhone")}
+                      </button>
+                    </div>
+                  )}
+
+                  {msg ? (
+                    <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
+                      {msg}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
+          </div>
+
+          {/* Desktop/tablet: keep existing premium card */}
+          <div className="mx-auto hidden w-full max-w-md lg:block">
             <div className="mb-2 flex items-center gap-3">
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-cta text-sm font-black text-white shadow-[0_14px_40px_-18px_rgba(234,88,12,0.75)] ring-1 ring-white/50">
                 D
@@ -470,6 +604,7 @@ function LoginForm() {
                   </>
                 ) : null}
               </div>
+
               {step === 1 && (
                 <div className="space-y-5">
                   {isStorePartner && (

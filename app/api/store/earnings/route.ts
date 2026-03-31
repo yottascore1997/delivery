@@ -28,7 +28,10 @@ export async function GET(request: Request) {
   });
 
   const gross = orders.reduce((s, o) => s + dec(o.totalAmount), 0);
-  const commissionPct = await getCommissionPercent();
+  const commissionPct =
+    typeof (store as any).commissionPercent === "number"
+      ? Number((store as any).commissionPercent)
+      : await getCommissionPercent();
   const net = gross - (gross * commissionPct) / 100;
 
   return jsonOk({

@@ -231,6 +231,15 @@ export default function AdminPage() {
   const [pendingStores, setPendingStores] = useState<
     { id: string; name: string; owner: { phone: string } }[]
   >([]);
+  const [approvedStores, setApprovedStores] = useState<
+    {
+      id: string;
+      name: string;
+      commissionPercent?: number | null;
+      owner: { id: string; name: string; phone: string };
+    }[]
+  >([]);
+  const [storeCommissionDraft, setStoreCommissionDraft] = useState<Record<string, string>>({});
   const [readyOrders, setReadyOrders] = useState<AdminOrderRow[]>([]);
   const [recentOrders, setRecentOrders] = useState<AdminOrderRow[]>([]);
   const [deliveryUsers, setDeliveryUsers] = useState<
@@ -290,6 +299,23 @@ export default function AdminPage() {
       "/api/admin/stores?status=PENDING",
     );
     if (st.ok && st.data) setPendingStores(st.data.stores);
+
+    const stApproved = await api<{ stores: typeof approvedStores }>(
+      "/api/admin/stores?status=APPROVED&limit=200",
+    );
+    if (stApproved.ok && stApproved.data) {
+      setApprovedStores(stApproved.data.stores);
+      setStoreCommissionDraft((prev) => {
+        const next = { ...prev };
+        for (const sRow of stApproved.data!.stores) {
+          if (next[sRow.id] === undefined) {
+            next[sRow.id] =
+              typeof sRow.commissionPercent === "number" ? String(sRow.commissionPercent) : "";
+          }
+        }
+        return next;
+      });
+    }
 
     const orReady = await api<{ orders: AdminOrderRow[] }>(
       "/api/admin/orders?status=READY&limit=80",
@@ -454,6 +480,22 @@ export default function AdminPage() {
     setMsg(
       res.ok ? t("adminMsgCommissionSaved") : res.error || t("adminMsgError"),
     );
+  }
+
+  async function saveStoreCommission(storeId: string) {
+    setMsg(null);
+    const raw = (storeCommissionDraft[storeId] ?? "").trim();
+    const val = raw === "" ? null : Number(raw);
+    if (val !== null && (!Number.isFinite(val) || val < 0 || val > 100)) {
+      setMsg("Commission must be between 0 and 100.");
+      return;
+    }
+    const res = await api("/api/admin/store-commission", {
+      method: "POST",
+      body: JSON.stringify({ storeId, commissionPercent: val }),
+    });
+    setMsg(res.ok ? "Store commission saved ✓" : res.error || t("adminMsgError"));
+    await refresh();
   }
 
   async function createDelivery() {
@@ -1373,6 +1415,72 @@ export default function AdminPage() {
               </button>
             </section>
           </div>
+
+          <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-lg font-bold text-zinc-900">
+                Store-wise commission override
+              </h2>
+              <p className="text-xs font-semibold text-zinc-500">
+                Empty = platform default ({commission}%)
+              </p>
+            </div>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[820px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-400">
+                    <th className="pb-3 pr-3">Store</th>
+                    <th className="pb-3 pr-3">Owner</th>
+                    <th className="pb-3 pr-3">Commission %</th>
+                    <th className="pb-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {approvedStores.map((s) => (
+                    <tr key={s.id} className="bg-white">
+                      <td className="py-3 pr-3">
+                        <p className="font-semibold text-zinc-900">{s.name}</p>
+                        <p className="text-[11px] font-mono text-zinc-500">
+                          {s.id.slice(0, 10)}…
+                        </p>
+                      </td>
+                      <td className="py-3 pr-3 text-zinc-700">
+                        <p className="font-semibold text-zinc-900">{s.owner?.name ?? "—"}</p>
+                        <p className="text-xs text-zinc-500">{s.owner?.phone ?? ""}</p>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <input
+                          className="ui-input !py-2 w-32"
+                          inputMode="decimal"
+                          placeholder={commission}
+                          value={storeCommissionDraft[s.id] ?? ""}
+                          onChange={(e) =>
+                            setStoreCommissionDraft((m) => ({ ...m, [s.id]: e.target.value }))
+                          }
+                        />
+                      </td>
+                      <td className="py-3 text-right">
+                        <button
+                          type="button"
+                          className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-black text-white hover:bg-zinc-800"
+                          onClick={() => void saveStoreCommission(s.id)}
+                        >
+                          Save
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {approvedStores.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-sm text-zinc-500">
+                        No approved stores yet.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
         </div>
       )}
