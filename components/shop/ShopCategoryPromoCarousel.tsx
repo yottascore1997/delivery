@@ -104,6 +104,7 @@ const PROMOS_BY_VERTICAL: Record<ShopVerticalSlug, CategoryPromoSlide[]> = {
       headline: "Tech that fits",
       subline: "Gadgets & accessories · nearby stores",
       cta: "Shop now",
+      imageUrl: "/images/electro.PNG",
       gradient: "linear-gradient(105deg, #dbeafe 0%, #3b82f6 48%, #1e3a8a 48.5%, #172554 100%)",
       href: "#category-products",
     },
@@ -112,7 +113,8 @@ const PROMOS_BY_VERTICAL: Record<ShopVerticalSlug, CategoryPromoSlide[]> = {
       headline: "Smart picks",
       subline: "Cables, audio & daily tech",
       cta: "Browse",
-      gradient: "linear-gradient(135deg, #e0e7ff 0%, #6366f1 50%, #312e81 100%)",
+      imageUrl: "/images/electro.PNG",
+      gradient: "linear-gradient(135deg, #fff7ed 0%, #fb923c 52%, #c2410c 100%)",
       href: "#category-products",
     },
     {
@@ -120,7 +122,8 @@ const PROMOS_BY_VERTICAL: Record<ShopVerticalSlug, CategoryPromoSlide[]> = {
       headline: "Flash offers",
       subline: "Limited stock — check prices",
       cta: "View deals",
-      gradient: "linear-gradient(120deg, #0f172a 0%, #1e293b 55%, #0ea5e9 100%)",
+      imageUrl: "/images/electro.PNG",
+      gradient: "linear-gradient(120deg, #2a0a16 0%, #831843 52%, #f472b6 100%)",
       accent: "#f0f9ff",
       href: "#category-products",
     },
@@ -130,20 +133,74 @@ const PROMOS_BY_VERTICAL: Record<ShopVerticalSlug, CategoryPromoSlide[]> = {
 function PromoCard({ slide }: { slide: CategoryPromoSlide }) {
   const fg = slide.accent ?? "#0f172a";
   const fgMuted = slide.accent ? "rgba(255,255,255,0.88)" : "rgba(15,23,42,0.85)";
+  const wantsLightText = Boolean(slide.accent);
 
   const inner = slide.imageUrl ? (
-    <div className="relative h-[9.25rem] w-full sm:h-[10rem]">
-      <Image
-        src={slide.imageUrl}
-        alt={slide.headline}
-        fill
-        className="object-cover"
-        sizes="(max-width: 640px) 88vw, 360px"
-      />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent" />
-      <div className="absolute bottom-3 left-3 right-16 z-[1] text-white">
-        <p className="text-sm font-black leading-tight drop-shadow-sm sm:text-base">{slide.headline}</p>
-        <p className="mt-0.5 text-[11px] font-semibold opacity-95 drop-shadow-sm">{slide.subline}</p>
+    <div className="grid h-[9.25rem] w-full grid-cols-2 sm:h-[10rem] saturate-150">
+      {/* Left: text (half) */}
+      <div
+        className="relative flex min-w-0 flex-col justify-between p-3 sm:p-4"
+        style={{ background: slide.gradient }}
+      >
+        {/* Contrast layer (keeps text readable on bright gradients) */}
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-black/20 via-black/5 to-transparent"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -left-10 -top-10 h-24 w-24 rounded-full bg-white/15 blur-2xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -bottom-10 -right-10 h-28 w-28 rounded-full bg-white/10 blur-2xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.22),transparent_45%)]"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute left-3 top-3 h-px w-16 bg-gradient-to-r from-white/40 via-white/10 to-transparent"
+          aria-hidden
+        />
+
+        <div className="relative z-[1] min-w-0">
+          <span
+            className="inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] shadow-sm ring-1 ring-white/30 backdrop-blur-sm"
+            style={{
+              backgroundColor: "rgba(255,255,255,0.18)",
+              color: wantsLightText ? "rgba(255,255,255,0.9)" : "#ffffff",
+            }}
+          >
+            Featured
+          </span>
+          <p className="mt-2 text-sm font-black leading-tight text-white drop-shadow-sm sm:text-base">
+            {slide.headline}
+          </p>
+          <p className="mt-1 line-clamp-2 text-[11px] font-semibold text-white/85 drop-shadow-sm sm:text-[12px]">
+            {slide.subline}
+          </p>
+        </div>
+        <div className="min-w-0">
+        </div>
+        <div className="relative z-[1]">
+          <span className="inline-flex rounded-lg bg-white/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-white shadow-md ring-1 ring-white/25 backdrop-blur-sm sm:text-[11px]">
+            {slide.cta}
+          </span>
+        </div>
+      </div>
+
+      {/* Right: image (half) */}
+      <div className="relative h-full w-full">
+        <Image
+          src={slide.imageUrl}
+          alt={slide.headline}
+          fill
+          className="object-cover contrast-110 saturate-125"
+          sizes="(max-width: 640px) 44vw, 180px"
+        />
+        <div className="absolute inset-0 bg-gradient-to-l from-black/0 via-transparent to-black/25" />
+        <div className="pointer-events-none absolute inset-0 ring-1 ring-black/[0.06]" aria-hidden />
       </div>
     </div>
   ) : (

@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "@/lib/client-api";
+import { api, getToken } from "@/lib/client-api";
 import { addToShopCart, getShopCart, updateShopLineQty } from "@/lib/shop-cart";
 import type { ShopVerticalSlug } from "@/lib/shop-verticals";
 import { SHOP_VERTICAL_LABELS } from "@/lib/shop-verticals";
 import { ProductThumb } from "@/components/shop/shop-visual";
 import { ShopCategoryMobileBrandBanner } from "@/components/shop/ShopCategoryMobileBrandBanner";
 import { FoodTopStoresSection } from "@/components/shop/FoodTopStoresSection";
+import { DELIVERY_ADDRESS_UPDATED_EVENT } from "@/lib/shop-delivery-address";
 
 type QuickProduct = {
   id: string;
@@ -105,7 +106,25 @@ export function ShopCategoryProductsClient({
   );
 
   useEffect(() => {
-    void load(DEFAULT_LAT, DEFAULT_LNG, true);
+    async function loadWithAddress() {
+      const token = getToken();
+      if (!token) {
+        await load(DEFAULT_LAT, DEFAULT_LNG, true);
+        return;
+      }
+      const addr = await api<{ address: { latitude: number; longitude: number } | null }>(
+        "/api/user/address",
+      );
+      const la = addr.ok && addr.data?.address ? addr.data.address.latitude : DEFAULT_LAT;
+      const ln = addr.ok && addr.data?.address ? addr.data.address.longitude : DEFAULT_LNG;
+      await load(la, ln, true);
+    }
+    void loadWithAddress();
+    function onAddrUpdated() {
+      void loadWithAddress();
+    }
+    window.addEventListener(DELIVERY_ADDRESS_UPDATED_EVENT, onAddrUpdated);
+    return () => window.removeEventListener(DELIVERY_ADDRESS_UPDATED_EVENT, onAddrUpdated);
   }, [load]);
 
   useEffect(() => {

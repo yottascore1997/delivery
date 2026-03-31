@@ -66,8 +66,7 @@ const CATEGORIES = [
     ringClass: "ring-blue-300/70",
     imgTilt: "rotate-[7deg]",
     glow: "rgba(37, 99, 235, 0.32)",
-    image:
-      "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=400&h=400&fit=crop&q=80",
+    image: "/images/electro.PNG",
   },
 ] as const;
 

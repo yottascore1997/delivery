@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAppName } from "@/lib/app-brand";
 import { api, getToken } from "@/lib/client-api";
+import { DELIVERY_ADDRESS_UPDATED_EVENT } from "@/lib/shop-delivery-address";
 import { ShopCategoryShowcase } from "@/components/shop/ShopCategoryShowcase";
 import { ShopNearbyStoreCard } from "@/components/shop/ShopNearbyStoreCard";
 import { ShopTopCategoriesStrip } from "@/components/shop/ShopTopCategoriesStrip";
@@ -73,8 +74,7 @@ const HERO_SLIDES = [
     bg: "linear-gradient(140deg, #fed7aa 0%, #fb923c 45%, #ea580c 100%)",
     text: "text-[#3f1a00]",
     subText: "text-[#7c2d12]",
-    image:
-      "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=1000&h=700&fit=crop&q=80",
+    image: "/images/electro.PNG",
   },
 ] as const;
 
@@ -130,13 +130,27 @@ export default function ShopStoresPage() {
       router.replace("/login?next=/shop&customer=1");
       return;
     }
-    void load(DEFAULT_LAT, DEFAULT_LNG, true);
+    async function loadWithAddress(isFirst = false) {
+      const addr = await api<{ address: { latitude: number; longitude: number } | null }>(
+        "/api/user/address",
+      );
+      const la = addr.ok && addr.data?.address ? addr.data.address.latitude : DEFAULT_LAT;
+      const ln = addr.ok && addr.data?.address ? addr.data.address.longitude : DEFAULT_LNG;
+      await load(la, ln, isFirst);
+    }
+    void loadWithAddress(true);
     void (async () => {
       const r = await api<{ imageUrl: string | null }>(
         "/api/shop/todays-match-banner",
       );
       if (r.ok && r.data) setMatchBannerUrl(r.data.imageUrl ?? null);
     })();
+    function onAddrUpdated() {
+      void loadWithAddress(false);
+    }
+    window.addEventListener(DELIVERY_ADDRESS_UPDATED_EVENT, onAddrUpdated);
+    return () =>
+      window.removeEventListener(DELIVERY_ADDRESS_UPDATED_EVENT, onAddrUpdated);
   }, [load, router]);
 
   useEffect(() => {

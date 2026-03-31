@@ -18,7 +18,7 @@ const FALLBACK_IMAGES: Record<string, string> = {
   "food-beverages":
     "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=240&h=240&fit=crop&q=80",
   electronics:
-    "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=240&h=240&fit=crop&q=80",
+    "/images/electro.PNG",
 };
 
 function normalizeKey(key: string) {

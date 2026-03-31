@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { api } from "@/lib/client-api";
+import { api, getToken } from "@/lib/client-api";
 import { verticalToCatalogMainKey } from "@/lib/shop-catalog-main-key";
 import type { ShopVerticalSlug } from "@/lib/shop-verticals";
 import { SHOP_VERTICAL_LABELS } from "@/lib/shop-verticals";
@@ -15,6 +15,7 @@ import {
 } from "@/components/shop/WhatsOnYourMindLayout";
 import { FoodTopStoresSection } from "@/components/shop/FoodTopStoresSection";
 import { FoodHubPromoBanner } from "@/components/shop/FoodHubPromoBanner";
+import { DELIVERY_ADDRESS_UPDATED_EVENT } from "@/lib/shop-delivery-address";
 
 const FOOD_SUB_SPLIT = 6;
 const DEFAULT_LAT = 28.4595;
@@ -122,10 +123,21 @@ export function ShopCategoryHubClient({ slug }: { slug: ShopVerticalSlug }) {
   const loadMindProducts = useCallback(async () => {
     setMindLoading(true);
     setMindErr(null);
+    let la = DEFAULT_LAT;
+    let ln = DEFAULT_LNG;
+    if (getToken()) {
+      const addr = await api<{ address: { latitude: number; longitude: number } | null }>(
+        "/api/user/address",
+      );
+      if (addr.ok && addr.data?.address) {
+        la = addr.data.address.latitude;
+        ln = addr.data.address.longitude;
+      }
+    }
     const q = new URLSearchParams({
       vertical: "food",
-      lat: String(DEFAULT_LAT),
-      lng: String(DEFAULT_LNG),
+      lat: String(la),
+      lng: String(ln),
       radiusKm: "25",
       limit: "14",
     });
@@ -143,6 +155,12 @@ export function ShopCategoryHubClient({ slug }: { slug: ShopVerticalSlug }) {
   useEffect(() => {
     if (!isFood) return;
     void loadMindProducts();
+    function onAddrUpdated() {
+      void loadMindProducts();
+    }
+    window.addEventListener(DELIVERY_ADDRESS_UPDATED_EVENT, onAddrUpdated);
+    return () =>
+      window.removeEventListener(DELIVERY_ADDRESS_UPDATED_EVENT, onAddrUpdated);
   }, [isFood, loadMindProducts]);
 
   const categories = data?.categories ?? [];
