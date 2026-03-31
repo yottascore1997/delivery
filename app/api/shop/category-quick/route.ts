@@ -162,13 +162,15 @@ export async function GET(request: Request) {
     ) {
       localMatch = true;
     }
-    if (!masterMatch && !localMatch) continue;
-
     if (subMc) {
+      // When user explicitly selects a subcategory, only require subcategory match.
+      // Do not gate by vertical/category-hints (custom store categories often fail that).
       const mcId = p.masterProduct?.masterCategory?.id;
       const byMaster = mcId === subMc.id;
       const byName = categoryMatchesMasterSub(p.category.name, subMc.name);
       if (!byMaster && !byName) continue;
+    } else {
+      if (!masterMatch && !localMatch) continue;
     }
 
     const key = p.masterProductId ? `m:${p.masterProductId}` : `n:${p.name.trim().toLowerCase()}`;
