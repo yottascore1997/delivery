@@ -125,7 +125,6 @@ export async function GET(request: Request) {
         etaMin: estimateEtaMinutes(dist),
       };
     })
-    .filter((s) => s.distanceKm <= radiusKm)
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   if (nearbyStores.length === 0) {

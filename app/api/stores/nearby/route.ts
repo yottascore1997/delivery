@@ -66,7 +66,6 @@ export async function GET(request: Request) {
       distanceKm: distanceKm(lat, lng, s.latitude, s.longitude),
       openingHours: storeOpeningHoursPublic(s),
     }))
-    .filter((s) => s.distanceKm <= radiusKm)
     .sort((a, b) => {
       const openA = a.openingHours.isOpenNow ? 1 : 0;
       const openB = b.openingHours.isOpenNow ? 1 : 0;

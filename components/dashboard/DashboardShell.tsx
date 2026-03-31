@@ -81,7 +81,7 @@ export function DashboardShell({
   }
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-violet-100/40 via-[#f0eef8] to-stone-100">
+    <div className="flex min-h-screen overflow-x-hidden bg-gradient-to-br from-violet-100/40 via-[#f0eef8] to-stone-100">
       {/* Mobile drawer backdrop */}
       {mobileNavOpen ? (
         <button
@@ -161,7 +161,7 @@ export function DashboardShell({
         </div>
       </aside>
 
-      <div className="flex min-h-screen flex-1 flex-col pl-0 md:pl-[268px]">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col pl-0 md:pl-[268px]">
         <header className="sticky top-0 z-40 flex min-h-[56px] flex-wrap items-center justify-between gap-2 border-b border-violet-200/60 bg-white/90 px-3 py-2 backdrop-blur-md sm:min-h-[60px] sm:gap-4 sm:px-6 sm:py-0">
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
             <button
@@ -269,7 +269,9 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className="flex-1 overflow-x-hidden p-4 pb-24 sm:p-6 md:pb-6">{children}</main>
+        <main className="flex-1 min-w-0 overflow-x-hidden p-4 pb-24 sm:p-6 md:pb-6">
+          {children}
+        </main>
       </div>
     </div>
   );

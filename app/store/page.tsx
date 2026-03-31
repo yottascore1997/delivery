@@ -630,6 +630,8 @@ export default function StorePanelPage() {
 
   async function saveProductEdits(p: {
     id: string;
+    imageUrl?: string | null;
+    imageUrl2?: string | null;
     price: number;
     stock: number;
     unitLabel?: string | null;
@@ -680,6 +682,25 @@ export default function StorePanelPage() {
       delete next[p.id];
       return next;
     });
+    if (storeId) await loadCatalog(storeId);
+  }
+
+  async function updateProductImage(productId: string, slot: 1 | 2, file: File) {
+    setMsg(null);
+    const up = await uploadStoreCatalogImage(file);
+    if (!up.ok) {
+      setMsg(up.error);
+      return;
+    }
+    const res = await api("/api/products/update", {
+      method: "PATCH",
+      body: JSON.stringify({
+        productId,
+        ...(slot === 1 ? { imageUrl: up.imageUrl } : { imageUrl2: up.imageUrl }),
+      }),
+    });
+    if (!res.ok) setMsg(res.error || "Could not update image");
+    else setMsg("Image updated ✓");
     if (storeId) await loadCatalog(storeId);
   }
 
@@ -2083,6 +2104,40 @@ export default function StorePanelPage() {
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                                Photo 1
+                              </label>
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                className="mt-1 block w-full text-[11px]"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  e.target.value = "";
+                                  if (!f) return;
+                                  void updateProductImage(p.id, 1, f);
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                                Photo 2
+                              </label>
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                className="mt-1 block w-full text-[11px]"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  e.target.value = "";
+                                  if (!f) return;
+                                  void updateProductImage(p.id, 2, f);
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
                                 Unit
                               </label>
                               <input
@@ -2217,6 +2272,36 @@ export default function StorePanelPage() {
                                   <p className="mt-0.5 text-xs font-semibold text-zinc-500">
                                     ID: {p.id.slice(0, 10)}…
                                   </p>
+                                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                                    <label className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-zinc-700 hover:bg-zinc-50">
+                                      <span className="text-zinc-500">Photo 1</span>
+                                      <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const f = e.target.files?.[0];
+                                          e.target.value = "";
+                                          if (!f) return;
+                                          void updateProductImage(p.id, 1, f);
+                                        }}
+                                      />
+                                    </label>
+                                    <label className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-zinc-700 hover:bg-zinc-50">
+                                      <span className="text-zinc-500">Photo 2</span>
+                                      <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const f = e.target.files?.[0];
+                                          e.target.value = "";
+                                          if (!f) return;
+                                          void updateProductImage(p.id, 2, f);
+                                        }}
+                                      />
+                                    </label>
+                                  </div>
                                 </div>
                               </div>
                             </td>
@@ -2677,22 +2762,22 @@ function KpiCard({
   icon: ReactNode;
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-lg shadow-zinc-200/40 transition hover:shadow-xl">
+    <div className="group relative overflow-hidden rounded-3xl border border-zinc-200/80 bg-gradient-to-br from-white via-white to-zinc-50 p-4 shadow-md shadow-zinc-200/35 transition hover:shadow-lg">
       <div
-        className={`absolute -right-4 -top-4 h-24 w-24 rounded-full bg-gradient-to-br ${accent} opacity-[0.12] blur-2xl transition group-hover:opacity-20`}
+        className={`absolute -right-6 -top-6 h-28 w-28 rounded-full bg-gradient-to-br ${accent} opacity-[0.14] blur-2xl transition group-hover:opacity-25`}
       />
       <div
-        className={`inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${accent} text-white shadow-md`}
+        className={`inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br ${accent} text-white shadow-sm`}
       >
         {icon}
       </div>
-      <p className="mt-4 text-xs font-bold uppercase tracking-wide text-zinc-500">
+      <p className="mt-3 text-[11px] font-bold uppercase tracking-wide text-zinc-500">
         {title}
       </p>
-      <p className="font-display mt-1 text-2xl font-black tracking-tight text-zinc-900 sm:text-3xl">
+      <p className="font-display mt-1 text-xl font-black tracking-tight text-zinc-900 sm:text-2xl">
         {value}
       </p>
-      <p className="mt-1 text-xs text-zinc-500">{sub}</p>
+      <p className="mt-0.5 text-[11px] text-zinc-500">{sub}</p>
     </div>
   );
 }
