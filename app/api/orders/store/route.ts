@@ -27,17 +27,13 @@ export async function GET(request: Request) {
   const from = parseDateParam(searchParams.get("from"));
   const to = parseDateParam(searchParams.get("to"));
 
-  const stores = await prisma.store.findMany({
-    where: { ownerId: auth.user.id },
-    select: { id: true },
-  });
-  const ids = stores.map((s) => s.id);
-  if (!ids.length) {
-    return jsonOk({ orders: [], total: 0, limit, offset });
-  }
-
+  // Use relation filtering instead of prefetching store IDs.
+  // This avoids edge cases where owner store listing and order storeId filtering diverge.
   const where = {
-    storeId: storeId && ids.includes(storeId) ? storeId : { in: ids },
+    store: {
+      ownerId: auth.user.id,
+      ...(storeId ? { id: storeId } : {}),
+    },
     ...(from || to
       ? {
           createdAt: {
@@ -46,7 +42,7 @@ export async function GET(request: Request) {
           },
         }
       : {}),
-  };
+  } as const;
 
   const [orders, total, summaryRows] = await Promise.all([
     prisma.order.findMany({

@@ -81,6 +81,7 @@ export function ShopCategoryProductsClient({
   const [subcats, setSubcats] = useState<{ id: string; name: string; imageUrl?: string | null }[]>(
     [],
   );
+  const showMobileRail = subcats.length > 0;
 
   useEffect(() => {
     void (async () => {
@@ -203,10 +204,31 @@ export function ShopCategoryProductsClient({
 
       {/* Mobile: left subcategory rail + right products (Blinkit-style) */}
       {!isAll && subcats.length > 0 ? (
-        <div className="mb-6 grid grid-cols-[92px_minmax(0,1fr)] gap-3 md:hidden">
+        <div className="mb-6 grid grid-cols-[76px_minmax(0,1fr)] gap-2.5 md:hidden">
           <aside className="rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-sm">
             <div className="max-h-[calc(100vh-var(--shop-header-sticky,0px)-10.5rem)] overflow-y-auto pr-1">
               <ul className="space-y-2">
+                <li>
+                  <Link
+                    href={`/shop/category/${slug}/sub/all`}
+                    className={`flex flex-col items-center gap-1 rounded-xl p-2 text-center transition ${
+                      isAll
+                        ? "bg-emerald-50 ring-2 ring-emerald-300"
+                        : "hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[10px] font-black text-slate-700">
+                      ALL
+                    </div>
+                    <p
+                      className={`line-clamp-2 text-[10px] font-extrabold leading-tight ${
+                        isAll ? "text-emerald-900" : "text-slate-700"
+                      }`}
+                    >
+                      All
+                    </p>
+                  </Link>
+                </li>
                 {subcats.map((c) => {
                   const active = c.id === masterCategoryId;
                   return (
@@ -336,7 +358,7 @@ export function ShopCategoryProductsClient({
         </div>
       ) : null}
 
-      <section className="mb-6 md:block">
+      <section className={`mb-6 ${showMobileRail ? "hidden md:block" : ""}`}>
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="text-sm font-black text-slate-900">Products</h2>
           <span className="text-xs font-semibold text-slate-500">

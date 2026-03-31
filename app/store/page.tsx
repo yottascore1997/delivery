@@ -184,14 +184,8 @@ export default function StorePanelPage() {
     [orders, viewOrderId],
   );
 
-  useEffect(() => {
-    // Default range: current month.
-    const now = new Date();
-    const from = new Date(now.getFullYear(), now.getMonth(), 1);
-    const to = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    setOrdersFrom((prev) => prev || from.toISOString().slice(0, 10));
-    setOrdersTo((prev) => prev || to.toISOString().slice(0, 10));
-  }, []);
+  // NOTE: We keep order filters blank by default (shows all orders).
+  // Owner can still pick Month/From/To in the Orders tab when needed.
 
   async function copyText(text: string) {
     try {
