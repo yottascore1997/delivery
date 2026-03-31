@@ -114,6 +114,7 @@ export default function StorePanelPage() {
   const [pUnitLabel, setPUnitLabel] = useState("");
   const [pCat, setPCat] = useState("");
   const [pImage, setPImage] = useState("");
+  const [pImage2, setPImage2] = useState("");
   const [storeCoverUrl, setStoreCoverUrl] = useState("");
   const [hoursEnabled, setHoursEnabled] = useState(false);
   const [hoursOpen, setHoursOpen] = useState("09:00");
@@ -155,6 +156,8 @@ export default function StorePanelPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const { t } = useLocale();
+
+  const [coverUploading, setCoverUploading] = useState(false);
 
   const viewOrder = useMemo(
     () => (viewOrderId ? orders.find((o) => o.id === viewOrderId) ?? null : null),
@@ -448,6 +451,7 @@ export default function StorePanelPage() {
         price,
         stock,
         imageUrl: pImage || undefined,
+        imageUrl2: pImage2 || undefined,
         ...(u ? { unitLabel: u.slice(0, 40) } : {}),
       }),
     });
@@ -456,6 +460,7 @@ export default function StorePanelPage() {
     setPPrice("");
     setPStock("");
     setPUnitLabel("");
+    setPImage2("");
     await loadCatalog(storeId);
   }
 
@@ -580,6 +585,38 @@ export default function StorePanelPage() {
         : res.error || "Could not save cover",
     );
     if (res.ok) await loadStores();
+  }
+
+  async function onPickStoreCover(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setCoverUploading(true);
+    setMsg(null);
+    const up = await uploadStoreCatalogImage(file);
+    setCoverUploading(false);
+    if (!up.ok) {
+      setMsg(up.error);
+      return;
+    }
+    setStoreCoverUrl(up.imageUrl);
+  }
+
+  function captureNewStoreLocation() {
+    setMsg(null);
+    if (!navigator.geolocation) {
+      setMsg("Geolocation not supported in this browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setNewStoreLat(String(Math.round(pos.coords.latitude * 1e6) / 1e6));
+        setNewStoreLng(String(Math.round(pos.coords.longitude * 1e6) / 1e6));
+        setMsg("Location captured ✓");
+      },
+      () => setMsg("Location permission denied."),
+      { enableHighAccuracy: true, timeout: 12000 },
+    );
   }
 
   async function saveOpeningHours() {
@@ -1300,21 +1337,47 @@ export default function StorePanelPage() {
             <div className="rounded-3xl border border-zinc-200/80 bg-gradient-to-br from-rose-50/40 to-white p-6 shadow-lg">
               <h3 className="font-display text-lg font-bold text-zinc-900">Store cover image</h3>
               <p className="mt-1 text-sm text-zinc-500">
-                Public URL (e.g. Unsplash) — dikhega customer shop page ke upar, full width.
+                Upload from your computer — shows on top of your public shop page (full width).
               </p>
-              <input
-                className="ui-input mt-4"
-                placeholder="https://images.unsplash.com/..."
-                value={storeCoverUrl}
-                onChange={(e) => setStoreCoverUrl(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => void saveStoreCover()}
-                className="mt-3 rounded-xl bg-[#e23744] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#c81d2e]"
-              >
-                Save cover
-              </button>
+              <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={coverUploading}
+                    className="block w-full text-xs sm:w-auto"
+                    onChange={(e) => void onPickStoreCover(e)}
+                  />
+                  <button
+                    type="button"
+                    disabled={coverUploading}
+                    onClick={() => void saveStoreCover()}
+                    className="rounded-xl bg-[#e23744] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#c81d2e] disabled:opacity-60"
+                  >
+                    {coverUploading ? "Uploading…" : "Save cover"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={coverUploading}
+                    onClick={() => setStoreCoverUrl("")}
+                    className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-800 hover:bg-zinc-50 disabled:opacity-60"
+                  >
+                    Clear
+                  </button>
+                </div>
+                {storeCoverUrl?.trim() ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={storeCoverUrl}
+                    alt=""
+                    className="mt-4 h-40 w-full rounded-xl object-cover"
+                  />
+                ) : (
+                  <p className="mt-3 text-xs font-semibold text-zinc-500">
+                    No cover set yet.
+                  </p>
+                )}
+              </div>
             </div>
           ) : null}
           {storeId ? (
@@ -1472,13 +1535,59 @@ export default function StorePanelPage() {
                   />
                 </div>
                 <div>
-                  <label className="ui-label">{t("storeImageUrl")}</label>
-                  <input
-                    className="ui-input"
-                    placeholder="https://..."
-                    value={pImage}
-                    onChange={(e) => setPImage(e.target.value)}
-                  />
+                  <label className="ui-label">Product photos (optional) — 2 images</label>
+                  <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3">
+                      <label className="text-xs font-bold text-zinc-700">Photo 1</label>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="mt-2 block w-full text-xs"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (!file) return;
+                          setMsg(null);
+                          const up = await uploadStoreCatalogImage(file);
+                          if (up.ok) setPImage(up.imageUrl);
+                          else setMsg(up.error);
+                        }}
+                      />
+                      {pImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={pImage}
+                          alt=""
+                          className="mt-2 h-24 w-full rounded-lg object-cover"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3">
+                      <label className="text-xs font-bold text-zinc-700">Photo 2</label>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="mt-2 block w-full text-xs"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (!file) return;
+                          setMsg(null);
+                          const up = await uploadStoreCatalogImage(file);
+                          if (up.ok) setPImage2(up.imageUrl);
+                          else setMsg(up.error);
+                        }}
+                      />
+                      {pImage2 ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={pImage2}
+                          alt=""
+                          className="mt-2 h-24 w-full rounded-lg object-cover"
+                        />
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -1838,6 +1947,18 @@ export default function StorePanelPage() {
                   value={newStoreAddr}
                   onChange={(e) => setNewStoreAddr(e.target.value)}
                 />
+              </div>
+              <div className="sm:col-span-2">
+                <button
+                  type="button"
+                  onClick={() => captureNewStoreLocation()}
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-black text-zinc-800 shadow-sm hover:bg-zinc-50"
+                >
+                  Capture location (auto latitude/longitude)
+                </button>
+                <p className="mt-2 text-xs font-semibold text-zinc-500">
+                  If you don’t capture, you can still type them manually below.
+                </p>
               </div>
               <div>
                 <label className="ui-label">{t("storeLatitude")}</label>

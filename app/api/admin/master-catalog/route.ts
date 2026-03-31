@@ -13,6 +13,7 @@ const createSchema = z.object({
   description: z.string().optional(),
   unitLabel: z.string().max(40).optional(),
   imageUrl: z.string().max(2048).optional(),
+  imageUrl2: z.string().max(2048).optional(),
 });
 
 const updateSchema = z.object({
@@ -23,6 +24,7 @@ const updateSchema = z.object({
   description: z.string().optional(),
   unitLabel: z.string().max(40).nullable().optional(),
   imageUrl: z.string().max(2048).nullable().optional(),
+  imageUrl2: z.string().max(2048).nullable().optional(),
   sortOrder: z.number().int().min(0).optional(),
 });
 
@@ -95,6 +97,7 @@ export async function GET(request: Request) {
           description: p.description,
           unitLabel: p.unitLabel,
           imageUrl: p.imageUrl,
+          imageUrl2: (p as any).imageUrl2 ?? null,
           sortOrder: p.sortOrder,
         })),
       })),
@@ -146,6 +149,7 @@ export async function POST(request: Request) {
         description: body.description ?? "",
         unitLabel: body.unitLabel,
         imageUrl: body.imageUrl,
+        imageUrl2: body.imageUrl2,
         sortOrder: 999,
       },
     });
@@ -197,6 +201,7 @@ export async function PATCH(request: Request) {
         ...(body.description != null ? { description: body.description } : {}),
         ...(body.unitLabel !== undefined ? { unitLabel: body.unitLabel } : {}),
         ...(body.imageUrl !== undefined ? { imageUrl: body.imageUrl } : {}),
+        ...(body.imageUrl2 !== undefined ? { imageUrl2: body.imageUrl2 } : {}),
         ...(body.sortOrder != null ? { sortOrder: body.sortOrder } : {}),
       },
     });

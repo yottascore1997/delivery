@@ -12,6 +12,7 @@ const bodySchema = z.object({
   price: z.number().positive(),
   stock: z.number().int().min(0),
   imageUrl: z.string().max(2048).optional().nullable(),
+  imageUrl2: z.string().max(2048).optional().nullable(),
   unitLabel: z.string().max(40).optional().nullable(),
 });
 
@@ -46,6 +47,10 @@ export async function POST(request: Request) {
     if (imageUrl && cdn && !imageUrl.startsWith("http")) {
       imageUrl = `${cdn}/${imageUrl.replace(/^\//, "")}`;
     }
+    let imageUrl2 = body.imageUrl2?.trim() || null;
+    if (imageUrl2 && cdn && !imageUrl2.startsWith("http")) {
+      imageUrl2 = `${cdn}/${imageUrl2.replace(/^\//, "")}`;
+    }
 
     const unitTrim = body.unitLabel?.trim();
     const product = await prisma.product.create({
@@ -57,6 +62,7 @@ export async function POST(request: Request) {
         price: body.price,
         stock: body.stock,
         imageUrl: imageUrl || null,
+        imageUrl2: imageUrl2 || null,
         ...(unitTrim ? { unitLabel: unitTrim } : {}),
       },
     });

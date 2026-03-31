@@ -264,6 +264,9 @@ export default function AdminPage() {
   const [newProdImage, setNewProdImage] = useState("");
   const [newProdFile, setNewProdFile] = useState<File | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [newProdImage2, setNewProdImage2] = useState("");
+  const [newProdFile2, setNewProdFile2] = useState<File | null>(null);
+  const [uploadingImage2, setUploadingImage2] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [catalogNotice, setCatalogNotice] = useState<CatalogNotice | null>(null);
   const [catalogImgStorage, setCatalogImgStorage] = useState<{
@@ -762,7 +765,7 @@ export default function AdminPage() {
   }
 
   async function addMasterProduct() {
-    if (uploadingImage) {
+    if (uploadingImage || uploadingImage2) {
       setCatalogNotice({
         text: "Pehle image upload khatam hone do — /api/admin/upload-image.",
         tone: "error",
@@ -792,6 +795,7 @@ export default function AdminPage() {
         name,
         unitLabel: newProdUnit.trim() || undefined,
         imageUrl: newProdImage.trim() || undefined,
+        imageUrl2: newProdImage2.trim() || undefined,
       }),
     });
     if (res.ok) {
@@ -803,6 +807,8 @@ export default function AdminPage() {
       setNewProdUnit("");
       setNewProdImage("");
       setNewProdFile(null);
+      setNewProdImage2("");
+      setNewProdFile2(null);
       await loadMasterCatalogIntoState();
       scrollToEl(catalogProdListRef.current);
     } else {
@@ -813,13 +819,14 @@ export default function AdminPage() {
     }
   }
 
-  async function performProductImageUpload(file: File) {
+  async function performProductImageUpload(file: File, slot: 1 | 2) {
     const token = getToken();
     if (!token) {
       setCatalogNotice({ text: "Dobara login karen.", tone: "error" });
       return;
     }
-    setUploadingImage(true);
+    if (slot === 1) setUploadingImage(true);
+    else setUploadingImage2(true);
     setCatalogNotice({
       text: "Upload chal raha hai: POST /api/admin/upload-image → Cloudinary",
       tone: "success",
@@ -834,7 +841,8 @@ export default function AdminPage() {
     const data = (await res.json().catch(() => null)) as
       | { imageUrl?: string; error?: string }
       | null;
-    setUploadingImage(false);
+    if (slot === 1) setUploadingImage(false);
+    else setUploadingImage2(false);
     if (!res.ok) {
       setCatalogNotice({
         text: data?.error || "POST /api/admin/upload-image fail.",
@@ -843,7 +851,8 @@ export default function AdminPage() {
       return;
     }
     const url = (data?.imageUrl ?? "").trim();
-    setNewProdImage(url);
+    if (slot === 1) setNewProdImage(url);
+    else setNewProdImage2(url);
     setCatalogNotice({
       text: url
         ? `Cloudinary URL mil gayi. Ab Add product dabayein taaki DB mein save ho.`
@@ -857,7 +866,15 @@ export default function AdminPage() {
       setCatalogNotice({ text: "Pehle image file chunen.", tone: "error" });
       return;
     }
-    await performProductImageUpload(newProdFile);
+    await performProductImageUpload(newProdFile, 1);
+  }
+
+  async function uploadProductImage2() {
+    if (!newProdFile2) {
+      setCatalogNotice({ text: "Pehle image file #2 chunen.", tone: "error" });
+      return;
+    }
+    await performProductImageUpload(newProdFile2, 2);
   }
 
   async function removeEntity(type: "main" | "subcategory" | "product", id: string) {
@@ -1565,6 +1582,27 @@ export default function AdminPage() {
                     />
                   </>
                 ) : null}
+                {newProdImage2 ? (
+                  <>
+                    <p className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-emerald-700">
+                      <span>Image #2 upload ho chuki hai</span>
+                      <button
+                        type="button"
+                        className="text-xs font-bold text-zinc-600 underline"
+                        onClick={() => {
+                          setNewProdImage2("");
+                          setNewProdFile2(null);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </p>
+                    <PendingCatalogImagePreview
+                      imageUrl={newProdImage2}
+                      caption="Optional image #2 — yahi product ke sath save hogi jab aap Add product dabayenge."
+                    />
+                  </>
+                ) : null}
                 <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="file"
@@ -1576,7 +1614,7 @@ export default function AdminPage() {
                       input.value = "";
                       setNewProdFile(f);
                       setNewProdImage("");
-                      if (f) void performProductImageUpload(f);
+                      if (f) void performProductImageUpload(f, 1);
                     }}
                   />
                   <button
@@ -1587,6 +1625,30 @@ export default function AdminPage() {
                     title="File chunte hi upload ho jata hai"
                   >
                     {uploadingImage ? "Uploading…" : "Retry upload"}
+                  </button>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    className="block w-full text-xs text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-zinc-700 sm:w-auto"
+                    onChange={(e) => {
+                      const input = e.target;
+                      const f = input.files?.[0] ?? null;
+                      input.value = "";
+                      setNewProdFile2(f);
+                      setNewProdImage2("");
+                      if (f) void performProductImageUpload(f, 2);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void uploadProductImage2()}
+                    disabled={uploadingImage2 || !newProdFile2}
+                    className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 disabled:opacity-60"
+                    title="File chunte hi upload ho jata hai"
+                  >
+                    {uploadingImage2 ? "Uploading #2…" : "Retry upload #2"}
                   </button>
                 </div>
               </div>

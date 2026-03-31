@@ -35,6 +35,7 @@ export default function StoreOwnerRegisterGatePage() {
   const [photo2Url, setPhoto2Url] = useState<string | null>(null);
   const [uploading1, setUploading1] = useState(false);
   const [uploading2, setUploading2] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   const load = useCallback(async () => {
     const res = await api<{ stores: MineStore[] }>("/api/stores/mine");
@@ -130,6 +131,28 @@ export default function StoreOwnerRegisterGatePage() {
     setPhoto1Url(null);
     setPhoto2Url(null);
     await load();
+  }
+
+  function captureLocation() {
+    setMsg(null);
+    if (!navigator.geolocation) {
+      setMsg("Geolocation not supported in this browser.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        setLat(String(Math.round(pos.coords.latitude * 1e6) / 1e6));
+        setLng(String(Math.round(pos.coords.longitude * 1e6) / 1e6));
+        setMsg("Location captured ✓");
+      },
+      () => {
+        setLocating(false);
+        setMsg("Location permission denied.");
+      },
+      { enableHighAccuracy: true, timeout: 12000 },
+    );
   }
 
   function logout() {
@@ -305,6 +328,19 @@ export default function StoreOwnerRegisterGatePage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <button
+                    type="button"
+                    disabled={locating}
+                    onClick={() => captureLocation()}
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-black text-zinc-800 hover:bg-zinc-50 disabled:opacity-60"
+                  >
+                    {locating ? "Capturing location…" : "Capture location (auto latitude/longitude)"}
+                  </button>
+                  <p className="mt-2 text-xs font-semibold text-zinc-500">
+                    Browser GPS se latitude/longitude auto fill ho jayega.
+                  </p>
+                </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-zinc-500">
                     Latitude

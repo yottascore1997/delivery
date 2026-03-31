@@ -11,6 +11,7 @@ const bodySchema = z.object({
   price: z.number().positive().optional(),
   stock: z.number().int().min(0).optional(),
   imageUrl: z.string().max(2048).optional().nullable(),
+  imageUrl2: z.string().max(2048).optional().nullable(),
   categoryId: z.string().optional(),
   isActive: z.boolean().optional(),
   unitLabel: z.string().max(40).optional().nullable(),
@@ -43,6 +44,10 @@ export async function PATCH(request: Request) {
     if (imageUrl && cdn && !imageUrl.startsWith("http")) {
       imageUrl = `${cdn}/${String(imageUrl).replace(/^\//, "")}`;
     }
+    let imageUrl2 = body.imageUrl2;
+    if (imageUrl2 && cdn && !String(imageUrl2).startsWith("http")) {
+      imageUrl2 = `${cdn}/${String(imageUrl2).replace(/^\//, "")}`;
+    }
 
     const updated = await prisma.product.update({
       where: { id: body.productId },
@@ -54,6 +59,9 @@ export async function PATCH(request: Request) {
         ...(body.categoryId != null ? { categoryId: body.categoryId } : {}),
         ...(body.imageUrl !== undefined
           ? { imageUrl: imageUrl || null }
+          : {}),
+        ...(body.imageUrl2 !== undefined
+          ? { imageUrl2: imageUrl2 || null }
           : {}),
         ...(body.isActive != null ? { isActive: body.isActive } : {}),
         ...(body.unitLabel !== undefined

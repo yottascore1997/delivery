@@ -169,6 +169,7 @@ model MasterProduct {
   name            String  @db.VarChar(200)
   description     String  @db.Text
   imageUrl        String? @db.VarChar(2048)
+  imageUrl2       String? @db.VarChar(2048)
   unitLabel       String? @db.VarChar(40)
   sortOrder       Int     @default(0)
 
@@ -189,6 +190,7 @@ model Product {
   price       Decimal  @db.Decimal(10, 2)
   stock       Int      @default(0)
   imageUrl    String?  @db.VarChar(2048)
+  imageUrl2   String?  @db.VarChar(2048)
   /// Pack / unit shown to customers (e.g. 500 g, 1 kg, 1 L, 1 pc) — copied from master on import
   unitLabel   String?  @db.VarChar(40)
   isActive    Boolean  @default(true)

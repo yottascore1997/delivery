@@ -48,6 +48,7 @@ export async function GET(
       price: dec(product.price),
       stock: product.stock,
       imageUrl: product.imageUrl,
+      imageUrl2: (product as any).imageUrl2 ?? null,
       unitLabel: effectiveProductUnitLabel(
         product.unitLabel,
         product.masterProduct?.unitLabel,
