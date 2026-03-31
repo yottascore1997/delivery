@@ -2128,39 +2128,21 @@ export default function StorePanelPage() {
                         </div>
 
                         <div className="mt-3 grid gap-3">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
-                                Photo 1
-                              </label>
-                              <input
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                className="mt-1 block w-full text-[11px]"
-                                onChange={(e) => {
-                                  const f = e.target.files?.[0];
-                                  e.target.value = "";
-                                  if (!f) return;
-                                  void updateProductImage(p.id, 1, f);
-                                }}
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
-                                Photo 2
-                              </label>
-                              <input
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                className="mt-1 block w-full text-[11px]"
-                                onChange={(e) => {
-                                  const f = e.target.files?.[0];
-                                  e.target.value = "";
-                                  if (!f) return;
-                                  void updateProductImage(p.id, 2, f);
-                                }}
-                              />
-                            </div>
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                              Change photo
+                            </label>
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              className="mt-1 block w-full text-[11px]"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                e.target.value = "";
+                                if (!f) return;
+                                void updateProductImage(p.id, 1, f);
+                              }}
+                            />
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
@@ -2295,13 +2277,10 @@ export default function StorePanelPage() {
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="truncate font-black text-zinc-900">{p.name}</p>
-                                  <p className="mt-0.5 text-xs font-semibold text-zinc-500">
-                                    ID: {p.id.slice(0, 10)}…
-                                  </p>
-                                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                                    <label className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-zinc-700 hover:bg-zinc-50">
-                                      <span className="text-zinc-500">Photo 1</span>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="truncate font-black text-zinc-900">{p.name}</p>
+                                    <label className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-bold text-zinc-700 hover:bg-zinc-50">
+                                      <span className="text-zinc-500">Change photo</span>
                                       <input
                                         type="file"
                                         accept="image/jpeg,image/png,image/webp"
@@ -2314,21 +2293,10 @@ export default function StorePanelPage() {
                                         }}
                                       />
                                     </label>
-                                    <label className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-zinc-700 hover:bg-zinc-50">
-                                      <span className="text-zinc-500">Photo 2</span>
-                                      <input
-                                        type="file"
-                                        accept="image/jpeg,image/png,image/webp"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                          const f = e.target.files?.[0];
-                                          e.target.value = "";
-                                          if (!f) return;
-                                          void updateProductImage(p.id, 2, f);
-                                        }}
-                                      />
-                                    </label>
                                   </div>
+                                  <p className="mt-0.5 text-xs font-semibold text-zinc-500">
+                                    ID: {p.id.slice(0, 10)}…
+                                  </p>
                                 </div>
                               </div>
                             </td>

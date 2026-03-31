@@ -69,9 +69,9 @@ export async function GET(request: Request) {
     });
     if (!mc) return jsonError("Unknown subcategory", 404);
     const mk = mc.mainCategory.key;
-    if (!allowedMainKeys.has(mk)) {
-      return jsonError("Subcategory does not belong to this shop category", 400);
-    }
+    // Be tolerant: admin may reorganize master categories, or stores may list items
+    // under a subcategory that is browsed from a different vertical.
+    // We keep vertical store filtering below, but we do not hard-fail the request.
     subMc = { id: mc.id, name: mc.name };
   }
 
