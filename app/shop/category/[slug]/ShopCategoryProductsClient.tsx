@@ -11,6 +11,7 @@ import { ProductThumb } from "@/components/shop/shop-visual";
 import { ShopCategoryMobileBrandBanner } from "@/components/shop/ShopCategoryMobileBrandBanner";
 import { FoodTopStoresSection } from "@/components/shop/FoodTopStoresSection";
 import { DELIVERY_ADDRESS_UPDATED_EVENT } from "@/lib/shop-delivery-address";
+import { verticalToCatalogMainKey } from "@/lib/shop-catalog-main-key";
 
 type QuickProduct = {
   id: string;
@@ -77,6 +78,23 @@ export function ShopCategoryProductsClient({
   const [initialLoad, setInitialLoad] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [cartQtyByProduct, setCartQtyByProduct] = useState<Record<string, number>>({});
+  const [subcats, setSubcats] = useState<{ id: string; name: string; imageUrl?: string | null }[]>(
+    [],
+  );
+
+  useEffect(() => {
+    void (async () => {
+      const mainKey = verticalToCatalogMainKey(slug);
+      const res = await api<{ categories: { id: string; name: string; imageUrl?: string | null }[] }>(
+        `/api/master/catalog?mainKey=${encodeURIComponent(mainKey)}`,
+      );
+      if (res.ok && res.data?.categories) {
+        setSubcats(res.data.categories.map((c) => ({ id: c.id, name: c.name, imageUrl: c.imageUrl })));
+      } else {
+        setSubcats([]);
+      }
+    })();
+  }, [slug]);
 
   const load = useCallback(
     async (la: number, ln: number, isFirst = false) => {
@@ -183,7 +201,142 @@ export function ShopCategoryProductsClient({
         </div>
       )}
 
-      <section className="mb-6">
+      {/* Mobile: left subcategory rail + right products (Blinkit-style) */}
+      {!isAll && subcats.length > 0 ? (
+        <div className="mb-6 grid grid-cols-[92px_minmax(0,1fr)] gap-3 md:hidden">
+          <aside className="rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-sm">
+            <div className="max-h-[calc(100vh-var(--shop-header-sticky,0px)-10.5rem)] overflow-y-auto pr-1">
+              <ul className="space-y-2">
+                {subcats.map((c) => {
+                  const active = c.id === masterCategoryId;
+                  return (
+                    <li key={c.id}>
+                      <Link
+                        href={`/shop/category/${slug}/sub/${c.id}?subname=${encodeURIComponent(c.name)}`}
+                        className={`flex flex-col items-center gap-1 rounded-xl p-2 text-center transition ${
+                          active
+                            ? "bg-emerald-50 ring-2 ring-emerald-300"
+                            : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="h-12 w-12 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                          <ProductThumb
+                            name={c.name}
+                            imageUrl={c.imageUrl ?? null}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <p
+                          className={`line-clamp-2 text-[10px] font-extrabold leading-tight ${
+                            active ? "text-emerald-900" : "text-slate-700"
+                          }`}
+                        >
+                          {c.name}
+                        </p>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </aside>
+
+          <section className="min-w-0">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-black text-slate-900">Products</h2>
+              <span className="text-xs font-semibold text-slate-500">
+                {initialLoad && loading ? "…" : quickProducts.length}
+              </span>
+            </div>
+
+            {initialLoad && loading ? (
+              <SkeletonProducts />
+            ) : quickProducts.length === 0 ? (
+              <div className="flex min-h-[14rem] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/90 px-4 py-10 text-center text-sm font-medium text-slate-500">
+                No products in this section nearby yet.
+              </div>
+            ) : (
+              <ul className="grid grid-cols-2 gap-2.5">
+                {quickProducts.map((p) => {
+                  const closed =
+                    Boolean(p.store.openingHours?.enabled) &&
+                    p.store.openingHours?.isOpenNow === false;
+                  const outOfStock = p.stock < 1;
+                  return (
+                    <li key={p.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <Link href={`/shop/product/${p.id}`} className="block">
+                        <div className="aspect-square overflow-hidden border-b border-slate-100">
+                          <ProductThumb
+                            name={p.name}
+                            imageUrl={p.imageUrl}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      </Link>
+                      <div className="p-2">
+                        <Link
+                          href={`/shop/product/${p.id}`}
+                          className="line-clamp-2 text-[11px] font-semibold text-slate-900"
+                        >
+                          {p.name}
+                        </Link>
+                        <p className="mt-1 text-[13px] font-extrabold text-slate-900">
+                          ₹{Math.round(p.price)}
+                          {p.unitLabel?.trim() ? (
+                            <span className="ml-1 text-[11px] font-semibold text-slate-500">
+                              · {p.unitLabel.trim()}
+                            </span>
+                          ) : null}
+                        </p>
+                        <p className="line-clamp-1 text-[10px] font-medium text-slate-500">
+                          {p.store.name}
+                          {p.store.distanceKm != null ? ` · ${p.store.distanceKm} km` : ""}
+                        </p>
+                        {outOfStock ? (
+                          <p className="mt-1 text-[10px] font-black text-rose-600">Out of stock</p>
+                        ) : null}
+                        <div className="mt-2">
+                          {qtyInCart(p.id) > 0 ? (
+                            <div className="flex items-center justify-between rounded-lg border border-violet-200 bg-violet-50 px-2 py-1">
+                              <button
+                                type="button"
+                                className="h-7 w-7 text-lg font-black text-violet-700"
+                                onClick={() => updateShopLineQty(p.id, qtyInCart(p.id) - 1)}
+                              >
+                                -
+                              </button>
+                              <span className="text-xs font-black text-violet-800">{qtyInCart(p.id)}</span>
+                              <button
+                                type="button"
+                                disabled={closed || outOfStock}
+                                className="h-7 w-7 text-lg font-black text-violet-700 disabled:cursor-not-allowed disabled:opacity-35"
+                                onClick={() => updateShopLineQty(p.id, qtyInCart(p.id) + 1)}
+                              >
+                                +
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={closed || outOfStock}
+                              onClick={() => addQuickProduct(p)}
+                              className="w-full rounded-lg border border-emerald-700 bg-emerald-600 py-1.5 text-[10px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {closed ? "Store closed" : outOfStock ? "Out of stock" : "Add To Cart"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      <section className="mb-6 md:block">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="text-sm font-black text-slate-900">Products</h2>
           <span className="text-xs font-semibold text-slate-500">
