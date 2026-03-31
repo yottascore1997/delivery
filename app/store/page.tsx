@@ -77,6 +77,8 @@ export default function StorePanelPage() {
       products: {
         id: string;
         name: string;
+        imageUrl?: string | null;
+        imageUrl2?: string | null;
         price: number;
         stock: number;
         categoryId: string;
@@ -150,6 +152,10 @@ export default function StorePanelPage() {
   const [stockDraft, setStockDraft] = useState<Record<string, string>>({});
   const [unitDraft, setUnitDraft] = useState<Record<string, string>>({});
   const [priceDraft, setPriceDraft] = useState<Record<string, string>>({});
+  const [productQuery, setProductQuery] = useState("");
+  const [productCatFilter, setProductCatFilter] = useState<string>("all");
+  const [productShowInactive, setProductShowInactive] = useState(true);
+  const [productPage, setProductPage] = useState(0);
 
   // Add Product: cascading master category -> subcategory (but product name/details manual)
   const [addMasterCatalog, setAddMasterCatalog] = useState<{
@@ -216,6 +222,8 @@ export default function StorePanelPage() {
       products: {
         id: string;
         name: string;
+        imageUrl?: string | null;
+        imageUrl2?: string | null;
         price: number;
         stock: number;
         categoryId: string;
@@ -782,6 +790,39 @@ export default function StorePanelPage() {
 
   const categories = catalog?.categories ?? [];
   const currentStore = stores.find((s) => s.id === storeId);
+
+  const CATALOG_PAGE_SIZE = 50;
+  const catalogProducts = useMemo(() => {
+    return categories.flatMap((c) =>
+      c.products.map((p) => ({
+        ...p,
+        categoryName: c.name,
+      })),
+    );
+  }, [categories]);
+
+  const filteredCatalogProducts = useMemo(() => {
+    const q = productQuery.trim().toLowerCase();
+    return catalogProducts
+      .filter((p) => (productShowInactive ? true : p.isActive !== false))
+      .filter((p) => (productCatFilter === "all" ? true : p.categoryId === productCatFilter))
+      .filter((p) => {
+        if (!q) return true;
+        return (
+          p.name.toLowerCase().includes(q) ||
+          (p.categoryName ?? "").toLowerCase().includes(q)
+        );
+      });
+  }, [catalogProducts, productQuery, productShowInactive, productCatFilter]);
+
+  const pagedCatalogProducts = useMemo(() => {
+    const start = productPage * CATALOG_PAGE_SIZE;
+    return filteredCatalogProducts.slice(start, start + CATALOG_PAGE_SIZE);
+  }, [filteredCatalogProducts, productPage]);
+
+  useEffect(() => {
+    setProductPage(0);
+  }, [productQuery, productShowInactive, productCatFilter, storeId]);
 
   useEffect(() => {
     setStoreCoverUrl(currentStore?.imageUrl?.trim() ?? "");
@@ -1919,47 +1960,322 @@ export default function StorePanelPage() {
             <h3 className="font-display text-lg font-bold text-zinc-900">
               {t("storeCatalog")}
             </h3>
-            <div className="mt-6 space-y-8">
-              {categories.map((c) => (
-                <details
-                  key={c.id}
-                  open
-                  className="rounded-2xl border border-zinc-200 bg-white shadow-sm"
-                >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
-                    <div className="min-w-0">
-                      <p className="text-xs font-black uppercase tracking-widest text-zinc-400">
-                        {t("storeCategory")}
-                      </p>
-                      <p className="truncate font-display text-base font-black text-zinc-900">
-                        {c.name}
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-zinc-100 px-3 py-1 text-xs font-black text-zinc-700">
-                      {c.products.length}
-                    </span>
-                  </summary>
-                  <div className="border-t border-zinc-100 p-4">
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {c.products.map((p) => (
-                        <div
-                          key={p.id}
-                          className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="line-clamp-2 text-sm font-black text-zinc-900">
-                                {p.name}
-                              </p>
-                              <p className="mt-1 text-xs font-semibold text-zinc-500">
-                                Customers see:{" "}
-                                <span className="font-black text-zinc-700">
-                                  {(unitDraft[p.id] ?? p.unitLabel ?? p.unitLabelHint ?? "—")
-                                    .trim() || "—"}
-                                </span>
-                              </p>
+            <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50/60 p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                      Search
+                    </label>
+                    <input
+                      className="ui-input mt-1 !py-2"
+                      placeholder="Search product or category…"
+                      value={productQuery}
+                      onChange={(e) => setProductQuery(e.target.value)}
+                    />
+                  </div>
+                  <div className="sm:w-56">
+                    <label className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                      Category
+                    </label>
+                    <select
+                      className="ui-input mt-1 !py-2"
+                      value={productCatFilter}
+                      onChange={(e) => setProductCatFilter(e.target.value)}
+                    >
+                      <option value="all">All categories</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <label className="mt-1 inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-black text-zinc-700 sm:mt-6">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-zinc-300"
+                      checked={productShowInactive}
+                      onChange={(e) => setProductShowInactive(e.target.checked)}
+                    />
+                    Show inactive
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-xl bg-white px-3 py-2 text-xs font-black text-zinc-800 ring-1 ring-zinc-200">
+                    Total:{" "}
+                    <span className="text-violet-700">{filteredCatalogProducts.length}</span>
+                  </span>
+                  <div className="inline-flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={productPage <= 0}
+                      onClick={() => setProductPage((p) => Math.max(0, p - 1))}
+                      className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-black text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                    >
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        (productPage + 1) * CATALOG_PAGE_SIZE >= filteredCatalogProducts.length
+                      }
+                      onClick={() => setProductPage((p) => p + 1)}
+                      className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-black text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile: premium list cards */}
+            <ul className="mt-4 space-y-3 md:hidden">
+              {pagedCatalogProducts.map((p) => {
+                const img = p.imageUrl?.trim() || p.imageUrl2?.trim() || "";
+                return (
+                  <li
+                    key={p.id}
+                    className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex gap-3">
+                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
+                        {img ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={img} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[10px] font-black text-zinc-400">
+                            No image
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-zinc-900">
+                              {p.name}
+                            </p>
+                            <p className="mt-0.5 truncate text-xs font-semibold text-zinc-500">
+                              {p.categoryName}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void setProductActive(p.id, p.isActive === false)}
+                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${
+                              p.isActive === false ? "bg-zinc-200" : "bg-emerald-600"
+                            }`}
+                            aria-pressed={p.isActive !== false}
+                            aria-label="Toggle active"
+                            title={p.isActive === false ? "Inactive" : "Active"}
+                          >
+                            <span
+                              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                                p.isActive === false ? "translate-x-1" : "translate-x-5"
+                              }`}
+                            />
+                          </button>
+                        </div>
+
+                        <div className="mt-3 grid gap-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                                Unit
+                              </label>
+                              <input
+                                list="store-unit-presets"
+                                maxLength={40}
+                                className="ui-input mt-1 !py-2 text-xs"
+                                placeholder={
+                                  p.unitLabelHint && !p.unitLabel ? p.unitLabelHint : "e.g. 1 kg"
+                                }
+                                value={unitDraft[p.id] ?? p.unitLabel ?? ""}
+                                onChange={(e) =>
+                                  setUnitDraft((m) => ({ ...m, [p.id]: e.target.value }))
+                                }
+                              />
                             </div>
-                            <div className="shrink-0">
+                            <div>
+                              <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                                Price (₹)
+                              </label>
+                              <input
+                                className="ui-input mt-1 !py-2 text-xs"
+                                placeholder="e.g. 20"
+                                value={priceDraft[p.id] ?? String(p.price)}
+                                onChange={(e) =>
+                                  setPriceDraft((m) => ({ ...m, [p.id]: e.target.value }))
+                                }
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                                Stock
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                className={`ui-input mt-1 !py-2 text-xs ${
+                                  p.stock <= LOW_STOCK_THRESHOLD ? "!border-amber-300" : ""
+                                }`}
+                                value={stockDraft[p.id] ?? String(p.stock)}
+                                onChange={(e) =>
+                                  setStockDraft((m) => ({ ...m, [p.id]: e.target.value }))
+                                }
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                                State
+                              </label>
+                              <div className="mt-1 flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
+                                <span
+                                  className={`text-xs font-black ${
+                                    Number(stockDraft[p.id] ?? p.stock) > 0
+                                      ? "text-emerald-700"
+                                      : "text-zinc-500"
+                                  }`}
+                                >
+                                  {Number(stockDraft[p.id] ?? p.stock) > 0
+                                    ? "In stock"
+                                    : "Out of stock"}
+                                </span>
+                                <span className="ml-auto text-xs font-black text-zinc-700">
+                                  {p.isActive === false ? "Inactive" : "Active"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void saveProductEdits(p)}
+                              className="ui-btn-primary w-full !rounded-xl !py-3 !text-xs sm:flex-1"
+                            >
+                              Save changes
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void deleteProduct(p.id)}
+                              className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-black text-red-700 hover:bg-red-100 sm:w-auto"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {/* Desktop: premium table list */}
+            <div className="mt-4 hidden md:block">
+              <div className="overflow-hidden rounded-2xl border border-zinc-200">
+                <div className="max-h-[620px] overflow-auto">
+                  <table className="w-full min-w-[1180px] text-left text-sm">
+                    <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-400">
+                      <tr>
+                        <th className="px-4 py-3">Item</th>
+                        <th className="px-4 py-3">Category</th>
+                        <th className="px-4 py-3">Unit</th>
+                        <th className="px-4 py-3">Price (₹)</th>
+                        <th className="px-4 py-3">Stock</th>
+                        <th className="px-4 py-3">Active</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100 bg-white">
+                      {pagedCatalogProducts.map((p) => {
+                        const img = p.imageUrl?.trim() || p.imageUrl2?.trim() || "";
+                        return (
+                          <tr key={p.id} className="align-top hover:bg-zinc-50/60">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
+                                  {img ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={img}
+                                      alt=""
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-[10px] font-black text-zinc-400">
+                                      —
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate font-black text-zinc-900">{p.name}</p>
+                                  <p className="mt-0.5 text-xs font-semibold text-zinc-500">
+                                    ID: {p.id.slice(0, 10)}…
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex rounded-full bg-zinc-100 px-3 py-1 text-xs font-black text-zinc-700">
+                                {p.categoryName}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <input
+                                list="store-unit-presets"
+                                maxLength={40}
+                                className="ui-input !py-2 text-xs"
+                                placeholder={
+                                  p.unitLabelHint && !p.unitLabel ? p.unitLabelHint : "e.g. 1 kg"
+                                }
+                                value={unitDraft[p.id] ?? p.unitLabel ?? ""}
+                                onChange={(e) =>
+                                  setUnitDraft((m) => ({ ...m, [p.id]: e.target.value }))
+                                }
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <input
+                                className="ui-input !py-2 text-xs"
+                                placeholder="e.g. 20"
+                                value={priceDraft[p.id] ?? String(p.price)}
+                                onChange={(e) =>
+                                  setPriceDraft((m) => ({ ...m, [p.id]: e.target.value }))
+                                }
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="number"
+                                min={0}
+                                className={`ui-input !py-2 text-xs ${
+                                  p.stock <= LOW_STOCK_THRESHOLD ? "!border-amber-300" : ""
+                                }`}
+                                value={stockDraft[p.id] ?? String(p.stock)}
+                                onChange={(e) =>
+                                  setStockDraft((m) => ({ ...m, [p.id]: e.target.value }))
+                                }
+                              />
+                              <div className="mt-1 text-[11px] font-bold">
+                                <span
+                                  className={
+                                    Number(stockDraft[p.id] ?? p.stock) > 0
+                                      ? "text-emerald-700"
+                                      : "text-zinc-500"
+                                  }
+                                >
+                                  {Number(stockDraft[p.id] ?? p.stock) > 0
+                                    ? "In stock"
+                                    : "Out of stock"}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
                               <button
                                 type="button"
                                 onClick={() => void setProductActive(p.id, p.isActive === false)}
@@ -1976,102 +2292,43 @@ export default function StorePanelPage() {
                                   }`}
                                 />
                               </button>
-                            </div>
-                          </div>
-
-                          <div className="mt-3 grid gap-3">
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
-                                  Unit
-                                </label>
-                                <input
-                                  list="store-unit-presets"
-                                  maxLength={40}
-                                  className="ui-input mt-1 !py-2 text-xs"
-                                  placeholder={
-                                    p.unitLabelHint && !p.unitLabel ? p.unitLabelHint : "e.g. 1 kg"
-                                  }
-                                  value={unitDraft[p.id] ?? p.unitLabel ?? ""}
-                                  onChange={(e) =>
-                                    setUnitDraft((m) => ({ ...m, [p.id]: e.target.value }))
-                                  }
-                                />
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="inline-flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => void saveProductEdits(p)}
+                                  className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-black text-white hover:bg-zinc-800"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void deleteProduct(p.id)}
+                                  className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700 hover:bg-red-100"
+                                >
+                                  Delete
+                                </button>
                               </div>
-                              <div>
-                                <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
-                                  Price (₹)
-                                </label>
-                                <input
-                                  className="ui-input mt-1 !py-2 text-xs"
-                                  placeholder="e.g. 20"
-                                  value={priceDraft[p.id] ?? String(p.price)}
-                                  onChange={(e) =>
-                                    setPriceDraft((m) => ({ ...m, [p.id]: e.target.value }))
-                                  }
-                                />
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
-                                  Stock
-                                </label>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  className={`ui-input mt-1 !py-2 text-xs ${
-                                    p.stock <= LOW_STOCK_THRESHOLD ? "!border-amber-300" : ""
-                                  }`}
-                                  value={stockDraft[p.id] ?? String(p.stock)}
-                                  onChange={(e) =>
-                                    setStockDraft((m) => ({ ...m, [p.id]: e.target.value }))
-                                  }
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
-                                  State
-                                </label>
-                                <div className="mt-1 flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
-                                  <span
-                                    className={`text-xs font-black ${
-                                      p.stock > 0 ? "text-emerald-700" : "text-zinc-500"
-                                    }`}
-                                  >
-                                    {p.stock > 0 ? "In stock" : "Out of stock"}
-                                  </span>
-                                  <span className="ml-auto text-xs font-black text-zinc-700">
-                                    {p.isActive === false ? "Inactive" : "Active"}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => void saveProductEdits(p)}
-                                className="ui-btn-primary w-full !rounded-xl !py-3 !text-xs sm:flex-1"
-                              >
-                                Save changes
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void deleteProduct(p.id)}
-                                className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-black text-red-700 hover:bg-red-100 sm:w-auto"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </details>
-              ))}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {pagedCatalogProducts.length === 0 ? (
+                        <tr>
+                          <td className="px-4 py-10 text-center text-sm font-semibold text-zinc-500" colSpan={7}>
+                            No products found.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <p className="mt-2 text-xs font-semibold text-zinc-500">
+                Page {productPage + 1} · Showing {pagedCatalogProducts.length} of{" "}
+                {filteredCatalogProducts.length}
+              </p>
             </div>
           </div>
         </div>
