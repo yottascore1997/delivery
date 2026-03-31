@@ -8,6 +8,13 @@ export async function OPTIONS() {
   return emptyOptions();
 }
 
+function parseDateParam(v: string | null): Date | null {
+  if (!v) return null;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
 /** Orders for stores owned by the authenticated store owner. */
 export async function GET(request: Request) {
   const auth = await requireAuth(request, [UserRole.STORE_OWNER]);
@@ -17,6 +24,8 @@ export async function GET(request: Request) {
   const storeId = searchParams.get("storeId") ?? undefined;
   const limit = Math.min(Number(searchParams.get("limit") ?? "30"), 100);
   const offset = Math.max(Number(searchParams.get("offset") ?? "0"), 0);
+  const from = parseDateParam(searchParams.get("from"));
+  const to = parseDateParam(searchParams.get("to"));
 
   const stores = await prisma.store.findMany({
     where: { ownerId: auth.user.id },
@@ -29,9 +38,17 @@ export async function GET(request: Request) {
 
   const where = {
     storeId: storeId && ids.includes(storeId) ? storeId : { in: ids },
+    ...(from || to
+      ? {
+          createdAt: {
+            ...(from ? { gte: from } : {}),
+            ...(to ? { lt: to } : {}),
+          },
+        }
+      : {}),
   };
 
-  const [orders, total] = await Promise.all([
+  const [orders, total, summaryRows] = await Promise.all([
     prisma.order.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -47,6 +64,12 @@ export async function GET(request: Request) {
       },
     }),
     prisma.order.count({ where }),
+    prisma.order.groupBy({
+      by: ["storeId"],
+      where,
+      _count: { _all: true },
+      _sum: { totalAmount: true },
+    }),
   ]);
 
   const flags = await prisma.platformSetting.findMany({
@@ -58,6 +81,12 @@ export async function GET(request: Request) {
     select: { key: true },
   });
   const flagged = new Set(flags.map((f) => f.key.replace("order_escalation_", "")));
+
+  const totalOrders = summaryRows.reduce((n, r) => n + (r._count?._all ?? 0), 0);
+  const totalRevenue = summaryRows.reduce(
+    (s, r) => s + dec((r._sum?.totalAmount as any) ?? 0),
+    0,
+  );
 
   return jsonOk({
     orders: orders.map((o) => ({
@@ -78,5 +107,11 @@ export async function GET(request: Request) {
     total,
     limit,
     offset,
+    summary: {
+      totalOrders,
+      totalRevenue,
+      from: from ? from.toISOString() : null,
+      to: to ? to.toISOString() : null,
+    },
   });
 }

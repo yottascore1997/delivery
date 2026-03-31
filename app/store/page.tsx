@@ -97,6 +97,16 @@ export default function StorePanelPage() {
     { id: string; name: string; price: number }[]
   >([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [ordersTotal, setOrdersTotal] = useState(0);
+  const [ordersOffset, setOrdersOffset] = useState(0);
+  const [ordersLimit, setOrdersLimit] = useState(80);
+  const [ordersFrom, setOrdersFrom] = useState<string>("");
+  const [ordersTo, setOrdersTo] = useState<string>("");
+  const [ordersSummary, setOrdersSummary] = useState<{
+    totalOrders: number;
+    totalRevenue: number;
+  } | null>(null);
+  const [exportingOrders, setExportingOrders] = useState(false);
 
   const [newStoreName, setNewStoreName] = useState("");
   const [newStoreAddr, setNewStoreAddr] = useState("");
@@ -107,7 +117,6 @@ export default function StorePanelPage() {
   const [newStoreUp1, setNewStoreUp1] = useState(false);
   const [newStoreUp2, setNewStoreUp2] = useState(false);
 
-  const [catName, setCatName] = useState("");
   const [pName, setPName] = useState("");
   const [pPrice, setPPrice] = useState("");
   const [pStock, setPStock] = useState("");
@@ -140,6 +149,7 @@ export default function StorePanelPage() {
   const [importing, setImporting] = useState(false);
   const [stockDraft, setStockDraft] = useState<Record<string, string>>({});
   const [unitDraft, setUnitDraft] = useState<Record<string, string>>({});
+  const [priceDraft, setPriceDraft] = useState<Record<string, string>>({});
 
   // Add Product: cascading master category -> subcategory (but product name/details manual)
   const [addMasterCatalog, setAddMasterCatalog] = useState<{
@@ -163,6 +173,15 @@ export default function StorePanelPage() {
     () => (viewOrderId ? orders.find((o) => o.id === viewOrderId) ?? null : null),
     [orders, viewOrderId],
   );
+
+  useEffect(() => {
+    // Default range: current month.
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
+    const to = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    setOrdersFrom((prev) => prev || from.toISOString().slice(0, 10));
+    setOrdersTo((prev) => prev || to.toISOString().slice(0, 10));
+  }, []);
 
   async function copyText(text: string) {
     try {
@@ -229,10 +248,30 @@ export default function StorePanelPage() {
     const pl = await api<{ plans: typeof plans }>("/api/subscription-plans");
     if (pl.ok && pl.data) setPlans(pl.data.plans);
 
-    const o = await api<{ orders: OrderRow[] }>(
-      `/api/orders/store?storeId=${id}&limit=80`,
-    );
-    if (o.ok && o.data) setOrders(o.data.orders);
+    const q = new URLSearchParams({
+      storeId: id,
+      limit: String(ordersLimit),
+      offset: String(ordersOffset),
+    });
+    if (ordersFrom.trim()) q.set("from", new Date(ordersFrom).toISOString());
+    if (ordersTo.trim()) q.set("to", new Date(ordersTo).toISOString());
+    const o = await api<{
+      orders: OrderRow[];
+      total: number;
+      summary?: { totalOrders: number; totalRevenue: number };
+    }>(`/api/orders/store?${q.toString()}`);
+    if (o.ok && o.data) {
+      setOrders(o.data.orders);
+      setOrdersTotal(o.data.total ?? 0);
+      setOrdersSummary(
+        o.data.summary
+          ? {
+              totalOrders: o.data.summary.totalOrders,
+              totalRevenue: o.data.summary.totalRevenue,
+            }
+          : null,
+      );
+    }
   }
 
   useEffect(() => {
@@ -262,6 +301,46 @@ export default function StorePanelPage() {
     void loadCatalog(storeId);
     void loadRest(storeId);
   }, [storeId]);
+
+  useEffect(() => {
+    if (!storeId) return;
+    void loadRest(storeId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keep loadRest stable for storeId changes
+  }, [storeId, ordersFrom, ordersTo, ordersLimit, ordersOffset]);
+
+  async function exportOrdersCsv() {
+    if (!storeId) return;
+    setExportingOrders(true);
+    setMsg(null);
+    try {
+      const q = new URLSearchParams({ storeId });
+      if (ordersFrom.trim()) q.set("from", new Date(ordersFrom).toISOString());
+      if (ordersTo.trim()) q.set("to", new Date(ordersTo).toISOString());
+      q.set("limit", "20000");
+
+      const token = localStorage.getItem("dlf_token") ?? "";
+      const res = await fetch(`/api/orders/store/export?${q.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => null)) as any;
+        setMsg(j?.error || "Export failed");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `orders-${storeId}-${(ordersFrom || "all")}-${(ordersTo || "all")}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setMsg("Exported ✓");
+    } finally {
+      setExportingOrders(false);
+    }
+  }
 
   useEffect(() => {
     if (tab !== "menu") return;
@@ -401,25 +480,6 @@ export default function StorePanelPage() {
     }
   }
 
-  async function addCategory() {
-    if (!storeId) {
-      setMsg(t("storeNeedStore"));
-      return;
-    }
-    if (!catName.trim()) {
-      setMsg(t("storeFillCategoryName"));
-      return;
-    }
-    setMsg(null);
-    const res = await api("/api/store/categories", {
-      method: "POST",
-      body: JSON.stringify({ storeId, name: catName }),
-    });
-    setMsg(res.ok ? "Category added ✓" : res.error || "Error");
-    setCatName("");
-    await loadCatalog(storeId);
-  }
-
   async function addProduct() {
     if (!storeId) {
       setMsg(t("storeNeedStore"));
@@ -555,6 +615,61 @@ export default function StorePanelPage() {
     else setUnitDraft((m) => {
       const next = { ...m };
       delete next[productId];
+      return next;
+    });
+    if (storeId) await loadCatalog(storeId);
+  }
+
+  async function saveProductEdits(p: {
+    id: string;
+    price: number;
+    stock: number;
+    unitLabel?: string | null;
+    unitLabelHint?: string | null;
+  }) {
+    const rawPrice = (priceDraft[p.id] ?? String(p.price)).trim();
+    const rawStock = (stockDraft[p.id] ?? String(p.stock)).trim();
+    const rawUnit = (unitDraft[p.id] ?? p.unitLabel ?? "").trim();
+
+    const nextPrice = Number(rawPrice);
+    const nextStock = Number(rawStock);
+    if (!Number.isFinite(nextPrice) || nextPrice <= 0) {
+      setMsg(t("storeInvalidProductPrice"));
+      return;
+    }
+    if (!Number.isFinite(nextStock) || !Number.isInteger(nextStock) || nextStock < 0) {
+      setMsg(t("storeInvalidStock"));
+      return;
+    }
+
+    setMsg(null);
+    const res = await api("/api/products/update", {
+      method: "PATCH",
+      body: JSON.stringify({
+        productId: p.id,
+        price: nextPrice,
+        stock: nextStock,
+        unitLabel: rawUnit.trim().slice(0, 40) || null,
+      }),
+    });
+    if (!res.ok) {
+      setMsg(res.error || "Error");
+      return;
+    }
+    setMsg("Saved ✓");
+    setPriceDraft((m) => {
+      const next = { ...m };
+      delete next[p.id];
+      return next;
+    });
+    setStockDraft((m) => {
+      const next = { ...m };
+      delete next[p.id];
+      return next;
+    });
+    setUnitDraft((m) => {
+      const next = { ...m };
+      delete next[p.id];
       return next;
     });
     if (storeId) await loadCatalog(storeId);
@@ -1079,6 +1194,110 @@ export default function StorePanelPage() {
             {t("storeFulfillTitle")}
           </h3>
           <p className="text-sm text-zinc-500">{t("storeFulfillSub")}</p>
+          <div className="mt-5 rounded-2xl border border-zinc-200 bg-zinc-50/60 p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                    Month
+                  </label>
+                  <input
+                    type="month"
+                    className="ui-input mt-1 !py-2"
+                    value={ordersFrom ? ordersFrom.slice(0, 7) : ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (!v) return;
+                      const [yy, mm] = v.split("-").map(Number);
+                      const f = new Date(yy, (mm ?? 1) - 1, 1);
+                      const t2 = new Date(yy, (mm ?? 1), 1);
+                      setOrdersOffset(0);
+                      setOrdersFrom(f.toISOString().slice(0, 10));
+                      setOrdersTo(t2.toISOString().slice(0, 10));
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                    From
+                  </label>
+                  <input
+                    type="date"
+                    className="ui-input mt-1 !py-2"
+                    value={ordersFrom}
+                    onChange={(e) => {
+                      setOrdersOffset(0);
+                      setOrdersFrom(e.target.value);
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                    To
+                  </label>
+                  <input
+                    type="date"
+                    className="ui-input mt-1 !py-2"
+                    value={ordersTo}
+                    onChange={(e) => {
+                      setOrdersOffset(0);
+                      setOrdersTo(e.target.value);
+                    }}
+                  />
+                  <p className="mt-1 text-[10px] font-semibold text-zinc-500">
+                    (To date is exclusive)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs font-black text-zinc-800 ring-1 ring-zinc-200">
+                  Orders:{" "}
+                  <span className="text-violet-700">
+                    {ordersSummary?.totalOrders ?? ordersTotal}
+                  </span>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2 text-xs font-black text-zinc-800 ring-1 ring-zinc-200">
+                  Revenue:{" "}
+                  <span className="text-emerald-700">
+                    ₹{Math.round((ordersSummary?.totalRevenue ?? 0) * 100) / 100}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void exportOrdersCsv()}
+                  disabled={exportingOrders}
+                  className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-black text-white hover:bg-zinc-800 disabled:opacity-60"
+                >
+                  {exportingOrders ? "Exporting…" : "Export CSV"}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-zinc-500">
+                Showing {orders.length} of {ordersTotal}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={ordersOffset <= 0}
+                  onClick={() => setOrdersOffset((o) => Math.max(0, o - ordersLimit))}
+                  className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 disabled:opacity-50"
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  disabled={ordersOffset + orders.length >= ordersTotal}
+                  onClick={() => setOrdersOffset((o) => o + ordersLimit)}
+                  className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
           {!orders.length ? (
             <div className="py-16 text-center text-zinc-500">
               {t("storeNoOrders")}
@@ -1427,27 +1646,7 @@ export default function StorePanelPage() {
             </div>
           ) : null}
           <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-lg">
-              <h3 className="font-display text-lg font-bold text-zinc-900">
-                {t("storeCatNew")}
-              </h3>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <input
-                  className="ui-input min-w-[200px] flex-1"
-                  placeholder={t("storeCategoryPh")}
-                  value={catName}
-                  onChange={(e) => setCatName(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => void addCategory()}
-                  className="rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white"
-                >
-                  {t("storeAdd")}
-                </button>
-              </div>
-            </div>
-            <div className="rounded-3xl border border-violet-200/60 bg-gradient-to-br from-violet-50/50 to-white p-6 shadow-lg">
+            <div className="rounded-3xl border border-violet-200/60 bg-gradient-to-br from-violet-50/50 to-white p-6 shadow-lg lg:col-span-2">
               <h3 className="font-display text-lg font-bold text-zinc-900">
                 {t("storeAddProd")}
               </h3>
@@ -1722,199 +1921,156 @@ export default function StorePanelPage() {
             </h3>
             <div className="mt-6 space-y-8">
               {categories.map((c) => (
-                <div key={c.id}>
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-400">
-                    {c.name}
-                  </h4>
-                  <div className="mt-3 overflow-hidden rounded-2xl border border-zinc-100">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-zinc-50 text-xs font-bold uppercase text-zinc-500">
-                        <tr>
-                          <th className="px-4 py-3">{t("storeProduct")}</th>
-                          <th className="px-4 py-3">Unit</th>
-                          <th className="px-4 py-3">{t("storePrice")}</th>
-                          <th className="px-4 py-3">{t("storeStock")}</th>
-                          <th className="px-4 py-3">Status</th>
-                          <th className="px-4 py-3 text-right">
-                            {t("storeAction")}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-100">
-                        {c.products.map((p) => (
-                          <tr key={p.id} className="bg-white hover:bg-zinc-50/80">
-                            <td className="px-4 py-3 font-medium text-zinc-900">
-                              {p.name}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex flex-wrap items-center gap-2">
+                <details
+                  key={c.id}
+                  open
+                  className="rounded-2xl border border-zinc-200 bg-white shadow-sm"
+                >
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+                    <div className="min-w-0">
+                      <p className="text-xs font-black uppercase tracking-widest text-zinc-400">
+                        {t("storeCategory")}
+                      </p>
+                      <p className="truncate font-display text-base font-black text-zinc-900">
+                        {c.name}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-zinc-100 px-3 py-1 text-xs font-black text-zinc-700">
+                      {c.products.length}
+                    </span>
+                  </summary>
+                  <div className="border-t border-zinc-100 p-4">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {c.products.map((p) => (
+                        <div
+                          key={p.id}
+                          className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="line-clamp-2 text-sm font-black text-zinc-900">
+                                {p.name}
+                              </p>
+                              <p className="mt-1 text-xs font-semibold text-zinc-500">
+                                Customers see:{" "}
+                                <span className="font-black text-zinc-700">
+                                  {(unitDraft[p.id] ?? p.unitLabel ?? p.unitLabelHint ?? "—")
+                                    .trim() || "—"}
+                                </span>
+                              </p>
+                            </div>
+                            <div className="shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => void setProductActive(p.id, p.isActive === false)}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                                  p.isActive === false ? "bg-zinc-200" : "bg-emerald-600"
+                                }`}
+                                aria-pressed={p.isActive !== false}
+                                aria-label="Toggle active"
+                                title={p.isActive === false ? "Inactive" : "Active"}
+                              >
+                                <span
+                                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                                    p.isActive === false ? "translate-x-1" : "translate-x-5"
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 grid gap-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                                  Unit
+                                </label>
                                 <input
                                   list="store-unit-presets"
                                   maxLength={40}
-                                  className="ui-input !max-w-[8.5rem] !py-2 text-xs"
+                                  className="ui-input mt-1 !py-2 text-xs"
                                   placeholder={
-                                    p.unitLabelHint && !p.unitLabel
-                                      ? p.unitLabelHint
-                                      : "—"
-                                  }
-                                  title={
-                                    p.unitLabelEffective
-                                      ? `Shown to customers: ${p.unitLabelEffective}`
-                                      : undefined
+                                    p.unitLabelHint && !p.unitLabel ? p.unitLabelHint : "e.g. 1 kg"
                                   }
                                   value={unitDraft[p.id] ?? p.unitLabel ?? ""}
                                   onChange={(e) =>
-                                    setUnitDraft((m) => ({
-                                      ...m,
-                                      [p.id]: e.target.value,
-                                    }))
+                                    setUnitDraft((m) => ({ ...m, [p.id]: e.target.value }))
                                   }
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    void setProductUnitLabel(
-                                      p.id,
-                                      unitDraft[p.id] ?? p.unitLabel ?? "",
-                                    )
-                                  }
-                                  className="rounded-xl border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-zinc-800 hover:bg-zinc-50"
-                                >
-                                  Save
-                                </button>
                               </div>
-                              {!p.unitLabel && p.unitLabelHint ? (
-                                <p className="mt-1 text-[10px] font-medium text-zinc-400">
-                                  Customers see: {p.unitLabelHint} (from master)
-                                </p>
-                              ) : null}
-                            </td>
-                            <td className="px-4 py-3 text-violet-700">
-                              ₹{p.price}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      void setProductStock(p.id, p.stock > 0 ? 0 : 100)
-                                    }
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                                      p.stock > 0 ? "bg-emerald-600" : "bg-zinc-200"
-                                    }`}
-                                    aria-pressed={p.stock > 0}
-                                    aria-label="Toggle stock"
-                                  >
-                                    <span
-                                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
-                                        p.stock > 0 ? "translate-x-5" : "translate-x-1"
-                                      }`}
-                                    />
-                                  </button>
+                              <div>
+                                <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                                  Price (₹)
+                                </label>
+                                <input
+                                  className="ui-input mt-1 !py-2 text-xs"
+                                  placeholder="e.g. 20"
+                                  value={priceDraft[p.id] ?? String(p.price)}
+                                  onChange={(e) =>
+                                    setPriceDraft((m) => ({ ...m, [p.id]: e.target.value }))
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                                  Stock
+                                </label>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  className={`ui-input mt-1 !py-2 text-xs ${
+                                    p.stock <= LOW_STOCK_THRESHOLD ? "!border-amber-300" : ""
+                                  }`}
+                                  value={stockDraft[p.id] ?? String(p.stock)}
+                                  onChange={(e) =>
+                                    setStockDraft((m) => ({ ...m, [p.id]: e.target.value }))
+                                  }
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                                  State
+                                </label>
+                                <div className="mt-1 flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
                                   <span
-                                    className={`text-xs font-bold ${
+                                    className={`text-xs font-black ${
                                       p.stock > 0 ? "text-emerald-700" : "text-zinc-500"
                                     }`}
                                   >
                                     {p.stock > 0 ? "In stock" : "Out of stock"}
                                   </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    className={`ui-input !w-24 !py-2 ${
-                                      p.stock <= LOW_STOCK_THRESHOLD
-                                        ? "!border-amber-300"
-                                        : ""
-                                    }`}
-                                    value={stockDraft[p.id] ?? String(p.stock)}
-                                    onChange={(e) =>
-                                      setStockDraft((m) => ({
-                                        ...m,
-                                        [p.id]: e.target.value,
-                                      }))
-                                    }
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const raw = (stockDraft[p.id] ?? String(p.stock)).trim();
-                                      const n = Number(raw);
-                                      if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
-                                        setMsg(t("storeInvalidStock"));
-                                        return;
-                                      }
-                                      void setProductStock(p.id, n);
-                                    }}
-                                    className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-50"
-                                  >
-                                    Save
-                                  </button>
+                                  <span className="ml-auto text-xs font-black text-zinc-700">
+                                    {p.isActive === false ? "Inactive" : "Active"}
+                                  </span>
                                 </div>
                               </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    void setProductActive(p.id, p.isActive === false)
-                                  }
-                                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                                    p.isActive === false
-                                      ? "bg-zinc-200"
-                                      : "bg-emerald-600"
-                                  }`}
-                                  aria-pressed={p.isActive !== false}
-                                  aria-label="Toggle active"
-                                >
-                                  <span
-                                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
-                                      p.isActive === false
-                                        ? "translate-x-1"
-                                        : "translate-x-5"
-                                    }`}
-                                  />
-                                </button>
-                                <span
-                                  className={`text-xs font-bold ${
-                                    p.isActive === false
-                                      ? "text-zinc-500"
-                                      : "text-emerald-700"
-                                  }`}
-                                >
-                                  {p.isActive === false ? "Inactive" : "Active"}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <div className="inline-flex flex-wrap justify-end gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    void setProductActive(p.id, !(p.isActive !== false))
-                                  }
-                                  className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-50"
-                                >
-                                  {p.isActive !== false ? "Turn off" : "Turn on"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => void deleteProduct(p.id)}
-                                  className="text-xs font-bold text-red-600 hover:underline"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void saveProductEdits(p)}
+                                className="ui-btn-primary w-full !rounded-xl !py-3 !text-xs sm:flex-1"
+                              >
+                                Save changes
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void deleteProduct(p.id)}
+                                className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-black text-red-700 hover:bg-red-100 sm:w-auto"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                </details>
               ))}
             </div>
           </div>
