@@ -12,11 +12,16 @@ export async function OPTIONS() {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const rawKey = (searchParams.get("mainKey") ?? "grocery").trim();
+  const normalized = rawKey.toLowerCase();
   const mainKey =
-    rawKey === "food" ? "food-beverages" : rawKey === "fruits-veg" ? "fruits-vegetables" : rawKey;
+    normalized === "food"
+      ? "food-beverages"
+      : normalized === "fruits-veg"
+        ? "fruits-vegetables"
+        : rawKey;
 
   const main = await prisma.masterMainCategory.findFirst({
-    where: { key: mainKey },
+    where: { key: mainKey.trim().toLowerCase() },
     select: { id: true, key: true, name: true },
   });
   if (!main) {

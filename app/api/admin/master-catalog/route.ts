@@ -114,13 +114,14 @@ export async function POST(request: Request) {
 
     if (body.type === "main") {
       if (!body.key) return jsonError("key required for main category");
+      const key = body.key.trim().toLowerCase().replace(/\s+/g, "-");
       const existing = await prisma.masterMainCategory.findFirst({
-        where: { key: body.key },
+        where: { key },
       });
       if (existing) return jsonError("Main category key already exists");
       const created = await prisma.masterMainCategory.create({
         data: {
-          key: body.key,
+          key,
           name: body.name,
           sortOrder: 999,
         },
