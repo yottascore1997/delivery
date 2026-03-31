@@ -27,7 +27,11 @@ export async function POST(request: Request) {
     const user = await prisma.user.upsert({
       where: { phone },
       create: { phone, name: body.name, role: body.role },
-      update: { name: body.name },
+      update: {
+        name: body.name,
+        // Partner registration: promote to store owner (never demote via this route).
+        ...(body.role === UserRole.STORE_OWNER ? { role: UserRole.STORE_OWNER } : {}),
+      },
     });
 
     await issueOtp(phone, user.id);

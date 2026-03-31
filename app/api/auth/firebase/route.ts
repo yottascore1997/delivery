@@ -8,7 +8,6 @@ import { UserRole } from "@prisma/client";
 const bodySchema = z.object({
   idToken: z.string().min(20),
   name: z.string().min(1).max(120).optional(),
-  role: z.nativeEnum(UserRole).default(UserRole.CUSTOMER),
 });
 
 export async function OPTIONS() {
@@ -17,20 +16,16 @@ export async function OPTIONS() {
 
 /**
  * Exchange Firebase ID token (Phone Auth) for app JWT.
- * Intended for CUSTOMER login/register.
+ * Preserves existing DB role (store / admin / delivery / customer). New phone → CUSTOMER.
  */
 export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await request.json());
-    if (body.role !== UserRole.CUSTOMER) {
-      return jsonError("Only customer login supported via Firebase OTP", 403);
-    }
 
     const decoded = await verifyFirebaseIdToken(body.idToken);
     const phone = (decoded.phone_number || "").trim();
     if (!phone) return jsonError("Firebase token missing phone number", 400);
 
-    // Normalize to last 10 digits (common for Indian numbers) to match existing DB format.
     const normalized = phone.replace(/\D/g, "");
     const phone10 = normalized.length >= 10 ? normalized.slice(-10) : normalized;
 
@@ -38,22 +33,29 @@ export async function POST(request: Request) {
 
     const existing = await prisma.user.findUnique({
       where: { phone: phone10 },
-      select: { id: true, name: true },
     });
 
-    const user = await prisma.user.upsert({
-      where: { phone: phone10 },
-      create: {
-        phone: phone10,
-        name: body.name?.trim() || "Customer",
-        role: UserRole.CUSTOMER,
-      },
-      update: {
-        name: body.name?.trim() || undefined,
-      },
-    });
+    let user;
+    if (!existing) {
+      user = await prisma.user.create({
+        data: {
+          phone: phone10,
+          name: body.name?.trim() || "Customer",
+          role: UserRole.CUSTOMER,
+        },
+      });
+    } else {
+      user = await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          ...(body.name?.trim() ? { name: body.name.trim() } : {}),
+        },
+      });
+    }
 
-    const needsProfile = !existing || user.name.trim() === "Customer";
+    const needsProfile =
+      user.role === UserRole.CUSTOMER &&
+      (!existing || user.name.trim() === "Customer");
 
     const token = signToken(user);
     return jsonOk({
@@ -69,7 +71,6 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     if (e instanceof z.ZodError) return jsonError(e.issues[0]?.message ?? "Invalid input");
-    // Show actual error (e.g. missing FIREBASE_SERVICE_ACCOUNT_JSON) to ease setup.
     if (e instanceof Error) {
       const msg = e.message || "Firebase auth failed";
       const status =
@@ -82,4 +83,3 @@ export async function POST(request: Request) {
     return jsonError("Invalid request");
   }
 }
-
