@@ -24,31 +24,8 @@ export async function GET(request: Request) {
     return jsonError("lat and lng required");
   }
 
-  /** Grocery browse: store type OR a product category literally named Grocery (owner flow). */
-  /** Food browse: include grocery outlets too (same as category-quick — many use grocery + food master catalog). */
-  const where =
-    vertical === "grocery"
-      ? {
-          status: "APPROVED" as const,
-          OR: [
-            { shopVertical: "grocery" },
-            {
-              categories: {
-                some: {
-                  name: "Grocery",
-                },
-              },
-            },
-          ],
-        }
-      : vertical === "food"
-        ? {
-            status: "APPROVED" as const,
-            shopVertical: { in: ["food", "grocery"] },
-          }
-        : vertical
-          ? { status: "APPROVED" as const, shopVertical: vertical }
-          : { status: "APPROVED" as const };
+  // Don't restrict by store.shopVertical for small-area deployments.
+  const where = { status: "APPROVED" as const };
 
   const stores = await prisma.store.findMany({
     where,

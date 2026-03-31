@@ -75,31 +75,9 @@ export async function GET(request: Request) {
     subMc = { id: mc.id, name: mc.name };
   }
 
-  /**
-   * Food master catalog (e.g. North Indian) is often sold from stores still tagged `grocery`.
-   * Include both so /shop/category/food/sub/... is not empty when only grocery outlets exist nearby.
-   */
-  const where =
-    vertical === "grocery"
-      ? {
-          status: "APPROVED" as const,
-          OR: [
-            { shopVertical: "grocery" },
-            {
-              categories: {
-                some: {
-                  name: "Grocery",
-                },
-              },
-            },
-          ],
-        }
-      : vertical === "food"
-        ? {
-            status: "APPROVED" as const,
-            shopVertical: { in: ["food", "grocery"] },
-          }
-        : { status: "APPROVED" as const, shopVertical: vertical };
+  // Don't restrict stores by shopVertical here. Many stores use a single vertical but still
+  // sell items across categories (and you requested to remove "nearby"/strict gating).
+  const where = { status: "APPROVED" as const };
 
   const stores = await prisma.store.findMany({
     where,
