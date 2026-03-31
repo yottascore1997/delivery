@@ -20,10 +20,17 @@ export async function GET(request: Request) {
         ? "fruits-vegetables"
         : rawKey;
 
-  const main = await prisma.masterMainCategory.findFirst({
-    where: { key: mainKey.trim().toLowerCase() },
+  // Be tolerant: match by key OR name (case-insensitive) without relying on Prisma `mode`.
+  const mains = await prisma.masterMainCategory.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     select: { id: true, key: true, name: true },
   });
+  const pick = mains.find((m) => m.key.trim().toLowerCase() === mainKey.trim().toLowerCase())
+    ?? mains.find((m) => m.name.trim().toLowerCase() === mainKey.trim().toLowerCase())
+    ?? mains.find((m) => m.key.trim().toLowerCase() === normalized)
+    ?? mains.find((m) => m.name.trim().toLowerCase() === normalized);
+
+  const main = pick ?? null;
   if (!main) {
     return jsonOk({ mainKey, categories: [] });
   }

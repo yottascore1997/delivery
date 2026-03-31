@@ -1772,6 +1772,11 @@ export default function StorePanelPage() {
                         </option>
                       ))}
                     </select>
+                    {addMasterCatalog && addMasterCatalog.categories.length === 0 ? (
+                      <p className="mt-1 text-xs font-semibold text-rose-600">
+                        No subcategories found in Admin master catalog for this master category.
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 <div>
