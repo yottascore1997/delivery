@@ -4,10 +4,10 @@
  */
 export function getAppName(): string {
   const v = process.env.NEXT_PUBLIC_APP_NAME?.trim();
-  if (!v || v.length === 0) return "QuickDrop";
+  if (!v || v.length === 0) return "Speedza";
   // Avoid showing placeholder branding like "Demo" in customer header.
   const cleaned = v.replace(/\bdemo\b/gi, "").replace(/\s{2,}/g, " ").trim();
-  return cleaned.length > 0 ? cleaned : "QuickDrop";
+  return cleaned.length > 0 ? cleaned : "Speedza";
 }
 
 export function getAppTagline(): string {
@@ -18,6 +18,16 @@ export function getAppTagline(): string {
 export function getAppMarkInitial(): string {
   const name = getAppName();
   const ch = name.codePointAt(0);
-  if (ch === undefined) return "Q";
+  if (ch === undefined) return "S";
   return String.fromCodePoint(ch).toUpperCase();
+}
+
+/**
+ * Public logo URL (served from `public/` or CDN).
+ * Default expects: `delivery-web/public/speedzalogo.png` (or .svg/.webp).
+ */
+export function getAppLogoUrl(): string | null {
+  const v = process.env.NEXT_PUBLIC_APP_LOGO_URL?.trim();
+  if (v && v.length > 0) return v;
+  return "/speedzalogo.png";
 }

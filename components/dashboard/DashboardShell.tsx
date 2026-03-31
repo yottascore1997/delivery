@@ -54,6 +54,7 @@ export function DashboardShell({
 
   const primaryTitle = headerTitle ?? user?.name ?? "—";
   const [langOpen, setLangOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const langWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,9 +66,37 @@ export function DashboardShell({
     return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, []);
 
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileNavOpen]);
+
+  function handleNav(id: string) {
+    onNav(id);
+    setMobileNavOpen(false);
+  }
+
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-violet-100/40 via-[#f0eef8] to-stone-100">
-      <aside className="fixed left-0 top-0 z-50 flex h-screen w-[268px] flex-col border-r border-violet-950/30 bg-gradient-to-b from-[#1a1428] via-[#151020] to-[#0c0a12] text-zinc-100 shadow-2xl shadow-violet-950/40">
+      {/* Mobile drawer backdrop */}
+      {mobileNavOpen ? (
+        <button
+          type="button"
+          aria-label="Close menu"
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      ) : null}
+
+      <aside
+        className={`fixed left-0 top-0 z-50 flex h-screen w-[min(18rem,88vw)] max-w-[268px] flex-col border-r border-violet-950/30 bg-gradient-to-b from-[#1a1428] via-[#151020] to-[#0c0a12] text-zinc-100 shadow-2xl shadow-violet-950/40 transition-transform duration-200 ease-out md:translate-x-0 ${
+          mobileNavOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
         <div className="border-b border-white/10 px-5 py-6">
           <Link href="/" className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 via-fuchsia-600 to-indigo-700 text-sm font-black text-white shadow-lg shadow-violet-900/40">
@@ -89,7 +118,7 @@ export function DashboardShell({
               <button
                 key={item.id}
                 type="button"
-                onClick={() => onNav(item.id)}
+                onClick={() => handleNav(item.id)}
                 className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
                   active
                     ? "bg-white/[0.12] text-white shadow-inner ring-1 ring-white/10"
@@ -132,8 +161,20 @@ export function DashboardShell({
         </div>
       </aside>
 
-      <div className="flex min-h-screen flex-1 flex-col pl-[268px]">
-        <header className="sticky top-0 z-40 flex min-h-[60px] flex-wrap items-center justify-between gap-3 border-b border-violet-200/60 bg-white/90 px-4 py-2 backdrop-blur-md sm:gap-4 sm:px-6 sm:py-0">
+      <div className="flex min-h-screen flex-1 flex-col pl-0 md:pl-[268px]">
+        <header className="sticky top-0 z-40 flex min-h-[56px] flex-wrap items-center justify-between gap-2 border-b border-violet-200/60 bg-white/90 px-3 py-2 backdrop-blur-md sm:min-h-[60px] sm:gap-4 sm:px-6 sm:py-0">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              className="md:hidden flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-200/80 bg-violet-50/90 text-violet-900 shadow-sm transition hover:bg-violet-100"
+              aria-expanded={mobileNavOpen}
+              aria-label="Open menu"
+              onClick={() => setMobileNavOpen((o) => !o)}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
               {breadcrumb}
@@ -144,6 +185,7 @@ export function DashboardShell({
             {headerSubtitle ? (
               <p className="truncate text-xs text-zinc-500">{headerSubtitle}</p>
             ) : null}
+          </div>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <div className="relative" ref={langWrapRef}>
@@ -214,9 +256,11 @@ export function DashboardShell({
               <button
                 type="button"
                 onClick={onRefresh}
-                className="hidden rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 sm:inline"
+                className="rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[10px] font-bold text-zinc-700 hover:bg-zinc-100 sm:inline sm:px-3 sm:py-2 sm:text-xs sm:font-semibold"
+                title={t("refresh")}
               >
-                {t("refresh")}
+                <span className="sm:hidden">↻</span>
+                <span className="hidden sm:inline">{t("refresh")}</span>
               </button>
             )}
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-700 text-xs font-bold text-white shadow-md shadow-violet-500/25">
@@ -225,7 +269,7 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 overflow-x-hidden p-4 pb-24 sm:p-6 md:pb-6">{children}</main>
       </div>
     </div>
   );

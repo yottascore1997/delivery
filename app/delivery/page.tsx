@@ -83,7 +83,7 @@ export default function DeliveryPage() {
       ]}
     >
       {earn && (
-        <section className="mb-8 grid gap-4 sm:grid-cols-3">
+        <section className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
           <div className="ui-card bg-gradient-to-br from-rush-500 to-rush-600 text-white">
             <p className="text-xs font-bold uppercase tracking-wide text-white/80">
               Completed drops
@@ -127,17 +127,17 @@ export default function DeliveryPage() {
                 key={r.id}
                 className="overflow-hidden rounded-3xl border border-stone-100 bg-white shadow-card"
               >
-                <div className="border-b border-stone-100 bg-gradient-to-r from-stone-50 to-white px-5 py-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="font-display text-lg font-bold text-ink">
+                <div className="border-b border-stone-100 bg-gradient-to-r from-stone-50 to-white px-4 py-4 sm:px-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-display text-base font-bold leading-snug text-ink break-words sm:text-lg">
                         {r.order.store.name}
                       </p>
-                      <p className="mt-1 max-w-xl text-sm text-stone-600">
+                      <p className="mt-1 max-w-xl text-sm text-stone-600 break-words">
                         {r.order.store.address}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="shrink-0 text-left sm:text-right">
                       <p className="font-display text-xl font-black text-fresh-600">
                         ₹{r.order.totalAmount}
                       </p>
@@ -170,8 +170,8 @@ export default function DeliveryPage() {
                   </div>
                 </div>
 
-                <div className="px-5 py-4">
-                  <div className="flex flex-wrap gap-2">
+                <div className="px-4 py-4 sm:px-5">
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     {steps.map((st, i) => {
                       const done = i <= idx;
                       const current = i === idx;

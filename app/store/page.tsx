@@ -791,8 +791,8 @@ export default function StorePanelPage() {
         ]}
         bottomLinks={[]}
       >
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <div className="min-w-0">
+      <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-bold uppercase tracking-wide text-zinc-400">
             {t("storeOutlet")}
           </p>
@@ -809,7 +809,7 @@ export default function StorePanelPage() {
           <p className="mt-2 max-w-xl text-sm text-zinc-500">{t("storeTagline")}</p>
         </div>
         <select
-          className="ui-input max-w-xs shrink-0"
+          className="ui-input w-full min-w-0 shrink-0 sm:max-w-xs"
           value={storeId}
           onChange={(e) => setStoreId(e.target.value)}
           disabled={stores.length === 0}
@@ -1612,8 +1612,8 @@ export default function StorePanelPage() {
                     Category select karo, price bhar do, products auto-add ho jayenge. Remove ke liye status toggle use karo.
                   </p>
                 </div>
-                <div className="flex flex-wrap items-end justify-end gap-2 min-w-[420px]">
-                  <div className="w-[200px]">
+                <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-end sm:gap-2">
+                  <div className="w-full min-w-0 sm:w-[200px]">
                     <label className="ui-label">Master category</label>
                     <select
                       className="ui-input"
@@ -1629,7 +1629,7 @@ export default function StorePanelPage() {
                       <option value="fruits-vegetables">Fruits &amp; Vegetables</option>
                     </select>
                   </div>
-                  <div className="w-[200px]">
+                  <div className="w-full min-w-0 sm:w-[200px]">
                     <label className="ui-label">Subcategory</label>
                     <select
                       className="ui-input"

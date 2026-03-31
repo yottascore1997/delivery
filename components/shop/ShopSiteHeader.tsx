@@ -4,7 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { getAppMarkInitial, getAppName, getAppTagline } from "@/lib/app-brand";
+import {
+  getAppLogoUrl,
+  getAppMarkInitial,
+  getAppName,
+  getAppTagline,
+} from "@/lib/app-brand";
 import { getShopCart } from "@/lib/shop-cart";
 import { api, clearSession, getToken, getUser } from "@/lib/client-api";
 import { DELIVERY_ADDRESS_UPDATED_EVENT } from "@/lib/shop-delivery-address";
@@ -110,6 +115,7 @@ export function ShopSiteHeader() {
   const appName = getAppName();
   const mark = getAppMarkInitial();
   const tagline = getAppTagline();
+  const logoUrl = getAppLogoUrl();
 
   useEffect(() => {
     function sync() {
@@ -375,8 +381,19 @@ export function ShopSiteHeader() {
               For business
             </Link>
             <Link href="/shop" className="flex min-w-0 items-center gap-2.5">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#e23744] via-[#ef4444] to-[#ff5200] text-base font-black text-white shadow-lg ring-2 ring-white/30">
-                {mark}
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/10 shadow-lg ring-2 ring-white/20">
+                {logoUrl ? (
+                  <Image
+                    src={logoUrl}
+                    alt={appName}
+                    width={40}
+                    height={40}
+                    className="h-full w-full object-contain"
+                    unoptimized
+                  />
+                ) : (
+                  <span className="text-base font-black text-white">{mark}</span>
+                )}
               </span>
               <div className="min-w-0 leading-tight">
                 <p className="font-display truncate text-base font-black tracking-tight text-white">

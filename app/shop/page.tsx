@@ -30,7 +30,7 @@ type StoreItem = {
 const HERO_SLIDES = [
   {
     id: "grocery",
-    eyebrow: "QuickDrop",
+    eyebrow: "Speedza",
     title: "Grocery specials,\nfresh arrivals every hour",
     subtitle:
       "Top pantry picks, value combos and superfast doorstep delivery.",

@@ -17,7 +17,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "DLF Delivery — Groceries in minutes",
+  title: "Speedza — Groceries in minutes",
   description: "Hyperlocal delivery — stores, orders & riders. Fast like Blinkit, trusted like Swiggy.",
 };
 

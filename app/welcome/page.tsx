@@ -1,17 +1,30 @@
 import Link from "next/link";
-import { getAppMarkInitial, getAppName } from "@/lib/app-brand";
+import { getAppLogoUrl, getAppMarkInitial, getAppName } from "@/lib/app-brand";
+import Image from "next/image";
 
 /** Marketing / partners landing (root ab /shop redirect karta hai) */
 export default function WelcomePage() {
   const appName = getAppName();
   const mark = getAppMarkInitial();
+  const logoUrl = getAppLogoUrl();
   return (
     <div className="min-h-screen bg-stone-50">
       <header className="fixed inset-x-0 top-0 z-50 border-b border-stone-200/60 bg-white/75 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/shop" className="flex items-center gap-2">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-cta text-base font-black text-white shadow-lg shadow-fresh-600/25">
-              {mark}
+            <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-gradient-cta text-base font-black text-white shadow-lg shadow-fresh-600/25">
+              {logoUrl ? (
+                <Image
+                  src={logoUrl}
+                  alt={appName}
+                  width={40}
+                  height={40}
+                  className="h-full w-full object-contain"
+                  unoptimized
+                />
+              ) : (
+                mark
+              )}
             </span>
             <div className="leading-tight">
               <span className="font-display text-lg font-bold text-ink">{appName}</span>
