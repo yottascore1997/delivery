@@ -182,6 +182,11 @@ export default function StorePanelPage() {
   const [addSubCatId, setAddSubCatId] = useState<string>("");
 
   const [msg, setMsg] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    type: "error" | "success" | "info";
+    message: string;
+  } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { t } = useLocale();
 
@@ -205,6 +210,18 @@ export default function StorePanelPage() {
       window.setTimeout(() => setMsg(null), 1600);
     }
   }
+
+  function pushToast(type: "error" | "success" | "info", message: string) {
+    setToast({ type, message });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
 
   async function loadStores() {
     const res = await api<{ stores: StoreRow[] }>("/api/stores/mine");
@@ -559,7 +576,9 @@ export default function StorePanelPage() {
         ...(commissionPercent !== undefined ? { commissionPercent } : {}),
       }),
     });
-    setMsg(res.ok ? "Product live ✓" : res.error || "Error");
+    const addMsg = res.ok ? "Product added ✓" : res.error || "Could not add product";
+    setMsg(addMsg);
+    pushToast(res.ok ? "success" : "error", addMsg);
     setPName("");
     setPMrp("");
     setPPrice("");
@@ -1085,11 +1104,33 @@ export default function StorePanelPage() {
         </select>
       </div>
 
+      {toast ? (
+        <div
+          role="status"
+          className={`fixed right-4 top-[calc(var(--store-header-sticky,0px)+0.75rem)] z-[220] max-w-sm rounded-xl border px-4 py-3 text-sm font-semibold shadow-xl ${
+            toast.type === "error"
+              ? "border-rose-200 bg-rose-50 text-rose-900"
+              : toast.type === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : "border-violet-200 bg-violet-50 text-violet-900"
+          }`}
+        >
+          {toast.message}
+        </div>
+      ) : null}
+
       {msg && (
         <div className="mb-6 rounded-2xl border border-violet-300/50 bg-violet-50 px-4 py-3 text-sm font-medium text-violet-950">
           {msg}
         </div>
       )}
+
+      {currentStore && currentStore.status !== "APPROVED" ? (
+        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950">
+          Store status is <span className="font-black">{currentStore.status}</span>. Shop catalog me
+          products tab tak dikhेंगे jab store approve (APPROVED) ho jayega.
+        </div>
+      ) : null}
 
       {/* PULSE TAB */}
       {tab === "pulse" && (
