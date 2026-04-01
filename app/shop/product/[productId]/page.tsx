@@ -20,6 +20,8 @@ type ProductDetail = {
   name: string;
   description: string;
   price: number;
+  mrp?: number | null;
+  discountPercent?: number | null;
   stock: number;
   imageUrl?: string | null;
   unitLabel?: string | null;
