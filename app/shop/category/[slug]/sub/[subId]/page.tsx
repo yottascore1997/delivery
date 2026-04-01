@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { isShopVerticalSlug } from "@/lib/shop-verticals";
+import { resolveShopCategoryContext } from "@/lib/shop-category-context";
 import { ShopCategoryProductsClient } from "../../ShopCategoryProductsClient";
 
 function ProductsFallback() {
@@ -16,18 +16,25 @@ function ProductsFallback() {
   );
 }
 
-export default function ShopCategorySubProductsPage({
+export default async function ShopCategorySubProductsPage({
   params,
 }: {
   params: { slug: string; subId: string };
 }) {
-  if (!isShopVerticalSlug(params.slug)) notFound();
+  const ctx = await resolveShopCategoryContext(params.slug);
+  if (!ctx) notFound();
+
   const subId = params.subId.trim();
   if (!subId || subId.length > 80) notFound();
 
   return (
     <Suspense fallback={<ProductsFallback />}>
-      <ShopCategoryProductsClient slug={params.slug} masterCategoryId={subId} />
+      <ShopCategoryProductsClient
+        routeSlug={ctx.routeSlug}
+        catalogMainKey={ctx.catalogMainKey}
+        categoryTitle={ctx.title}
+        masterCategoryId={subId}
+      />
     </Suspense>
   );
 }

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import type { ShopVerticalSlug } from "@/lib/shop-verticals";
+import { isShopVerticalSlug, type ShopVerticalSlug } from "@/lib/shop-verticals";
 
 export type CategoryPromoSlide = {
   id: string;
@@ -260,8 +260,9 @@ function PromoCard({ slide }: { slide: CategoryPromoSlide }) {
   return body;
 }
 
-export function ShopCategoryPromoCarousel({ slug }: { slug: ShopVerticalSlug }) {
-  const slides = PROMOS_BY_VERTICAL[slug];
+export function ShopCategoryPromoCarousel({ slug }: { slug: string }) {
+  const v: ShopVerticalSlug = isShopVerticalSlug(slug) ? slug : "grocery";
+  const slides = PROMOS_BY_VERTICAL[v];
 
   return (
     <section aria-label="Promotions" className="mb-4">

@@ -13,20 +13,33 @@ import {
 import { getShopCart } from "@/lib/shop-cart";
 import { api, clearSession, getToken, getUser } from "@/lib/client-api";
 import { DELIVERY_ADDRESS_UPDATED_EVENT } from "@/lib/shop-delivery-address";
-import { isShopVerticalSlug } from "@/lib/shop-verticals";
+import { shopCategoryPathKeyFromMainKey } from "@/lib/shop-category-path";
 
-const MOBILE_SERVICE_TABS = [
-  { slug: null as string | null, label: "Shop", href: "/shop", icon: "🏠" },
-  { slug: "grocery", label: "Grocery", href: "/shop/category/grocery", icon: "🛒" },
-  { slug: "fruits-vegetables", label: "Fruits", href: "/shop/category/fruits-vegetables", icon: "🥬" },
-  { slug: "food", label: "Food", href: "/shop/category/food", icon: "🍔" },
-  { slug: "electronics", label: "Tech", href: "/shop/category/electronics", icon: "📱" },
-] as const;
-
-function mobileActiveCategorySlug(pathname: string): string | null {
+function mobileCategoryPathSegment(pathname: string): string | null {
   const m = /^\/shop\/category\/([^/]+)/.exec(pathname);
-  if (m?.[1] && isShopVerticalSlug(m[1])) return m[1];
-  return null;
+  if (!m?.[1]) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return m[1];
+  }
+}
+
+const ICON_BY_PATH: Record<string, string> = {
+  grocery: "🛒",
+  "fruits-vegetables": "🥬",
+  food: "🍔",
+  electronics: "📱",
+};
+
+function iconForMainTab(key: string, pathKey: string, index: number): string {
+  const p = pathKey.toLowerCase();
+  const k = key.trim().toLowerCase();
+  return (
+    ICON_BY_PATH[p] ??
+    ICON_BY_PATH[k] ??
+    ["🛍️", "🏬", "⭐", "🏷️", "📦"][index % 5]
+  );
 }
 
 /** Mobile header 3-band colors by category (Shop / other pages = default green). Inline styles so Tailwind JIT always applies. */
@@ -95,10 +108,19 @@ const MOBILE_HEADER_THEMES: Record<
   },
 };
 
-function mobileHeaderThemeKey(slug: string | null): keyof typeof MOBILE_HEADER_THEMES {
-  if (slug === "grocery" || slug === "fruits-vegetables" || slug === "food" || slug === "electronics") {
-    return slug;
+function mobileHeaderThemeKey(pathSegment: string | null): keyof typeof MOBILE_HEADER_THEMES {
+  if (!pathSegment) return "default";
+  const s = pathSegment.toLowerCase();
+  if (s === "grocery") return "grocery";
+  if (s === "fruits-vegetables") return "fruits-vegetables";
+  if (s === "food") return "food";
+  if (s === "electronics") return "electronics";
+  if (s.includes("groc") || s.includes("kirana") || s.includes("supermarket")) return "grocery";
+  if (s.includes("fruit") || s.includes("vegetable") || s.includes("veg")) return "fruits-vegetables";
+  if (s.includes("food") || s.includes("meal") || s.includes("restaurant") || s.includes("beverage")) {
+    return "food";
   }
+  if (s.includes("electron") || s.includes("tech") || s.includes("mobile")) return "electronics";
   return "default";
 }
 
@@ -113,6 +135,9 @@ export function ShopSiteHeader() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   /** Avoid getToken() during SSR/first paint — it differs from client and causes hydration mismatches. */
   const [addressUiReady, setAddressUiReady] = useState(false);
+  const [mobileMainTabs, setMobileMainTabs] = useState<{ id: string; key: string; name: string }[]>(
+    [],
+  );
 
   const appName = getAppName();
   const mark = getAppMarkInitial();
@@ -137,6 +162,15 @@ export function ShopSiteHeader() {
 
   useEffect(() => {
     setAddressUiReady(true);
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await api<{ mains: { id: string; key: string; name: string }[] }>(
+        "/api/master/mains",
+      );
+      if (res.ok && res.data?.mains) setMobileMainTabs(res.data.mains);
+    })();
   }, []);
 
   useEffect(() => {
@@ -205,11 +239,32 @@ export function ShopSiteHeader() {
       .toUpperCase();
   }, [label]);
 
-  const mobileTabActive = mobileActiveCategorySlug(pathname);
+  const mobileCategorySeg = mobileCategoryPathSegment(pathname);
   const mh = useMemo(
-    () => MOBILE_HEADER_THEMES[mobileHeaderThemeKey(mobileTabActive)],
-    [mobileTabActive],
+    () => MOBILE_HEADER_THEMES[mobileHeaderThemeKey(mobileCategorySeg)],
+    [mobileCategorySeg],
   );
+
+  const mobileServiceTabs = useMemo(() => {
+    const shop = {
+      id: "tab-shop",
+      pathKey: null as string | null,
+      label: "Shop",
+      href: "/shop",
+      icon: "🏠" as const,
+    };
+    const fromDb = mobileMainTabs.map((m, i) => {
+      const pathKey = shopCategoryPathKeyFromMainKey(m.key);
+      return {
+        id: m.id,
+        pathKey,
+        label: m.name,
+        href: `/shop/category/${encodeURIComponent(pathKey)}`,
+        icon: iconForMainTab(m.key, pathKey, i),
+      };
+    });
+    return [shop, ...fromDb];
+  }, [mobileMainTabs]);
 
   function submitSearch(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -327,12 +382,15 @@ export function ShopSiteHeader() {
             {/* Row 2 — service tabs */}
             <div className="relative px-2 pt-2" style={{ backgroundColor: mh.row2Bg }}>
               <div className="scrollbar-hide flex gap-1 overflow-x-auto pb-0">
-                {MOBILE_SERVICE_TABS.map((tab) => {
+                {mobileServiceTabs.map((tab) => {
                   const isActive =
-                    tab.slug === null ? pathname === "/shop" : mobileTabActive === tab.slug;
+                    tab.pathKey === null
+                      ? pathname === "/shop" || pathname === "/shop/"
+                      : mobileCategorySeg != null &&
+                        tab.pathKey.toLowerCase() === mobileCategorySeg.toLowerCase();
                   return (
                     <Link
-                      key={tab.href}
+                      key={tab.id}
                       href={tab.href}
                       className={`relative flex min-w-[4.25rem] shrink-0 flex-col items-center rounded-t-2xl px-2 pb-2 pt-1.5 transition ${
                         isActive

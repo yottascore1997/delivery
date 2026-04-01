@@ -2,41 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { api, getToken } from "@/lib/client-api";
-import { verticalToCatalogMainKey } from "@/lib/shop-catalog-main-key";
-import type { ShopVerticalSlug } from "@/lib/shop-verticals";
-import { SHOP_VERTICAL_LABELS } from "@/lib/shop-verticals";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/client-api";
 import { ShopCategoryPromoCarousel } from "@/components/shop/ShopCategoryPromoCarousel";
 import { ShopCategoryMobileBrandBanner } from "@/components/shop/ShopCategoryMobileBrandBanner";
-import {
-  MoodChipThumb,
-  WhatsOnYourMindLayout,
-} from "@/components/shop/WhatsOnYourMindLayout";
 import { FoodTopStoresSection } from "@/components/shop/FoodTopStoresSection";
 import { FoodHubPromoBanner } from "@/components/shop/FoodHubPromoBanner";
-import { DELIVERY_ADDRESS_UPDATED_EVENT } from "@/lib/shop-delivery-address";
-
-const FOOD_SUB_SPLIT = 6;
-const DEFAULT_LAT = 28.4595;
-const DEFAULT_LNG = 77.0266;
-
-type QuickProduct = {
-  id: string;
-  name: string;
-  price: number;
-  imageUrl?: string | null;
-  unitLabel?: string | null;
-  store: {
-    id: string;
-    name: string;
-    distanceKm: number;
-    openingHours?: {
-      enabled: boolean;
-      isOpenNow: boolean;
-    };
-  };
-};
 
 type CatalogCategory = {
   id: string;
@@ -57,10 +28,10 @@ function firstPreviewImage(c: CatalogCategory): string | null {
 }
 
 function SubcategoryGrid({
-  slug,
+  routeSlug,
   categories,
 }: {
-  slug: ShopVerticalSlug;
+  routeSlug: string;
   categories: CatalogCategory[];
 }) {
   return (
@@ -70,7 +41,7 @@ function SubcategoryGrid({
         return (
           <Link
             key={c.id}
-            href={`/shop/category/${slug}/sub/${c.id}?subname=${encodeURIComponent(c.name)}`}
+            href={`/shop/category/${encodeURIComponent(routeSlug)}/sub/${c.id}?subname=${encodeURIComponent(c.name)}`}
             className="group flex flex-col items-center rounded-xl p-1 transition active:scale-[0.98]"
           >
             <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-sky-100 shadow-md ring-1 ring-sky-200/80 transition group-hover:ring-sky-300">
@@ -98,74 +69,34 @@ function SubcategoryGrid({
   );
 }
 
-export function ShopCategoryHubClient({ slug }: { slug: ShopVerticalSlug }) {
-  const label = SHOP_VERTICAL_LABELS[slug];
-  const mainKey = verticalToCatalogMainKey(slug);
-  const isFood = slug === "food";
+export function ShopCategoryHubClient({
+  routeSlug,
+  catalogMainKey,
+  title,
+}: {
+  routeSlug: string;
+  catalogMainKey: string;
+  title: string;
+}) {
+  const isFood = routeSlug === "food" || catalogMainKey === "food-beverages";
   const [data, setData] = useState<CatalogRes | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [mindProducts, setMindProducts] = useState<QuickProduct[]>([]);
-  const [mindLoading, setMindLoading] = useState(false);
-  const [mindErr, setMindErr] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
       setLoading(true);
       setErr(null);
-      const res = await api<CatalogRes>(`/api/master/catalog?mainKey=${encodeURIComponent(mainKey)}`);
+      const res = await api<CatalogRes>(
+        `/api/master/catalog?mainKey=${encodeURIComponent(catalogMainKey)}`,
+      );
       setLoading(false);
       if (res.ok && res.data) setData(res.data);
       else setErr(res.error || "Could not load categories");
     })();
-  }, [mainKey]);
-
-  const loadMindProducts = useCallback(async () => {
-    setMindLoading(true);
-    setMindErr(null);
-    let la = DEFAULT_LAT;
-    let ln = DEFAULT_LNG;
-    if (getToken()) {
-      const addr = await api<{ address: { latitude: number; longitude: number } | null }>(
-        "/api/user/address",
-      );
-      if (addr.ok && addr.data?.address) {
-        la = addr.data.address.latitude;
-        ln = addr.data.address.longitude;
-      }
-    }
-    const q = new URLSearchParams({
-      vertical: "food",
-      lat: String(la),
-      lng: String(ln),
-      radiusKm: "60",
-      limit: "14",
-    });
-    const res = await api<{ products: QuickProduct[] }>(
-      `/api/shop/category-quick?${q.toString()}`,
-    );
-    setMindLoading(false);
-    if (res.ok && res.data) setMindProducts(res.data.products);
-    else {
-      setMindProducts([]);
-      setMindErr(res.error || "Could not load picks");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isFood) return;
-    void loadMindProducts();
-    function onAddrUpdated() {
-      void loadMindProducts();
-    }
-    window.addEventListener(DELIVERY_ADDRESS_UPDATED_EVENT, onAddrUpdated);
-    return () =>
-      window.removeEventListener(DELIVERY_ADDRESS_UPDATED_EVENT, onAddrUpdated);
-  }, [isFood, loadMindProducts]);
+  }, [catalogMainKey]);
 
   const categories = data?.categories ?? [];
-  const firstChunk = isFood ? categories.slice(0, FOOD_SUB_SPLIT) : categories;
-  const restChunk = isFood ? categories.slice(FOOD_SUB_SPLIT) : [];
 
   return (
     <div>
@@ -178,7 +109,7 @@ export function ShopCategoryHubClient({ slug }: { slug: ShopVerticalSlug }) {
             >
               ← Back
             </Link>
-            <h1 className="truncate text-base font-black text-slate-900 sm:text-lg">{label}</h1>
+            <h1 className="truncate text-base font-black text-slate-900 sm:text-lg">{title}</h1>
           </div>
         </div>
         <p className="mt-1 px-0.5 text-[11px] font-semibold text-slate-500">
@@ -186,7 +117,7 @@ export function ShopCategoryHubClient({ slug }: { slug: ShopVerticalSlug }) {
         </p>
       </div>
 
-      <ShopCategoryPromoCarousel slug={slug} />
+      <ShopCategoryPromoCarousel slug={routeSlug} />
 
       {err && (
         <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-900">
@@ -196,7 +127,7 @@ export function ShopCategoryHubClient({ slug }: { slug: ShopVerticalSlug }) {
 
       <section aria-labelledby="subcat-heading" className="mb-8">
         <h2 id="subcat-heading" className="mb-3 text-sm font-black text-slate-900 sm:text-base">
-          {data?.mainCategory?.name ?? label}
+          {data?.mainCategory?.name ?? title}
         </h2>
 
         {loading ? (
@@ -208,64 +139,8 @@ export function ShopCategoryHubClient({ slug }: { slug: ShopVerticalSlug }) {
               </div>
             ))}
           </div>
-        ) : isFood ? (
-          <div className="space-y-8">
-            {firstChunk.length > 0 ? (
-              <SubcategoryGrid slug={slug} categories={firstChunk} />
-            ) : null}
-
-            <WhatsOnYourMindLayout>
-              {mindLoading ? (
-                <div className="mt-6 grid grid-cols-5 gap-2.5 sm:gap-4">
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="flex flex-col items-center gap-2"
-                    >
-                      <div className="aspect-square w-full animate-pulse rounded-2xl bg-slate-200/90" />
-                      <div className="h-3 w-10 animate-pulse rounded bg-slate-200" />
-                    </div>
-                  ))}
-                </div>
-              ) : mindErr ? (
-                <p className="mt-6 text-sm font-medium text-rose-700">{mindErr}</p>
-              ) : mindProducts.length === 0 ? (
-                <p className="mt-6 text-sm font-medium text-slate-500">
-                  No items nearby yet — open a subcategory above.
-                </p>
-              ) : (
-                <div className="mt-6 grid grid-cols-5 gap-2.5 sm:gap-4">
-                  {mindProducts.slice(0, 10).map((p) => (
-                    <Link
-                      key={p.id}
-                      href={`/shop/product/${p.id}`}
-                      className="shop-mood-chip group flex w-full flex-col items-center gap-2"
-                    >
-                      <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/90 shadow-md ring-1 ring-black/10">
-                        <MoodChipThumb src={p.imageUrl} label={p.name} />
-                      </div>
-                      <span className="line-clamp-2 max-w-full text-center text-[11px] font-extrabold leading-tight text-slate-800 sm:text-sm">
-                        {p.name}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </WhatsOnYourMindLayout>
-
-            <FoodHubPromoBanner />
-
-            {restChunk.length > 0 ? (
-              <div>
-                <h3 className="mb-3 text-sm font-black text-slate-900 sm:text-base">
-                  More categories
-                </h3>
-                <SubcategoryGrid slug={slug} categories={restChunk} />
-              </div>
-            ) : null}
-          </div>
         ) : (
-          <SubcategoryGrid slug={slug} categories={categories} />
+          <SubcategoryGrid routeSlug={routeSlug} categories={categories} />
         )}
 
         {!loading && !err && (data?.categories?.length ?? 0) === 0 && (
@@ -275,7 +150,12 @@ export function ShopCategoryHubClient({ slug }: { slug: ShopVerticalSlug }) {
         )}
       </section>
 
-      {isFood ? <FoodTopStoresSection /> : null}
+      {isFood ? (
+        <div className="mb-8 space-y-8">
+          <FoodHubPromoBanner />
+          <FoodTopStoresSection />
+        </div>
+      ) : null}
 
       <ShopCategoryMobileBrandBanner />
     </div>

@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { distanceKm } from "@/lib/geo";
 import { dec } from "@/lib/serialize";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
-import { isShopVerticalSlug } from "@/lib/shop-verticals";
 import { effectiveProductUnitLabel } from "@/lib/product-unit";
 import { publicProductPricingFields } from "@/lib/product-pricing";
 import { storeOpeningHoursPublic } from "@/lib/store-opening-hours";
@@ -46,14 +45,14 @@ function categoryMatchesMasterSub(storeCategoryName: string, masterSubName: stri
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const vertical = searchParams.get("vertical");
+  const vertical = (searchParams.get("vertical") ?? "").trim();
   const lat = Number(searchParams.get("lat"));
   const lng = Number(searchParams.get("lng"));
   const radiusKm = Number(searchParams.get("radiusKm") ?? "25");
   const maxProducts = Math.min(Number(searchParams.get("limit") ?? "40"), 80);
   const masterCategoryIdRaw = (searchParams.get("masterCategoryId") ?? "").trim();
 
-  if (!vertical || !isShopVerticalSlug(vertical)) return jsonError("valid vertical required");
+  if (!vertical || vertical.length > 48) return jsonError("vertical required");
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return jsonError("lat and lng required");
 
   const allowedMainKeys = new Set(verticalMainKeys(vertical));

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyOtp } from "@/lib/otp";
 import { signToken } from "@/lib/auth";
@@ -9,6 +10,15 @@ const bodySchema = z.object({
   code: z.string().min(4).max(10),
 });
 
+/** Match login page / Firebase: DB stores last 10 digits. */
+function normalizePhone10(raw: string): string {
+  const d = raw.replace(/\D/g, "");
+  return d.length >= 10 ? d.slice(-10) : raw.trim();
+}
+
+/** Local dev only — fixed OTP so you don’t need the random code from terminal. */
+const DEV_BYPASS_OTP = "123456";
+
 export async function OPTIONS() {
   return emptyOptions();
 }
@@ -16,16 +26,24 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await request.json());
-    const phone = body.phone.trim();
-    const ok = await verifyOtp(phone, body.code);
+    const phone = normalizePhone10(body.phone);
+    const code = body.code.trim();
+
+    const devBypass =
+      process.env.NODE_ENV === "development" && code === DEV_BYPASS_OTP;
+    const ok = devBypass ? true : await verifyOtp(phone, code);
     if (!ok) return jsonError("Invalid or expired OTP", 401);
 
     const user = await prisma.user.findUnique({ where: { phone } });
     if (!user) return jsonError("User not found", 404);
 
+    const needsProfile =
+      user.role === UserRole.CUSTOMER && user.name.trim() === "Customer";
+
     const token = signToken(user);
     return jsonOk({
       token,
+      needsProfile,
       user: {
         id: user.id,
         name: user.name,

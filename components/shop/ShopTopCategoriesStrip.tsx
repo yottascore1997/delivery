@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/client-api";
-import { isShopVerticalSlug } from "@/lib/shop-verticals";
+import { shopCategoryPathKeyFromMainKey } from "@/lib/shop-category-path";
 
 type MainCat = { id: string; key: string; name: string };
 
@@ -20,11 +20,6 @@ const FALLBACK_IMAGES: Record<string, string> = {
   electronics:
     "/images/electro.PNG",
 };
-
-function normalizeKey(key: string) {
-  if (key === "food-beverages") return "food";
-  return key;
-}
 
 export function ShopTopCategoriesStrip() {
   const [mains, setMains] = useState<MainCat[]>([]);
@@ -45,12 +40,10 @@ export function ShopTopCategoriesStrip() {
     el.scrollBy({ left: amount, behavior: "smooth" });
   }
 
-  const items = useMemo(() => {
-    // Only show keys the shop UI supports (/shop/category/[slug])
-    return mains
-      .map((m) => ({ ...m, key: normalizeKey(m.key) }))
-      .filter((m) => isShopVerticalSlug(m.key));
-  }, [mains]);
+  const items = useMemo(
+    () => mains.map((m) => ({ ...m, pathKey: shopCategoryPathKeyFromMainKey(m.key) })),
+    [mains],
+  );
 
   if (!items.length) return null;
 
@@ -67,12 +60,15 @@ export function ShopTopCategoriesStrip() {
         className="scrollbar-hide mt-4 flex snap-x snap-mandatory gap-6 overflow-x-auto pb-1"
       >
         {items.map((c) => {
-          const img = FALLBACK_IMAGES[c.key] ?? FALLBACK_IMAGES.grocery;
+          const img =
+            FALLBACK_IMAGES[c.pathKey] ??
+            FALLBACK_IMAGES[c.key.toLowerCase()] ??
+            FALLBACK_IMAGES.grocery;
           const broken = imgBroken[c.id] ?? false;
           return (
             <Link
               key={c.id}
-              href={`/shop/category/${c.key}`}
+              href={`/shop/category/${encodeURIComponent(c.pathKey)}`}
               className="group flex shrink-0 snap-center flex-col items-center"
             >
               <div className="relative h-[92px] w-[92px] overflow-hidden rounded-full bg-[#f2efe6] ring-1 ring-black/5 transition group-hover:ring-black/10">

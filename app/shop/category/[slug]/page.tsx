@@ -1,8 +1,16 @@
 import { notFound } from "next/navigation";
-import { isShopVerticalSlug } from "@/lib/shop-verticals";
+import { resolveShopCategoryContext } from "@/lib/shop-category-context";
 import { ShopCategoryHubClient } from "./ShopCategoryHubClient";
 
-export default function ShopCategoryPage({ params }: { params: { slug: string } }) {
-  if (!isShopVerticalSlug(params.slug)) notFound();
-  return <ShopCategoryHubClient slug={params.slug} />;
+export default async function ShopCategoryPage({ params }: { params: { slug: string } }) {
+  const ctx = await resolveShopCategoryContext(params.slug);
+  if (!ctx) notFound();
+
+  return (
+    <ShopCategoryHubClient
+      routeSlug={ctx.routeSlug}
+      catalogMainKey={ctx.catalogMainKey}
+      title={ctx.title}
+    />
+  );
 }

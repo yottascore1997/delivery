@@ -5,14 +5,11 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, getToken } from "@/lib/client-api";
 import { addToShopCart, getShopCart, updateShopLineQty } from "@/lib/shop-cart";
-import type { ShopVerticalSlug } from "@/lib/shop-verticals";
-import { SHOP_VERTICAL_LABELS } from "@/lib/shop-verticals";
 import { ProductThumb } from "@/components/shop/shop-visual";
 import { ShopPriceDisplay } from "@/components/shop/ShopPriceDisplay";
 import { ShopCategoryMobileBrandBanner } from "@/components/shop/ShopCategoryMobileBrandBanner";
 import { FoodTopStoresSection } from "@/components/shop/FoodTopStoresSection";
 import { DELIVERY_ADDRESS_UPDATED_EVENT } from "@/lib/shop-delivery-address";
-import { verticalToCatalogMainKey } from "@/lib/shop-catalog-main-key";
 
 type QuickProduct = {
   id: string;
@@ -57,17 +54,21 @@ const DEFAULT_LAT = 28.4595;
 const DEFAULT_LNG = 77.0266;
 
 export function ShopCategoryProductsClient({
-  slug,
+  routeSlug,
+  catalogMainKey,
+  categoryTitle,
   masterCategoryId,
 }: {
-  slug: ShopVerticalSlug;
+  routeSlug: string;
+  catalogMainKey: string;
+  categoryTitle: string;
   /** Master subcategory id, or literal `all` */
   masterCategoryId: string;
 }) {
   const searchParams = useSearchParams();
   const subnameQ = (searchParams.get("subname") ?? "").trim();
 
-  const label = SHOP_VERTICAL_LABELS[slug];
+  const label = categoryTitle;
   const isAll = masterCategoryId === "all";
 
   const heading = useMemo(() => {
@@ -88,9 +89,8 @@ export function ShopCategoryProductsClient({
 
   useEffect(() => {
     void (async () => {
-      const mainKey = verticalToCatalogMainKey(slug);
       const res = await api<{ categories: { id: string; name: string; imageUrl?: string | null }[] }>(
-        `/api/master/catalog?mainKey=${encodeURIComponent(mainKey)}`,
+        `/api/master/catalog?mainKey=${encodeURIComponent(catalogMainKey)}`,
       );
       if (res.ok && res.data?.categories) {
         setSubcats(res.data.categories.map((c) => ({ id: c.id, name: c.name, imageUrl: c.imageUrl })));
@@ -98,7 +98,7 @@ export function ShopCategoryProductsClient({
         setSubcats([]);
       }
     })();
-  }, [slug]);
+  }, [catalogMainKey]);
 
   const load = useCallback(
     async (la: number, ln: number, isFirst = false) => {
@@ -109,7 +109,7 @@ export function ShopCategoryProductsClient({
         lng: String(ln),
         radiusKm: "60",
         limit: "48",
-        vertical: slug,
+        vertical: catalogMainKey,
       });
       if (!isAll) {
         q.set("masterCategoryId", masterCategoryId);
@@ -124,7 +124,7 @@ export function ShopCategoryProductsClient({
         setErr(quickRes.error || "Could not load products");
       }
     },
-    [slug, masterCategoryId, isAll],
+    [catalogMainKey, masterCategoryId, isAll],
   );
 
   useEffect(() => {
@@ -187,7 +187,7 @@ export function ShopCategoryProductsClient({
       <div className="mb-4 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-sm backdrop-blur">
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href={`/shop/category/${slug}`}
+            href={`/shop/category/${encodeURIComponent(routeSlug)}`}
             className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
           >
             ← Categories
@@ -213,7 +213,7 @@ export function ShopCategoryProductsClient({
               <ul className="space-y-2">
                 <li>
                   <Link
-                    href={`/shop/category/${slug}/sub/all`}
+                    href={`/shop/category/${encodeURIComponent(routeSlug)}/sub/all`}
                     className={`flex flex-col items-center gap-1 rounded-xl p-2 text-center transition ${
                       isAll
                         ? "bg-emerald-50 ring-2 ring-emerald-300"
@@ -237,7 +237,7 @@ export function ShopCategoryProductsClient({
                   return (
                     <li key={c.id}>
                       <Link
-                        href={`/shop/category/${slug}/sub/${c.id}?subname=${encodeURIComponent(c.name)}`}
+                        href={`/shop/category/${encodeURIComponent(routeSlug)}/sub/${c.id}?subname=${encodeURIComponent(c.name)}`}
                         className={`flex flex-col items-center gap-1 rounded-xl p-2 text-center transition ${
                           active
                             ? "bg-emerald-50 ring-2 ring-emerald-300"
@@ -464,7 +464,7 @@ export function ShopCategoryProductsClient({
         <div className="shop-card-premium rounded-3xl border border-dashed border-zinc-200 bg-white px-6 py-12 text-center">
           <p className="font-display text-lg font-bold text-zinc-700">Nothing here yet</p>
           <Link
-            href={`/shop/category/${slug}`}
+            href={`/shop/category/${encodeURIComponent(routeSlug)}`}
             className="shop-btn-primary mt-4 inline-block rounded-full px-6 py-2.5 text-sm font-black text-white"
           >
             Back to categories
@@ -472,7 +472,7 @@ export function ShopCategoryProductsClient({
         </div>
       )}
 
-      {slug === "food" ? (
+      {routeSlug === "food" || catalogMainKey === "food-beverages" ? (
         <FoodTopStoresSection
           subtitle={
             subnameQ

@@ -1,3 +1,8 @@
 node_modules
 .env
-.env.example.next/
+.env.local
+.env*.local
+.next/
+out/
+*.log
+.DS_Store
