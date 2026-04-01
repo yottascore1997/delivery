@@ -120,7 +120,13 @@ export default function ShopProfilePage() {
       router.replace("/login?next=/shop/profile&customer=1");
       return;
     }
-    if (getUser()?.role !== "CUSTOMER") {
+    const r = getUser()?.role;
+    if (
+      r !== "CUSTOMER" &&
+      r !== "STORE_OWNER" &&
+      r !== "DELIVERY" &&
+      r !== "ADMIN"
+    ) {
       setRoleErr(true);
       setLoading(false);
       return;

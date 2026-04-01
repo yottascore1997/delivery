@@ -53,5 +53,5 @@ export function getStoreClosedByHoursMessage(
 ): string {
   const a = open?.trim() || "—";
   const b = close?.trim() || "—";
-  return `This store is closed right now. Opening hours: ${a} – ${b} (India time).`;
+  return `This store is closed right now. Opening hours: ${a} – ${b} (IST).`;
 }

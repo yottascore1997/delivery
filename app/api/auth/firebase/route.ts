@@ -8,6 +8,8 @@ import { UserRole } from "@prisma/client";
 const bodySchema = z.object({
   idToken: z.string().min(20),
   name: z.string().min(1).max(120).optional(),
+  /** Web store-partner login: create or promote to STORE_OWNER (validated phone via Firebase). */
+  registerAsStorePartner: z.boolean().optional(),
 });
 
 export async function OPTIONS() {
@@ -16,11 +18,12 @@ export async function OPTIONS() {
 
 /**
  * Exchange Firebase ID token (Phone Auth) for app JWT.
- * Preserves existing DB role (store / admin / delivery / customer). New phone → CUSTOMER.
+ * Default: new phone → CUSTOMER. With registerAsStorePartner → STORE_OWNER (name required for new users).
  */
 export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await request.json());
+    const asPartner = body.registerAsStorePartner === true;
 
     const decoded = await verifyFirebaseIdToken(body.idToken);
     const phone = (decoded.phone_number || "").trim();
@@ -37,13 +40,48 @@ export async function POST(request: Request) {
 
     let user;
     if (!existing) {
-      user = await prisma.user.create({
-        data: {
-          phone: phone10,
-          name: body.name?.trim() || "Customer",
-          role: UserRole.CUSTOMER,
-        },
-      });
+      if (asPartner) {
+        const name = body.name?.trim();
+        if (!name) return jsonError("Name required for store partner signup", 400);
+        user = await prisma.user.create({
+          data: {
+            phone: phone10,
+            name,
+            role: UserRole.STORE_OWNER,
+          },
+        });
+      } else {
+        user = await prisma.user.create({
+          data: {
+            phone: phone10,
+            name: body.name?.trim() || "Customer",
+            role: UserRole.CUSTOMER,
+          },
+        });
+      }
+    } else if (asPartner) {
+      if (existing.role === UserRole.ADMIN || existing.role === UserRole.DELIVERY) {
+        return jsonError(
+          "This phone is used for a different account type. Use the matching login link.",
+          403,
+        );
+      }
+      if (existing.role === UserRole.CUSTOMER) {
+        user = await prisma.user.update({
+          where: { id: existing.id },
+          data: {
+            role: UserRole.STORE_OWNER,
+            ...(body.name?.trim() ? { name: body.name.trim() } : {}),
+          },
+        });
+      } else {
+        user = await prisma.user.update({
+          where: { id: existing.id },
+          data: {
+            ...(body.name?.trim() ? { name: body.name.trim() } : {}),
+          },
+        });
+      }
     } else {
       user = await prisma.user.update({
         where: { id: existing.id },

@@ -181,6 +181,7 @@ export default function StorePanelPage() {
   } | null>(null);
   const [addMainKey, setAddMainKey] = useState<string>("grocery");
   const [addSubCatId, setAddSubCatId] = useState<string>("");
+  const autoPickAddSubcatRef = useRef(false);
 
   const [msg, setMsg] = useState<string | null>(null);
   const [toast, setToast] = useState<{
@@ -443,6 +444,30 @@ export default function StorePanelPage() {
     })();
   }, [tab, storeId, addMainKey]);
 
+  // Ensure store-category gets picked even if user doesn't change dropdown.
+  useEffect(() => {
+    if (tab !== "menu") return;
+    if (!storeId) return;
+    if (!addMasterCatalog) return;
+    if (!addSubCatId) return;
+    if (autoPickAddSubcatRef.current) return;
+
+    const picked = addMasterCatalog.categories.find((c) => c.id === addSubCatId);
+    if (!picked) return;
+
+    autoPickAddSubcatRef.current = true;
+    void (async () => {
+      const id = await ensureStoreCategoryByName(picked.name);
+      if (id) {
+        setPCat(id);
+        await loadCatalog(storeId);
+      }
+    })().finally(() => {
+      // allow future auto-pick if user changes mainKey/store
+      autoPickAddSubcatRef.current = false;
+    });
+  }, [tab, storeId, addMasterCatalog, addSubCatId]);
+
   async function refreshAll() {
     const res = await api<{ stores: StoreRow[] }>("/api/stores/mine");
     if (res.ok && res.data) {
@@ -523,30 +548,42 @@ export default function StorePanelPage() {
 
   async function addProduct() {
     if (!storeId) {
-      setMsg(t("storeNeedStore"));
+      const m = t("storeNeedStore");
+      setMsg(m);
+      pushToast("error", m);
       return;
     }
     if (!pCat) {
-      setMsg(t("storeAddCategoryFirst"));
+      const m = t("storeAddCategoryFirst");
+      setMsg(m);
+      pushToast("error", m);
       return;
     }
     const mrp = Number(pMrp);
     const price = Number(pPrice);
     const stock = Number(pStock);
     if (!pName.trim() || !Number.isFinite(mrp) || mrp <= 0) {
-      setMsg("Enter a valid MRP");
+      const m = "Enter a valid MRP";
+      setMsg(m);
+      pushToast("error", m);
       return;
     }
     if (!Number.isFinite(price) || price <= 0) {
-      setMsg(t("storeInvalidProductPrice"));
+      const m = t("storeInvalidProductPrice");
+      setMsg(m);
+      pushToast("error", m);
       return;
     }
     if (mrp < price) {
-      setMsg("MRP must be greater than or equal to selling price");
+      const m = "MRP must be greater than or equal to selling price";
+      setMsg(m);
+      pushToast("error", m);
       return;
     }
     if (!Number.isFinite(stock) || !Number.isInteger(stock) || stock < 0) {
-      setMsg(t("storeInvalidStock"));
+      const m = t("storeInvalidStock");
+      setMsg(m);
+      pushToast("error", m);
       return;
     }
     const pctRaw = pPlatformPct.trim();
@@ -554,7 +591,9 @@ export default function StorePanelPage() {
     if (pctRaw !== "") {
       const p = Number(pctRaw);
       if (!Number.isFinite(p) || p < 0 || p > 100) {
-        setMsg("Platform % must be between 0 and 100 (or leave empty)");
+        const m = "Platform % must be between 0 and 100 (or leave empty)";
+        setMsg(m);
+        pushToast("error", m);
         return;
       }
       commissionPercent = p;
@@ -577,9 +616,16 @@ export default function StorePanelPage() {
         ...(commissionPercent !== undefined ? { commissionPercent } : {}),
       }),
     });
-    const addMsg = res.ok ? "Product added ✓" : res.error || "Could not add product";
-    setMsg(addMsg);
-    pushToast(res.ok ? "success" : "error", addMsg);
+    if (!res.ok) {
+      const errMsg = res.error || "Could not add product";
+      setMsg(errMsg);
+      pushToast("error", errMsg);
+      return;
+    }
+
+    const okMsg = "Product added ✓";
+    setMsg(okMsg);
+    pushToast("success", okMsg);
     setPName("");
     setPMrp("");
     setPPrice("");
@@ -882,7 +928,7 @@ export default function StorePanelPage() {
     });
     setMsg(
       res.ok
-        ? "Opening hours saved — customers see Open/Closed by India time ✓"
+        ? "Opening hours saved — customers see Open/Closed by IST ✓"
         : res.error || "Could not save hours",
     );
     if (res.ok) await loadStores();
@@ -1789,7 +1835,7 @@ export default function StorePanelPage() {
             <div className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-lg">
               <h3 className="font-display text-lg font-bold text-zinc-900">Opening hours (customer shop)</h3>
               <p className="mt-1 text-sm text-zinc-500">
-                India time (IST). Jab tak ye slot ke andar ho tab tak store &quot;Open&quot; dikhega; bahar &quot;Store closed&quot; aur Add to cart band.
+                Timezone: IST (Asia/Kolkata). Slot ke andar store &quot;Open&quot; dikhega; bahar &quot;Store closed&quot; aur Add to cart disabled.
               </p>
               <label className="mt-4 flex cursor-pointer items-center gap-3">
                 <input

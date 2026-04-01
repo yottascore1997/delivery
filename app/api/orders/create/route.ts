@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
-import { UserRole, OrderStatus, PaymentType } from "@prisma/client";
+import { requireAuth, SHOP_BUYER_ROLES } from "@/lib/auth";
+import { OrderStatus, PaymentType } from "@prisma/client";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
 import { dec } from "@/lib/serialize";
 import { getShopOrderingClosedMessage, isShopOrderingOpenNow } from "@/lib/shop-ordering-hours";
@@ -26,7 +26,7 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireAuth(request, [UserRole.CUSTOMER]);
+  const auth = await requireAuth(request, SHOP_BUYER_ROLES);
   if ("error" in auth) return auth.error;
 
   if (!isShopOrderingOpenNow()) {

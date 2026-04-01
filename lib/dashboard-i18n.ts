@@ -201,6 +201,12 @@ export const messages: Record<Locale, Record<string, string>> = {
 
     // Login page
     loginBackHome: "← Back home",
+    loginDesktopWelcomeLead: "Welcome to",
+    loginDesktopWelcomeSub:
+      "Welcome back. Please sign in to your account with a one-time code sent to your mobile.",
+    loginDesktopBackHome: "Back to Home",
+    loginDesktopHelpLink: "Help",
+    loginDesktopSecureNote: "Secure OTP login — no password needed.",
     loginHomeMobile: "← Home",
     loginHeroLine1: "Smooth like Swiggy,",
     loginHeroLine2: "fast like Blinkit.",
@@ -224,7 +230,7 @@ export const messages: Record<Locale, Record<string, string>> = {
     loginSubCustomer: "One-time password · No password needed",
     loginAdminNoteTitle: "Admin panel",
     loginAdminNoteBody:
-      "A store partner number will not open the admin panel. Admin users are separate. First time: run npx prisma db seed in the project folder, then use Login below with phone 9999999999 for OTP — in dev the OTP is often 123456.",
+      "A store partner number will not open the admin panel. Admin users are separate. First time: run npx prisma db seed in the project folder, then sign in below with the seeded admin phone — Firebase will send a real SMS OTP.",
     loginWebShopTitle: "Web shop",
     loginWebShopBody:
       "Same OTP login for everyone. After verify, you’ll be sent to the right panel (shop, store, admin, or delivery) based on your account.",
@@ -264,9 +270,7 @@ export const messages: Record<Locale, Record<string, string>> = {
     loginImgAltHeroMobile: "Online delivery experience",
     loginErrOwnerName: "Please enter your name / store owner name.",
     loginErrSendOtp: "Failed to send OTP",
-    loginMsgOtpPartner:
-      "OTP sent. Check your SMS. (Dev: use 123456 if AUTH_DEV_OTP_BYPASS=true.)",
-    loginMsgOtpSent: "OTP sent.",
+    loginMsgOtpSent: "OTP sent. Check your phone for the SMS code.",
     loginErrCouldNotSend: "Could not send OTP",
     loginErrNameRequired: "Name is required.",
     loginErrCouldNotSaveName: "Could not save name",
@@ -465,6 +469,12 @@ export const messages: Record<Locale, Record<string, string>> = {
     adminTodaysMatchNone: "कोई बैनर सेट नहीं — ग्राहक को डिफ़ॉल्ट प्लेसहोल्डर दिखेगा।",
 
     loginBackHome: "← होम पर वापस",
+    loginDesktopWelcomeLead: "स्वागत है",
+    loginDesktopWelcomeSub:
+      "वापसी पर स्वागत। अपने मोबाइल पर भेजे गए वन-टाइम कोड से साइन इन करें।",
+    loginDesktopBackHome: "होम पर जाएँ",
+    loginDesktopHelpLink: "मदद",
+    loginDesktopSecureNote: "सुरक्षित OTP लॉगिन — पासवर्ड की ज़रूरत नहीं।",
     loginHomeMobile: "← होम",
     loginHeroLine1: "स्विगी जैसा स्मूथ,",
     loginHeroLine2: "ब्लिंकिट जैसा फास्ट।",
@@ -488,7 +498,7 @@ export const messages: Record<Locale, Record<string, string>> = {
     loginSubCustomer: "वन-टाइम पासवर्ड · पासवर्ड की ज़रूरत नहीं",
     loginAdminNoteTitle: "एडमिन पैनल",
     loginAdminNoteBody:
-      "स्टोर पार्टनर नंबर से एडमिन पैनल नहीं खुलेगा। एडमिन यूज़र अलग होते हैं। पहली बार: प्रोजेक्ट फोल्डर में npx prisma db seed चलाएँ, फिर नीचे लॉगिन से फोन 9999999999 पर OTP लें — डेव में OTP अक्सर 123456 होता है।",
+      "स्टोर पार्टनर नंबर से एडमिन पैनल नहीं खुलेगा। एडमिन यूज़र अलग होते हैं। पहली बार: प्रोजेक्ट फोल्डर में npx prisma db seed चलाएँ, फिर सीड किए गए एडमिन फोन से नीचे साइन इन करें — Firebase SMS OTP भेजेगा।",
     loginWebShopTitle: "वेब शॉप",
     loginWebShopBody:
       "सभी के लिए एक ही OTP लॉगिन। वेरिफ़ाई के बाद आपके अकाउंट के हिसाब से सही पैनल (शॉप, स्टोर, एडमिन या डिलीवरी) पर भेजा जाएगा।",
@@ -528,9 +538,7 @@ export const messages: Record<Locale, Record<string, string>> = {
     loginImgAltHeroMobile: "ऑनलाइन डिलीवरी अनुभव",
     loginErrOwnerName: "कृपया अपना नाम / स्टोर मालिक का नाम दर्ज करें।",
     loginErrSendOtp: "OTP नहीं भेजा जा सका",
-    loginMsgOtpPartner:
-      "OTP भेज दिया गया। SMS देखें। (Dev: AUTH_DEV_OTP_BYPASS=true हो तो 123456 इस्तेमाल करें।)",
-    loginMsgOtpSent: "OTP भेज दिया गया।",
+    loginMsgOtpSent: "OTP भेज दिया गया। SMS में कोड देखें।",
     loginErrCouldNotSend: "OTP नहीं भेजा जा सका",
     loginErrNameRequired: "नाम ज़रूरी है।",
     loginErrCouldNotSaveName: "नाम सेव नहीं हो सका",

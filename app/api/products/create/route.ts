@@ -80,6 +80,12 @@ export async function POST(request: Request) {
     return jsonOk({ product: { id: product.id, name: product.name } });
   } catch (e) {
     if (e instanceof z.ZodError) return jsonError(e.issues[0]?.message ?? "Invalid input");
-    return jsonError("Invalid request");
+    const msg =
+      e instanceof Error
+        ? e.message
+        : typeof e === "string"
+          ? e
+          : "Invalid request";
+    return jsonError(msg || "Invalid request");
   }
 }

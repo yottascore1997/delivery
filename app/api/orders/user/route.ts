@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { requireAuth, SHOP_BUYER_ROLES } from "@/lib/auth";
 import { dec } from "@/lib/serialize";
 import { jsonOk, emptyOptions } from "@/lib/api-response";
 
@@ -9,7 +8,7 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: Request) {
-  const auth = await requireAuth(request, [UserRole.CUSTOMER]);
+  const auth = await requireAuth(request, SHOP_BUYER_ROLES);
   if ("error" in auth) return auth.error;
 
   const { searchParams } = new URL(request.url);

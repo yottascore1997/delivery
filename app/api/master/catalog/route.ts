@@ -30,7 +30,14 @@ export async function GET(request: Request) {
     ?? mains.find((m) => m.key.trim().toLowerCase() === normalized)
     ?? mains.find((m) => m.name.trim().toLowerCase() === normalized);
 
-  const main = pick ?? null;
+  // Extra tolerance: allow partial matches like "grocery" -> "Grocery Items"
+  const main =
+    pick ??
+    mains.find((m) => m.key.trim().toLowerCase().startsWith(normalized)) ??
+    mains.find((m) => m.name.trim().toLowerCase().startsWith(normalized)) ??
+    mains.find((m) => m.key.trim().toLowerCase().includes(normalized)) ??
+    mains.find((m) => m.name.trim().toLowerCase().includes(normalized)) ??
+    null;
   if (!main) {
     return jsonOk({ mainKey, categories: [] });
   }

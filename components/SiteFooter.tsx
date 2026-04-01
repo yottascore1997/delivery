@@ -1,9 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { getAppName } from "@/lib/app-brand";
 
 export function SiteFooter() {
+  const pathname = usePathname();
+  if (pathname === "/login") return null;
+
   const year = new Date().getFullYear();
   return (
     <footer className="hidden border-t border-white/10 bg-[#0c0a12] text-zinc-300 md:block">

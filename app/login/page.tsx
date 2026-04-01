@@ -13,6 +13,7 @@ import {
 } from "firebase/auth";
 import { useLocale } from "@/contexts/LocaleContext";
 import { MobileLoginHeroSlider } from "@/components/login/MobileLoginHeroSlider";
+import { getAppLogoUrl, getAppMarkInitial, getAppName } from "@/lib/app-brand";
 
 const ALLOWED_NEXT = [
   "/admin",
@@ -42,7 +43,7 @@ function LoginForm() {
   const customerHint = searchParams.get("customer") === "1";
   const isStorePartner = searchParams.get("partner") === "1";
   const [phone, setPhone] = useState("");
-  /** Store partner flow (DB OTP via /api/auth/register) */
+  /** Store partner flow: same Firebase phone auth, then /api/auth/firebase with registerAsStorePartner */
   const [storePartnerName, setStorePartnerName] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -69,6 +70,17 @@ function LoginForm() {
   useEffect(() => {
     setMsg(null);
   }, [locale]);
+
+  useEffect(() => {
+    const prevHtml = document.documentElement.style.overflow;
+    const prevBody = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = prevHtml;
+      document.body.style.overflow = prevBody;
+    };
+  }, []);
 
   /** After OTP: send everyone to the right panel by DB role (store / admin / delivery / customer). */
   async function routeAfterLogin(user: { role: string }) {
@@ -106,27 +118,9 @@ function LoginForm() {
     setLoading(true);
     setMsg(null);
 
-    if (isStorePartner) {
-      if (!storePartnerName.trim()) {
-        setMsg(t("loginErrOwnerName"));
-        setLoading(false);
-        return;
-      }
-      const res = await api("/api/auth/register", {
-        method: "POST",
-        body: JSON.stringify({
-          phone,
-          name: storePartnerName.trim(),
-          role: "STORE_OWNER",
-        }),
-      });
+    if (isStorePartner && !storePartnerName.trim()) {
+      setMsg(t("loginErrOwnerName"));
       setLoading(false);
-      if (!res.ok) {
-        setMsg(res.error || t("loginErrSendOtp"));
-        return;
-      }
-      setMsg(t("loginMsgOtpPartner"));
-      setStep(2);
       return;
     }
 
@@ -224,28 +218,6 @@ function LoginForm() {
     setLoading(true);
     setMsg(null);
 
-    if (isStorePartner) {
-      const res = await api<{
-        token: string;
-        user: { id: string; name: string; phone: string; role: string; imageUrl?: string | null };
-      }>("/api/auth/verify-otp", {
-        method: "POST",
-        body: JSON.stringify({ phone, code: otp }),
-      });
-      setLoading(false);
-      if (!res.ok || !res.data) {
-        setMsg(res.error || t("loginErrVerifyFailed"));
-        return;
-      }
-      if (res.data.user.role !== "STORE_OWNER") {
-        setMsg(t("loginErrNotPartner"));
-        return;
-      }
-      setSession(res.data.token, res.data.user);
-      await routeAfterLogin(res.data.user);
-      return;
-    }
-
     try {
       if (!fbConfirm) {
         setMsg(t("loginErrSendOtpAgain"));
@@ -259,10 +231,22 @@ function LoginForm() {
         user: { id: string; name: string; phone: string; role: string; imageUrl?: string | null };
       }>("/api/auth/firebase", {
         method: "POST",
-        body: JSON.stringify({ idToken }),
+        body: JSON.stringify(
+          isStorePartner
+            ? {
+                idToken,
+                name: storePartnerName.trim(),
+                registerAsStorePartner: true,
+              }
+            : { idToken },
+        ),
       });
       if (!res.ok || !res.data) {
         setMsg(res.error || t("loginErrVerifyFailed"));
+        return;
+      }
+      if (isStorePartner && res.data.user.role !== "STORE_OWNER") {
+        setMsg(t("loginErrNotPartner"));
         return;
       }
       setSession(res.data.token, res.data.user);
@@ -284,79 +268,79 @@ function LoginForm() {
 
   const showAdminPanelNote = next === "/admin" || adminHint;
 
-  return (
-    <div className="relative min-h-screen overflow-hidden bg-mesh-hero bg-stone-50 max-lg:h-dvh max-lg:min-h-0 max-lg:max-h-dvh">
-      <div className="pointer-events-none absolute -left-24 top-[-140px] hidden h-[340px] w-[340px] rounded-full bg-orange-300/35 blur-3xl lg:block" />
-      <div className="pointer-events-none absolute -right-24 top-[180px] hidden h-[380px] w-[380px] rounded-full bg-violet-300/25 blur-3xl lg:block" />
-      <div id="firebase-recaptcha" />
-      <div className="mx-auto grid min-h-screen max-w-6xl lg:grid-cols-2 max-lg:h-dvh max-lg:min-h-0 max-lg:grid-rows-[minmax(0,1fr)]">
-        <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-cta p-10 text-white lg:flex">
-          <div className="hero-pattern absolute inset-0 opacity-30" />
-          <div className="relative z-10">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-white/90 hover:text-white"
-            >
-              {t("loginBackHome")}
-            </Link>
-            <h1 className="font-display mt-12 text-4xl font-extrabold leading-tight">
-              {t("loginHeroLine1")}
-              <br />
-              {t("loginHeroLine2")}
-            </h1>
-            <p className="mt-4 max-w-md text-lg text-white/85">{t("loginHeroDesc")}</p>
+  const customerToggleHref = (() => {
+    const p = new URLSearchParams();
+    p.set("customer", "1");
+    if (next) p.set("next", next);
+    return `/login?${p.toString()}`;
+  })();
+  const partnerToggleHref = (() => {
+    const p = new URLSearchParams();
+    p.set("partner", "1");
+    if (next) p.set("next", next);
+    return `/login?${p.toString()}`;
+  })();
 
-            <div className="mt-8 grid grid-cols-2 gap-3">
-              <div className="overflow-hidden rounded-2xl border border-white/20 bg-white/10 backdrop-blur">
-                <div className="relative h-28 w-full">
+  const appName = getAppName();
+  const logoUrl = getAppLogoUrl();
+  const mark = getAppMarkInitial();
+
+  const deskFieldClass =
+    "flex min-h-[52px] items-stretch overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20";
+
+  return (
+    <div className="relative h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden bg-mesh-hero bg-stone-50 lg:bg-zinc-100">
+      <div className="pointer-events-none absolute -left-24 top-[-140px] hidden h-[340px] w-[340px] rounded-full bg-orange-300/35 blur-3xl max-lg:block lg:hidden" />
+      <div className="pointer-events-none absolute -right-24 top-[180px] hidden h-[380px] w-[380px] rounded-full bg-violet-300/25 blur-3xl max-lg:block lg:hidden" />
+      <div id="firebase-recaptcha" />
+      <div className="mx-auto grid h-full min-h-0 w-full grid-rows-[minmax(0,1fr)] lg:grid-cols-2 lg:max-w-none">
+        {/* Desktop: grocery-style green hero (mobile keeps its own hero below) */}
+        <div className="relative hidden min-h-0 flex-col overflow-hidden bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 text-white lg:flex lg:h-full">
+          <div className="pointer-events-none absolute left-1/2 top-[40%] h-[min(92vw,460px)] w-[min(92vw,460px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-lime-300/20" />
+          <div className="pointer-events-none absolute -right-16 top-24 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-teal-900/30 blur-3xl" />
+
+          <div className="relative z-10 px-10 pb-4 pt-10">
+            <Link href="/" className="inline-flex items-center gap-3 rounded-xl text-white transition hover:opacity-90">
+              <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-lg ring-2 ring-white/60">
+                {logoUrl ? (
                   <Image
-                    src="https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?w=600&h=350&fit=crop&q=80"
-                    alt={t("loginImgAltGrocery")}
-                    fill
-                    className="object-cover"
+                    src={logoUrl}
+                    alt={appName}
+                    width={48}
+                    height={48}
+                    className="h-full w-full object-contain"
+                    unoptimized
                   />
-                </div>
-                <p className="px-3 py-2 text-xs font-bold text-white/90">
-                  {t("loginHeroCard1Caption")}
-                </p>
-              </div>
-              <div className="overflow-hidden rounded-2xl border border-white/20 bg-white/10 backdrop-blur">
-                <div className="relative h-28 w-full">
-                  <Image
-                    src="https://images.unsplash.com/photo-1526367790999-0150786686a2?w=600&h=350&fit=crop&q=80"
-                    alt={t("loginImgAltRider")}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <p className="px-3 py-2 text-xs font-bold text-white/90">
-                  {t("loginHeroCard2Caption")}
-                </p>
-              </div>
+                ) : (
+                  <span className="text-lg font-black text-emerald-600">{mark}</span>
+                )}
+              </span>
+              <span className="font-display text-xl font-black tracking-tight drop-shadow-sm">{appName}</span>
+            </Link>
+          </div>
+
+          <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center px-8 pb-10">
+            <div className="w-full max-w-[400px] drop-shadow-[0_24px_48px_rgba(0,0,0,0.2)]">
+              <MobileLoginHeroSlider />
+            </div>
+            <p className="mt-10 max-w-md text-center text-[15px] font-semibold leading-relaxed text-white/95">
+              {t("loginHeroDesc")}
+            </p>
+            <div className="mt-8 flex flex-wrap justify-center gap-2">
+              <span className="rounded-full bg-white/15 px-4 py-2 text-xs font-bold ring-1 ring-white/25 backdrop-blur-sm">
+                {t("loginStatValCod")} · {t("loginStatSubCod")}
+              </span>
+              <span className="rounded-full bg-white/15 px-4 py-2 text-xs font-bold ring-1 ring-white/25 backdrop-blur-sm">
+                {t("loginStatValMin")} {t("loginStatSubMin")}
+              </span>
             </div>
           </div>
-            <div className="relative z-10 flex gap-4 pb-6">
-            <div className="rounded-2xl bg-white/15 px-4 py-3 backdrop-blur">
-              <p className="text-2xl font-black">{t("loginStatValMin")}</p>
-              <p className="text-xs text-white/75">{t("loginStatSubMin")}</p>
-            </div>
-            <div className="rounded-2xl bg-white/15 px-4 py-3 backdrop-blur">
-              <p className="text-2xl font-black">{t("loginStatValCod")}</p>
-              <p className="text-xs text-white/75">{t("loginStatSubCod")}</p>
-            </div>
-          </div>
-          <div className="pointer-events-none absolute -bottom-8 right-0 h-64 w-64 rounded-full bg-rush-400/40 blur-3xl" />
         </div>
 
-        <div className="relative flex min-h-0 flex-1 flex-col justify-center px-4 py-10 sm:px-8 max-lg:h-full max-lg:justify-stretch max-lg:p-0 max-lg:py-0 lg:px-14">
-          {/* Desktop/tablet header */}
-          <div className="mb-6 hidden flex-wrap items-center justify-between gap-3 lg:mb-8 lg:flex">
-            <Link
-              href="/"
-              className="text-sm font-semibold text-fresh-600 hover:text-fresh-700"
-            >
-              {t("loginHomeMobile")}
-            </Link>
+        <div className="relative flex min-h-0 flex-1 flex-col justify-center overflow-hidden bg-transparent px-4 py-10 sm:px-8 max-lg:h-full max-lg:justify-stretch max-lg:p-0 max-lg:py-0 lg:h-full lg:bg-zinc-100 lg:px-8 lg:py-6 xl:px-12">
+          {/* Desktop: language only — back link is inside the login card */}
+          <div className="mx-auto mb-3 hidden w-full max-w-[480px] shrink-0 justify-end lg:flex xl:max-w-[520px]">
             <div
               className="flex items-center gap-1 rounded-xl border border-zinc-200 bg-white p-1 shadow-sm"
               role="group"
@@ -427,11 +411,20 @@ function LoginForm() {
                       </span>
                     </div>
                     <h1 className="font-display text-4xl font-black leading-[1.08] tracking-tight text-white drop-shadow-sm sm:text-[2.125rem]">
-                      {isStorePartner ? t("loginTitlePartner") : t("loginTitleCustomer")}
+                      {isStorePartner ? (
+                        <>
+                          {t("loginDesktopWelcomeLead")}{" "}
+                          <span className="text-lime-200">{appName}</span>
+                        </>
+                      ) : (
+                        t("loginTitleCustomer")
+                      )}
                     </h1>
-                    <p className="mt-3 text-[15px] font-semibold leading-snug text-white/90">
-                      {isStorePartner ? t("loginSubPartner") : t("loginSubCustomer")}
-                    </p>
+                    {!isStorePartner && (
+                      <p className="mt-3 text-[15px] font-semibold leading-snug text-white/90">
+                        {t("loginSubCustomer")}
+                      </p>
+                    )}
                     <div className="mt-6 flex flex-wrap gap-2">
                       <span className="rounded-xl bg-white/15 px-3 py-1.5 text-[11px] font-bold text-white ring-1 ring-white/20">
                         {t("loginStatSubCod")}
@@ -500,10 +493,33 @@ function LoginForm() {
                         type="button"
                         disabled={loading}
                         onClick={sendOtp}
-                        className="w-full rounded-2xl bg-emerald-600 py-4 text-sm font-black text-white shadow-[0_14px_34px_-14px_rgba(5,150,105,0.85)] disabled:opacity-50 active:scale-[0.99] transition-transform"
+                        className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-900 py-4 text-sm font-black text-white shadow-[0_14px_36px_-14px_rgba(146,64,14,0.55)] transition-transform hover:from-orange-600 hover:via-orange-700 hover:to-amber-950 disabled:opacity-50 active:scale-[0.99]"
                       >
                         {loading ? t("loginSending") : t("loginSendOtp")}
                       </button>
+                      <p className="text-center text-[13px] leading-snug text-zinc-600">
+                        {isStorePartner ? (
+                          <>
+                            <span className="font-semibold">{t("loginCustomerLead")}</span>{" "}
+                            <Link
+                              href={customerToggleHref}
+                              className="font-black text-emerald-700 underline-offset-2 hover:text-emerald-800 hover:underline"
+                            >
+                              {t("loginCustomerLink")}
+                            </Link>
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-semibold">{t("loginPartnerLead")}</span>{" "}
+                            <Link
+                              href={partnerToggleHref}
+                              className="font-black text-emerald-700 underline-offset-2 hover:text-emerald-800 hover:underline"
+                            >
+                              {t("loginPartnerLink")}
+                            </Link>
+                          </>
+                        )}
+                      </p>
                     </div>
                   )}
 
@@ -557,96 +573,89 @@ function LoginForm() {
             </div>
           </div>
 
-          {/* Desktop/tablet: keep existing premium card */}
-          <div className="mx-auto hidden w-full max-w-md lg:block">
-            <div className="mb-2 flex items-center gap-3">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-cta text-sm font-black text-white shadow-[0_14px_40px_-18px_rgba(234,88,12,0.75)] ring-1 ring-white/50">
-                D
-              </span>
-              <div>
-                <h2 className="font-display text-[28px] font-black leading-tight tracking-tight text-[#111827]">
-                  {isStorePartner ? t("loginTitlePartner") : t("loginTitleCustomer")}
-                </h2>
-                <p className="text-sm font-semibold text-zinc-500">
-                  {isStorePartner ? t("loginSubPartner") : t("loginSubCustomer")}
-                </p>
+          {/* Desktop: grocery-style white card (reference layout) */}
+          <div className="mx-auto hidden w-full max-w-[480px] lg:block xl:max-w-[520px]">
+            <div className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-[0_24px_60px_-24px_rgba(15,23,42,0.2)] sm:p-8">
+              <div className="mb-2 flex items-start justify-between gap-3">
+                <div>
+                  <h1 className="font-display text-2xl font-black tracking-tight text-zinc-900 sm:text-[26px]">
+                    {t("loginDesktopWelcomeLead")}{" "}
+                    <span className="text-emerald-600">{appName}</span>
+                  </h1>
+                  {!isStorePartner && (
+                    <p className="mt-2 text-sm font-medium leading-relaxed text-zinc-500">
+                      {t("loginDesktopWelcomeSub")}
+                    </p>
+                  )}
+                </div>
+                {!isStorePartner && (
+                  <span
+                    className="hidden shrink-0 rounded-xl border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-800 sm:block"
+                    title={t("loginTitleCustomer")}
+                  >
+                    {t("loginTitleCustomer")}
+                  </span>
+                )}
               </div>
-            </div>
 
-            {showAdminPanelNote && !isStorePartner && (
-              <div className="mt-6 rounded-2xl border border-violet-200 bg-violet-50/90 px-4 py-3 text-sm text-violet-950">
-                <p className="font-bold text-violet-900">{t("loginAdminNoteTitle")}</p>
-                <p className="mt-2 leading-relaxed text-violet-800">{t("loginAdminNoteBody")}</p>
-              </div>
-            )}
-
-            {next?.startsWith("/shop") && !isStorePartner && (
-              <div className="mt-6 rounded-2xl border border-fresh-200 bg-fresh-50/90 px-4 py-3 text-sm text-fresh-950">
-                <p className="font-bold">{t("loginWebShopTitle")}</p>
-                <p className="mt-1 text-fresh-900">{t("loginWebShopBody")}</p>
-              </div>
-            )}
-
-            {isStorePartner && (
-              <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
-                <p className="font-bold">{t("loginPartnerBannerTitle")}</p>
-                <p className="mt-1 text-amber-900">{t("loginPartnerBannerBody")}</p>
-              </div>
-            )}
-
-            <div className="mt-7 rounded-[28px] border border-white/70 bg-white/95 p-6 shadow-[0_18px_60px_-36px_rgba(15,23,42,0.55)] backdrop-blur sm:p-8">
-              <div className="mb-6 flex items-center gap-2">
-                <span
-                  className={`grid h-7 w-7 place-items-center rounded-full text-xs font-black ${
-                    step === 1 ? "bg-orange-600 text-white" : "bg-zinc-100 text-zinc-600"
-                  }`}
-                >
-                  1
-                </span>
-                <div className={`h-[3px] flex-1 rounded-full ${step >= 2 ? "bg-orange-500" : "bg-zinc-200"}`} />
-                <span
-                  className={`grid h-7 w-7 place-items-center rounded-full text-xs font-black ${
-                    step >= 2 ? "bg-orange-600 text-white" : "bg-zinc-100 text-zinc-600"
-                  }`}
-                >
-                  2
-                </span>
-                {!isStorePartner ? (
-                  <>
-                    <div className={`h-[3px] flex-1 rounded-full ${step >= 3 ? "bg-orange-500" : "bg-zinc-200"}`} />
-                    <span
-                      className={`grid h-7 w-7 place-items-center rounded-full text-xs font-black ${
-                        step === 3 ? "bg-orange-600 text-white" : "bg-zinc-100 text-zinc-600"
-                      }`}
-                    >
-                      3
-                    </span>
-                  </>
-                ) : null}
-              </div>
+              {showAdminPanelNote && !isStorePartner && (
+                <div className="mt-5 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950">
+                  <p className="font-bold text-violet-900">{t("loginAdminNoteTitle")}</p>
+                  <p className="mt-2 leading-relaxed text-violet-800">{t("loginAdminNoteBody")}</p>
+                </div>
+              )}
 
               {step === 1 && (
-                <div className="space-y-5">
+                <div className="space-y-4">
                   {isStorePartner && (
                     <div>
-                      <label className="ui-label">{t("loginOwnerLabel")}</label>
-                      <input
-                        className="ui-input !rounded-2xl !py-3.5 !text-[15px] !font-semibold"
-                        value={storePartnerName}
-                        onChange={(e) => setStorePartnerName(e.target.value)}
-                        placeholder={t("loginOwnerPh")}
-                      />
+                      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
+                        {t("loginOwnerLabel")}
+                      </label>
+                      <div className={deskFieldClass}>
+                        <span className="flex w-12 items-center justify-center border-r border-zinc-100 text-zinc-400">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                            />
+                          </svg>
+                        </span>
+                        <input
+                          className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-[15px] font-semibold text-zinc-900 outline-none placeholder:text-zinc-400"
+                          value={storePartnerName}
+                          onChange={(e) => setStorePartnerName(e.target.value)}
+                          placeholder={t("loginOwnerPh")}
+                        />
+                      </div>
                     </div>
                   )}
                   <div>
-                    <label className="ui-label">{t("loginMobileLabel")}</label>
-                    <input
-                      className="ui-input !rounded-2xl !py-3.5 !text-[15px] !font-semibold"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder={t("loginMobilePh")}
-                      inputMode="tel"
-                    />
+                    <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
+                      {t("loginMobileLabel")}
+                    </label>
+                    <div className={deskFieldClass}>
+                      <span className="flex w-12 items-center justify-center border-r border-zinc-100 text-zinc-400">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                          />
+                        </svg>
+                      </span>
+                      <div className="flex min-w-0 flex-1 items-center gap-2 px-3">
+                        <span className="shrink-0 text-sm font-bold text-emerald-700">+91</span>
+                        <input
+                          className="min-w-0 flex-1 border-0 bg-transparent py-3 text-[15px] font-semibold text-zinc-900 outline-none placeholder:text-zinc-400"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder={t("loginMobilePh")}
+                          inputMode="tel"
+                        />
+                      </div>
+                    </div>
                     <p className="mt-2 text-xs font-semibold text-zinc-500">
                       {isStorePartner ? t("loginMobileHintPartner") : t("loginMobileHintCustomer")}
                     </p>
@@ -655,7 +664,7 @@ function LoginForm() {
                     type="button"
                     disabled={loading}
                     onClick={sendOtp}
-                    className="ui-btn-rush w-full !rounded-2xl !py-4 text-[15px]"
+                    className="w-full rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-900 py-3.5 text-[15px] font-bold text-white shadow-[0_12px_30px_-12px_rgba(120,53,15,0.5)] transition hover:from-orange-600 hover:via-orange-700 hover:to-amber-950 disabled:opacity-50"
                   >
                     {loading ? t("loginSending") : t("loginSendOtp")}
                   </button>
@@ -663,38 +672,47 @@ function LoginForm() {
               )}
 
               {step === 2 && (
-                <div className="space-y-5">
+                <div className="space-y-4">
                   <div>
-                    <label className="ui-label">{t("loginOtpLabel")}</label>
-                    <input
-                      className="ui-input !rounded-2xl !py-4 text-center font-display text-2xl tracking-[0.45em]"
-                      value={otp}
-                      onChange={(e) =>
-                        setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                      }
-                      placeholder="••••••"
-                      inputMode="numeric"
-                      maxLength={6}
-                      autoComplete="one-time-code"
-                    />
+                    <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
+                      {t("loginOtpLabel")}
+                    </label>
+                    <div className={deskFieldClass}>
+                      <span className="flex w-12 items-center justify-center border-r border-zinc-100 text-zinc-400">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                          />
+                        </svg>
+                      </span>
+                      <input
+                        className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-center font-display text-2xl font-bold tracking-[0.35em] text-zinc-900 outline-none placeholder:text-zinc-300"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        placeholder="••••••"
+                        inputMode="numeric"
+                        maxLength={6}
+                        autoComplete="one-time-code"
+                      />
+                    </div>
                     <p className="mt-2 text-xs font-semibold text-zinc-500">
                       {t("loginOtpTo")}{" "}
-                      <span className="font-black text-zinc-800">
-                        {phone || t("loginOtpYourNumber")}
-                      </span>
+                      <span className="font-black text-zinc-800">{phone || t("loginOtpYourNumber")}</span>
                     </p>
                   </div>
                   <button
                     type="button"
                     disabled={loading}
                     onClick={verify}
-                    className="ui-btn-rush w-full !rounded-2xl !py-4 text-[15px]"
+                    className="w-full rounded-xl bg-emerald-600 py-3.5 text-[15px] font-bold text-white shadow-[0_12px_28px_-12px_rgba(5,150,105,0.65)] transition hover:bg-emerald-700 disabled:opacity-50"
                   >
                     {loading ? t("loginVerifying") : t("loginVerify")}
                   </button>
                   <button
                     type="button"
-                    className="w-full text-center text-sm font-semibold text-stone-500 hover:text-ink"
+                    className="w-full text-center text-sm font-semibold text-zinc-500 hover:text-zinc-800"
                     onClick={() => setStep(1)}
                   >
                     {t("loginChangePhone")}
@@ -703,29 +721,44 @@ function LoginForm() {
               )}
 
               {step === 3 && !isStorePartner && (
-                <div className="space-y-5">
+                <div className="space-y-4">
                   <div>
-                    <label className="ui-label">{t("loginFullName")}</label>
-                    <input
-                      className="ui-input !rounded-2xl !py-3.5 !text-[15px] !font-semibold"
-                      value={onboardName}
-                      onChange={(e) => setOnboardName(e.target.value)}
-                      placeholder={t("loginNamePh")}
-                    />
+                    <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
+                      {t("loginFullName")}
+                    </label>
+                    <div className={deskFieldClass}>
+                      <span className="flex w-12 items-center justify-center border-r border-zinc-100 text-zinc-400">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                          />
+                        </svg>
+                      </span>
+                      <input
+                        className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-[15px] font-semibold text-zinc-900 outline-none placeholder:text-zinc-400"
+                        value={onboardName}
+                        onChange={(e) => setOnboardName(e.target.value)}
+                        placeholder={t("loginNamePh")}
+                      />
+                    </div>
                     <p className="mt-2 text-xs font-semibold text-zinc-500">{t("loginNameHint")}</p>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="ui-label">{t("loginAddrLabel")}</label>
+                    <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
+                      {t("loginAddrLabel")}
+                    </label>
                     <textarea
-                      className="ui-input min-h-[72px] !py-3"
+                      className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] font-semibold text-zinc-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 min-h-[88px] placeholder:text-zinc-400"
                       value={onboardAddr}
                       onChange={(e) => setOnboardAddr(e.target.value)}
                       placeholder={t("loginAddrPh")}
                     />
                     <button
                       type="button"
-                      className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-black text-zinc-800 shadow-sm hover:bg-zinc-50 disabled:opacity-60"
+                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-bold text-zinc-800 shadow-sm transition hover:bg-zinc-100 disabled:opacity-60"
                       disabled={savingOnboard}
                       onClick={() => {
                         if (!navigator.geolocation) {
@@ -747,17 +780,20 @@ function LoginForm() {
                     </button>
                     {typeof onboardLat === "number" && typeof onboardLng === "number" ? (
                       <p className="text-xs font-semibold text-zinc-500">
-                        Lat {Math.round(onboardLat * 10000) / 10000}, Lng {Math.round(onboardLng * 10000) / 10000}
+                        Lat {Math.round(onboardLat * 10000) / 10000}, Lng{" "}
+                        {Math.round(onboardLng * 10000) / 10000}
                       </p>
                     ) : null}
                   </div>
 
                   <div>
-                    <label className="ui-label">{t("loginPhotoOpt")}</label>
+                    <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-500">
+                      {t("loginPhotoOpt")}
+                    </label>
                     <input
                       type="file"
                       accept="image/*"
-                      className="ui-input !rounded-2xl !py-3"
+                      className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-700 shadow-sm file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-emerald-800"
                       onChange={(e) => setOnboardFile(e.target.files?.[0] ?? null)}
                     />
                   </div>
@@ -766,19 +802,67 @@ function LoginForm() {
                     type="button"
                     disabled={savingOnboard}
                     onClick={saveOnboarding}
-                    className="ui-btn-rush w-full !rounded-2xl !py-4 text-[15px]"
+                    className="w-full rounded-xl bg-emerald-600 py-3.5 text-[15px] font-bold text-white shadow-[0_12px_28px_-12px_rgba(5,150,105,0.65)] transition hover:bg-emerald-700 disabled:opacity-50"
                   >
                     {savingOnboard ? t("loginSaving") : t("loginContinue")}
                   </button>
                 </div>
               )}
-            </div>
 
-            {msg && (
-              <div className="mt-5 rounded-2xl border border-fresh-200 bg-fresh-50 px-4 py-3 text-sm text-fresh-900">
-                {msg}
-              </div>
-            )}
+              {msg ? (
+                <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-semibold text-zinc-800">
+                  {msg}
+                </div>
+              ) : null}
+
+              {(step === 1 || step === 2) && (
+                <>
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 pt-5 text-sm">
+                    <Link href="/" className="font-semibold text-zinc-600 transition hover:text-zinc-900">
+                      {t("loginDesktopBackHome")}
+                    </Link>
+                    <Link
+                      href="/shop/help"
+                      className="font-semibold text-blue-600 transition hover:text-blue-700"
+                    >
+                      {t("loginDesktopHelpLink")}
+                    </Link>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500">
+                    <span
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-[11px] font-bold text-emerald-700"
+                      aria-hidden
+                    >
+                      ✓
+                    </span>
+                    {t("loginDesktopSecureNote")}
+                  </div>
+                  <p className="mt-4 text-center text-sm text-zinc-600">
+                    {isStorePartner ? (
+                      <>
+                        <span className="font-semibold">{t("loginCustomerLead")}</span>{" "}
+                        <Link
+                          href={customerToggleHref}
+                          className="font-bold text-blue-600 hover:text-blue-700 hover:underline"
+                        >
+                          {t("loginCustomerLink")}
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-semibold">{t("loginPartnerLead")}</span>{" "}
+                        <Link
+                          href={partnerToggleHref}
+                          className="font-bold text-blue-600 hover:text-blue-700 hover:underline"
+                        >
+                          {t("loginPartnerLink")}
+                        </Link>
+                      </>
+                    )}
+                  </p>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -789,7 +873,7 @@ function LoginForm() {
 function LoginSuspenseFallback() {
   const { t } = useLocale();
   return (
-    <div className="flex min-h-screen items-center justify-center bg-stone-50 text-stone-500">
+    <div className="flex h-[100dvh] max-h-[100dvh] items-center justify-center overflow-hidden bg-stone-50 text-stone-500">
       {t("loginLoading")}
     </div>
   );

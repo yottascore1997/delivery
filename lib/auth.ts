@@ -1,8 +1,16 @@
 import jwt from "jsonwebtoken";
-import type { User, UserRole } from "@prisma/client";
+import { UserRole, type User } from "@prisma/client";
 import { prisma } from "./prisma";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-change-me";
+
+/** Consumer shop APIs (cart, checkout, `/shop` orders) — any logged-in role that should be able to buy. */
+export const SHOP_BUYER_ROLES: UserRole[] = [
+  UserRole.CUSTOMER,
+  UserRole.STORE_OWNER,
+  UserRole.DELIVERY,
+  UserRole.ADMIN,
+];
 
 export type JwtPayload = { sub: string; role: UserRole };
 

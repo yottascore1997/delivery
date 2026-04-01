@@ -38,10 +38,6 @@ export async function POST(request: Request) {
     return jsonOk({
       ok: true,
       message: "OTP sent",
-      devHint:
-        process.env.AUTH_DEV_OTP_BYPASS === "true"
-          ? "Use OTP 123456 in development"
-          : undefined,
     });
   } catch (e) {
     if (e instanceof z.ZodError) return jsonError(e.issues[0]?.message ?? "Invalid input");

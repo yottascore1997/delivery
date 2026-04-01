@@ -24,10 +24,10 @@ export function getAppMarkInitial(): string {
 
 /**
  * Public logo URL (served from `public/` or CDN).
- * Default expects: `delivery-web/public/speedzalogo.png` (or .svg/.webp).
+ * Default: `public/speedzalogo.svg` (committed). Override with NEXT_PUBLIC_APP_LOGO_URL or add speedzalogo.png.
  */
-export function getAppLogoUrl(): string | null {
+export function getAppLogoUrl(): string {
   const v = process.env.NEXT_PUBLIC_APP_LOGO_URL?.trim();
   if (v && v.length > 0) return v;
-  return "/speedzalogo.png";
+  return "/speedzalogo.svg";
 }

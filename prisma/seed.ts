@@ -624,7 +624,7 @@ async function main() {
   }
 
   console.info("Seed OK");
-  console.info("Admin phone:", admin.phone, "(OTP 123456 if AUTH_DEV_OTP_BYPASS=true)");
+  console.info("Admin phone:", admin.phone, "(Expo app login uses DB OTP — see server logs in dev)");
   console.info("Store owner:", demoStoreOwner.phone);
   console.info("Delivery:", demoDelivery.phone);
   console.info("Customer:", demoCustomer.phone);

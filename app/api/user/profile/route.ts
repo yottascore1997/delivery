@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { requireAuth, SHOP_BUYER_ROLES } from "@/lib/auth";
 import { emptyOptions, jsonError, jsonOk } from "@/lib/api-response";
 
 const patchSchema = z.object({
@@ -12,9 +11,9 @@ export async function OPTIONS() {
   return emptyOptions();
 }
 
-/** Customer profile update (name). */
+/** Profile name update (shop onboarding + customers; same roles as shop checkout). */
 export async function PATCH(request: Request) {
-  const auth = await requireAuth(request, [UserRole.CUSTOMER]);
+  const auth = await requireAuth(request, SHOP_BUYER_ROLES);
   if ("error" in auth) return auth.error;
 
   try {
