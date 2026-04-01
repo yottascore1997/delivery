@@ -13,6 +13,7 @@ import { StoreCharts } from "@/components/dashboard/StoreCharts";
 import { useLocale } from "@/contexts/LocaleContext";
 import { api, getToken, getUser } from "@/lib/client-api";
 import { uploadStoreCatalogImage } from "@/lib/store-image-upload-client";
+import { customerDiscountPercent } from "@/lib/product-pricing";
 
 type StoreRow = {
   id: string;
@@ -80,6 +81,9 @@ export default function StorePanelPage() {
         imageUrl?: string | null;
         imageUrl2?: string | null;
         price: number;
+        mrp: number | null;
+        discountPercent: number | null;
+        commissionPercent?: number | null;
         stock: number;
         categoryId: string;
         isActive?: boolean;
@@ -120,7 +124,9 @@ export default function StorePanelPage() {
   const [newStoreUp2, setNewStoreUp2] = useState(false);
 
   const [pName, setPName] = useState("");
+  const [pMrp, setPMrp] = useState("");
   const [pPrice, setPPrice] = useState("");
+  const [pPlatformPct, setPPlatformPct] = useState("");
   const [pStock, setPStock] = useState("");
   const [pUnitLabel, setPUnitLabel] = useState("");
   const [pCat, setPCat] = useState("");
@@ -152,6 +158,8 @@ export default function StorePanelPage() {
   const [stockDraft, setStockDraft] = useState<Record<string, string>>({});
   const [unitDraft, setUnitDraft] = useState<Record<string, string>>({});
   const [priceDraft, setPriceDraft] = useState<Record<string, string>>({});
+  const [mrpDraft, setMrpDraft] = useState<Record<string, string>>({});
+  const [commissionDraft, setCommissionDraft] = useState<Record<string, string>>({});
   const [productQuery, setProductQuery] = useState("");
   const [productCatFilter, setProductCatFilter] = useState<string>("all");
   const [productShowInactive, setProductShowInactive] = useState(true);
@@ -223,6 +231,9 @@ export default function StorePanelPage() {
         imageUrl?: string | null;
         imageUrl2?: string | null;
         price: number;
+        mrp: number | null;
+        discountPercent: number | null;
+        commissionPercent?: number | null;
         stock: number;
         categoryId: string;
         isActive?: boolean;
@@ -501,15 +512,34 @@ export default function StorePanelPage() {
       setMsg(t("storeAddCategoryFirst"));
       return;
     }
+    const mrp = Number(pMrp);
     const price = Number(pPrice);
     const stock = Number(pStock);
-    if (!pName.trim() || !Number.isFinite(price) || price <= 0) {
+    if (!pName.trim() || !Number.isFinite(mrp) || mrp <= 0) {
+      setMsg("Enter a valid MRP");
+      return;
+    }
+    if (!Number.isFinite(price) || price <= 0) {
       setMsg(t("storeInvalidProductPrice"));
+      return;
+    }
+    if (mrp < price) {
+      setMsg("MRP must be greater than or equal to selling price");
       return;
     }
     if (!Number.isFinite(stock) || !Number.isInteger(stock) || stock < 0) {
       setMsg(t("storeInvalidStock"));
       return;
+    }
+    const pctRaw = pPlatformPct.trim();
+    let commissionPercent: number | undefined;
+    if (pctRaw !== "") {
+      const p = Number(pctRaw);
+      if (!Number.isFinite(p) || p < 0 || p > 100) {
+        setMsg("Platform % must be between 0 and 100 (or leave empty)");
+        return;
+      }
+      commissionPercent = p;
     }
     setMsg(null);
     const u = pUnitLabel.trim();
@@ -520,16 +550,20 @@ export default function StorePanelPage() {
         categoryId: pCat,
         name: pName.trim(),
         description: "",
+        mrp,
         price,
         stock,
         imageUrl: pImage || undefined,
         imageUrl2: pImage2 || undefined,
         ...(u ? { unitLabel: u.slice(0, 40) } : {}),
+        ...(commissionPercent !== undefined ? { commissionPercent } : {}),
       }),
     });
     setMsg(res.ok ? "Product live ✓" : res.error || "Error");
     setPName("");
+    setPMrp("");
     setPPrice("");
+    setPPlatformPct("");
     setPStock("");
     setPUnitLabel("");
     setPImage2("");
@@ -637,18 +671,36 @@ export default function StorePanelPage() {
     imageUrl?: string | null;
     imageUrl2?: string | null;
     price: number;
+    mrp: number | null;
+    commissionPercent?: number | null;
     stock: number;
     unitLabel?: string | null;
     unitLabelHint?: string | null;
   }) {
+    const rawMrp = (mrpDraft[p.id] ?? (p.mrp != null ? String(p.mrp) : "")).trim();
     const rawPrice = (priceDraft[p.id] ?? String(p.price)).trim();
     const rawStock = (stockDraft[p.id] ?? String(p.stock)).trim();
     const rawUnit = (unitDraft[p.id] ?? p.unitLabel ?? "").trim();
+    const rawComm = (
+      commissionDraft[p.id] ??
+      (p.commissionPercent != null && p.commissionPercent !== undefined
+        ? String(p.commissionPercent)
+        : "")
+    ).trim();
 
+    const nextMrp = Number(rawMrp);
     const nextPrice = Number(rawPrice);
     const nextStock = Number(rawStock);
+    if (rawMrp === "" || !Number.isFinite(nextMrp) || nextMrp <= 0) {
+      setMsg("Enter a valid MRP");
+      return;
+    }
     if (!Number.isFinite(nextPrice) || nextPrice <= 0) {
       setMsg(t("storeInvalidProductPrice"));
+      return;
+    }
+    if (nextMrp < nextPrice) {
+      setMsg("MRP must be ≥ selling price");
       return;
     }
     if (!Number.isFinite(nextStock) || !Number.isInteger(nextStock) || nextStock < 0) {
@@ -656,14 +708,30 @@ export default function StorePanelPage() {
       return;
     }
 
+    let commissionPatch: { commissionPercent: number | null } | undefined;
+    if (rawComm === "") {
+      if (typeof p.commissionPercent === "number") {
+        commissionPatch = { commissionPercent: null };
+      }
+    } else {
+      const c = Number(rawComm);
+      if (!Number.isFinite(c) || c < 0 || c > 100) {
+        setMsg("Platform % must be 0–100 or empty");
+        return;
+      }
+      commissionPatch = { commissionPercent: c };
+    }
+
     setMsg(null);
     const res = await api("/api/products/update", {
       method: "PATCH",
       body: JSON.stringify({
         productId: p.id,
+        mrp: nextMrp,
         price: nextPrice,
         stock: nextStock,
         unitLabel: rawUnit.trim().slice(0, 40) || null,
+        ...(commissionPatch ?? {}),
       }),
     });
     if (!res.ok) {
@@ -671,6 +739,11 @@ export default function StorePanelPage() {
       return;
     }
     setMsg("Saved ✓");
+    setMrpDraft((m) => {
+      const next = { ...m };
+      delete next[p.id];
+      return next;
+    });
     setPriceDraft((m) => {
       const next = { ...m };
       delete next[p.id];
@@ -682,6 +755,11 @@ export default function StorePanelPage() {
       return next;
     });
     setUnitDraft((m) => {
+      const next = { ...m };
+      delete next[p.id];
+      return next;
+    });
+    setCommissionDraft((m) => {
       const next = { ...m };
       delete next[p.id];
       return next;
@@ -1783,22 +1861,61 @@ export default function StorePanelPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="ui-label">{t("adminPrice")}</label>
+                    <label className="ui-label">MRP (₹)</label>
                     <input
                       className="ui-input !py-2"
+                      inputMode="decimal"
+                      placeholder="e.g. 100"
+                      value={pMrp}
+                      onChange={(e) => setPMrp(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="ui-label">Selling price (₹)</label>
+                    <input
+                      className="ui-input !py-2"
+                      inputMode="decimal"
+                      placeholder="e.g. 80"
                       value={pPrice}
                       onChange={(e) => setPPrice(e.target.value)}
                     />
                   </div>
+                </div>
+                {(() => {
+                  const m = Number(pMrp);
+                  const s = Number(pPrice);
+                  const off = customerDiscountPercent(m, s);
+                  return off != null ? (
+                    <p className="text-xs font-black text-emerald-700">
+                      Customers see ~{off}% off (MRP vs your selling price)
+                    </p>
+                  ) : m > 0 && s > 0 && m === s ? (
+                    <p className="text-xs font-semibold text-zinc-500">No discount vs MRP</p>
+                  ) : null;
+                })()}
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="ui-label">{t("storeStock")}</label>
+                    <label className="ui-label">Stock</label>
                     <input
                       className="ui-input !py-2"
                       value={pStock}
                       onChange={(e) => setPStock(e.target.value)}
                     />
                   </div>
+                  <div>
+                    <label className="ui-label">Platform % (optional)</label>
+                    <input
+                      className="ui-input !py-2"
+                      inputMode="decimal"
+                      placeholder="Empty = store default"
+                      value={pPlatformPct}
+                      onChange={(e) => setPPlatformPct(e.target.value)}
+                    />
+                  </div>
                 </div>
+                <p className="text-[11px] font-semibold text-zinc-500">
+                  Per-product platform share on this item’s sales. If empty, Admin store % or platform default applies.
+                </p>
                 <div>
                   <label className="ui-label">Unit / pack (customer)</label>
                   <input
@@ -2158,17 +2275,69 @@ export default function StorePanelPage() {
                             </div>
                             <div>
                               <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
-                                Price (₹)
+                                MRP (₹)
                               </label>
                               <input
                                 className="ui-input mt-1 !py-2 text-xs"
-                                placeholder="e.g. 20"
+                                placeholder="MRP"
+                                value={
+                                  mrpDraft[p.id] ??
+                                  (p.mrp != null ? String(p.mrp) : String(p.price))
+                                }
+                                onChange={(e) =>
+                                  setMrpDraft((m) => ({ ...m, [p.id]: e.target.value }))
+                                }
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                                Sell (₹)
+                              </label>
+                              <input
+                                className="ui-input mt-1 !py-2 text-xs"
+                                placeholder="Selling"
                                 value={priceDraft[p.id] ?? String(p.price)}
                                 onChange={(e) =>
                                   setPriceDraft((m) => ({ ...m, [p.id]: e.target.value }))
                                 }
                               />
                             </div>
+                            <div>
+                              <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                                % off
+                              </label>
+                              <div className="mt-1 flex h-[38px] items-center rounded-xl border border-emerald-100 bg-emerald-50/80 px-3 text-xs font-black text-emerald-800">
+                                {(() => {
+                                  const m = Number(
+                                    mrpDraft[p.id] ??
+                                      (p.mrp != null ? p.mrp : p.price),
+                                  );
+                                  const s = Number(priceDraft[p.id] ?? p.price);
+                                  const off = customerDiscountPercent(m, s);
+                                  return off != null ? `${off}%` : "—";
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                              Platform % (optional)
+                            </label>
+                            <input
+                              className="ui-input mt-1 !py-2 text-xs"
+                              placeholder="Empty = store default"
+                              value={
+                                commissionDraft[p.id] ??
+                                (typeof p.commissionPercent === "number"
+                                  ? String(p.commissionPercent)
+                                  : "")
+                              }
+                              onChange={(e) =>
+                                setCommissionDraft((m) => ({ ...m, [p.id]: e.target.value }))
+                              }
+                            />
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
@@ -2237,13 +2406,16 @@ export default function StorePanelPage() {
             <div className="mt-4 hidden md:block">
               <div className="overflow-hidden rounded-2xl border border-zinc-200">
                 <div className="max-h-[620px] overflow-auto">
-                  <table className="w-full min-w-[1180px] text-left text-sm">
+                  <table className="w-full min-w-[1280px] text-left text-sm">
                     <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-400">
                       <tr>
                         <th className="px-4 py-3">Item</th>
                         <th className="px-4 py-3">Category</th>
                         <th className="px-4 py-3">Unit</th>
-                        <th className="px-4 py-3">Price (₹)</th>
+                        <th className="px-4 py-3">MRP (₹)</th>
+                        <th className="px-4 py-3">Sell (₹)</th>
+                        <th className="px-4 py-3">Off</th>
+                        <th className="px-4 py-3">Plat.%</th>
                         <th className="px-4 py-3">Stock</th>
                         <th className="px-4 py-3">Active</th>
                         <th className="px-4 py-3 text-right">Actions</th>
@@ -2316,10 +2488,53 @@ export default function StorePanelPage() {
                             <td className="px-4 py-3">
                               <input
                                 className="ui-input !py-2 text-xs"
-                                placeholder="e.g. 20"
+                                placeholder="MRP"
+                                value={
+                                  mrpDraft[p.id] ??
+                                  (p.mrp != null ? String(p.mrp) : String(p.price))
+                                }
+                                onChange={(e) =>
+                                  setMrpDraft((m) => ({ ...m, [p.id]: e.target.value }))
+                                }
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <input
+                                className="ui-input !py-2 text-xs"
+                                placeholder="Sell"
                                 value={priceDraft[p.id] ?? String(p.price)}
                                 onChange={(e) =>
                                   setPriceDraft((m) => ({ ...m, [p.id]: e.target.value }))
+                                }
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-xs font-black text-emerald-700">
+                              {(() => {
+                                const m = Number(
+                                  mrpDraft[p.id] ??
+                                    (p.mrp != null ? p.mrp : p.price),
+                                );
+                                const s = Number(priceDraft[p.id] ?? p.price);
+                                const off = customerDiscountPercent(m, s);
+                                return off != null ? `${off}%` : "—";
+                              })()}
+                            </td>
+                            <td className="px-4 py-3">
+                              <input
+                                className="ui-input !py-2 text-xs"
+                                placeholder="—"
+                                title="Product platform % (empty = default)"
+                                value={
+                                  commissionDraft[p.id] ??
+                                  (typeof p.commissionPercent === "number"
+                                    ? String(p.commissionPercent)
+                                    : "")
+                                }
+                                onChange={(e) =>
+                                  setCommissionDraft((m) => ({
+                                    ...m,
+                                    [p.id]: e.target.value,
+                                  }))
                                 }
                               />
                             </td>

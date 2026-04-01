@@ -8,6 +8,7 @@ import { addToShopCart, getShopCart, updateShopLineQty } from "@/lib/shop-cart";
 import type { ShopVerticalSlug } from "@/lib/shop-verticals";
 import { SHOP_VERTICAL_LABELS } from "@/lib/shop-verticals";
 import { ProductThumb } from "@/components/shop/shop-visual";
+import { ShopPriceDisplay } from "@/components/shop/ShopPriceDisplay";
 import { ShopCategoryMobileBrandBanner } from "@/components/shop/ShopCategoryMobileBrandBanner";
 import { FoodTopStoresSection } from "@/components/shop/FoodTopStoresSection";
 import { DELIVERY_ADDRESS_UPDATED_EVENT } from "@/lib/shop-delivery-address";
@@ -18,6 +19,8 @@ type QuickProduct = {
   name: string;
   description: string;
   price: number;
+  mrp?: number | null;
+  discountPercent?: number | null;
   stock: number;
   imageUrl?: string | null;
   unitLabel?: string | null;
@@ -302,14 +305,19 @@ export function ShopCategoryProductsClient({
                         >
                           {p.name}
                         </Link>
-                        <p className="mt-1 text-[13px] font-extrabold text-slate-900">
-                          ₹{Math.round(p.price)}
+                        <div className="mt-1 flex flex-wrap items-end gap-1">
+                          <ShopPriceDisplay
+                            price={p.price}
+                            mrp={p.mrp}
+                            discountPercent={p.discountPercent}
+                            size="sm"
+                          />
                           {p.unitLabel?.trim() ? (
-                            <span className="ml-1 text-[11px] font-semibold text-slate-500">
+                            <span className="text-[11px] font-semibold text-slate-500">
                               · {p.unitLabel.trim()}
                             </span>
                           ) : null}
-                        </p>
+                        </div>
                         <p className="line-clamp-1 text-[10px] font-medium text-slate-500">
                           {p.store.name}
                           {p.store.distanceKm != null ? ` · ${p.store.distanceKm} km` : ""}
@@ -393,12 +401,19 @@ export function ShopCategoryProductsClient({
                   >
                     {p.name}
                   </Link>
-                  <p className="mt-1 text-[13px] font-extrabold text-slate-900">
-                    ₹{Math.round(p.price)}
+                  <div className="mt-1 flex flex-wrap items-end gap-1">
+                    <ShopPriceDisplay
+                      price={p.price}
+                      mrp={p.mrp}
+                      discountPercent={p.discountPercent}
+                      size="sm"
+                    />
                     {p.unitLabel?.trim() ? (
-                      <span className="ml-1 text-[11px] font-semibold text-slate-500">· {p.unitLabel.trim()}</span>
+                      <span className="text-[11px] font-semibold text-slate-500">
+                        · {p.unitLabel.trim()}
+                      </span>
                     ) : null}
-                  </p>
+                  </div>
                   <p className="line-clamp-1 text-[10px] font-medium text-slate-500">
                     {p.store.name}
                     {p.store.distanceKm != null ? ` · ${p.store.distanceKm} km` : ""}

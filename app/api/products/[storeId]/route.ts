@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { dec } from "@/lib/serialize";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
 import { effectiveProductUnitLabel } from "@/lib/product-unit";
+import { publicProductPricingFields } from "@/lib/product-pricing";
 import { storeOpeningHoursPublic } from "@/lib/store-opening-hours";
 
 export async function OPTIONS() {
@@ -48,20 +48,25 @@ export async function GET(
     store: {
       openingHours: storeOpeningHoursPublic(store),
     },
-    products: items.map((p) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      price: dec(p.price),
-      stock: p.stock,
-      imageUrl: p.imageUrl,
-      categoryId: p.categoryId,
-      categoryName: p.category.name,
-      unitLabel: effectiveProductUnitLabel(
-        p.unitLabel,
-        p.masterProduct?.unitLabel,
-      ),
-    })),
+    products: items.map((p) => {
+      const pricing = publicProductPricingFields({ price: p.price, mrp: p.mrp });
+      return {
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        price: pricing.price,
+        mrp: pricing.mrp,
+        discountPercent: pricing.discountPercent,
+        stock: p.stock,
+        imageUrl: p.imageUrl,
+        categoryId: p.categoryId,
+        categoryName: p.category.name,
+        unitLabel: effectiveProductUnitLabel(
+          p.unitLabel,
+          p.masterProduct?.unitLabel,
+        ),
+      };
+    }),
     total,
     limit,
     offset,

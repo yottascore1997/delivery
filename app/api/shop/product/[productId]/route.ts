@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { dec } from "@/lib/serialize";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
 import { effectiveProductUnitLabel } from "@/lib/product-unit";
+import { publicProductPricingFields } from "@/lib/product-pricing";
 import { storeOpeningHoursPublic } from "@/lib/store-opening-hours";
 
 export async function OPTIONS() {
@@ -40,12 +40,19 @@ export async function GET(
     return jsonError("Product not found", 404);
   }
 
+  const pricing = publicProductPricingFields({
+    price: product.price,
+    mrp: product.mrp,
+  });
+
   return jsonOk({
     product: {
       id: product.id,
       name: product.name,
       description: product.description,
-      price: dec(product.price),
+      price: pricing.price,
+      mrp: pricing.mrp,
+      discountPercent: pricing.discountPercent,
       stock: product.stock,
       imageUrl: product.imageUrl,
       imageUrl2: (product as any).imageUrl2 ?? null,

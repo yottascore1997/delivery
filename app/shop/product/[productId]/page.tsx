@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/client-api";
 import { addToShopCart, getShopCart, updateShopLineQty } from "@/lib/shop-cart";
 import { ProductThumb } from "@/components/shop/shop-visual";
+import { ShopPriceDisplay } from "@/components/shop/ShopPriceDisplay";
 
 type OpeningHoursPayload = {
   enabled: boolean;
@@ -37,6 +38,8 @@ type StoreProduct = {
   id: string;
   name: string;
   price: number;
+  mrp?: number | null;
+  discountPercent?: number | null;
   stock: number;
   imageUrl?: string | null;
   unitLabel?: string | null;
@@ -166,7 +169,12 @@ export default function ShopProductPage() {
           {item.description || "Fresh quality product from nearby trusted store."}
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-3">
-          <p className="text-3xl font-black text-slate-900">₹{Math.round(item.price)}</p>
+          <ShopPriceDisplay
+            price={item.price}
+            mrp={item.mrp}
+            discountPercent={item.discountPercent}
+            size="lg"
+          />
           {item.unitLabel?.trim() ? (
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
               {item.unitLabel.trim()}
@@ -263,14 +271,19 @@ export default function ShopProductPage() {
                     >
                       {s.name}
                     </Link>
-                    <p className="mt-1 text-sm font-black text-slate-900">
-                      ₹{Math.round(s.price)}
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <ShopPriceDisplay
+                        price={s.price}
+                        mrp={s.mrp}
+                        discountPercent={s.discountPercent}
+                        size="md"
+                      />
                       {s.unitLabel?.trim() ? (
-                        <span className="ml-2 text-xs font-semibold text-slate-500">
+                        <span className="text-xs font-semibold text-slate-500">
                           {s.unitLabel.trim()}
                         </span>
                       ) : null}
-                    </p>
+                    </div>
                     <div className="mt-2">
                       {qtyFor(s.id) > 0 ? (
                         <div className="flex items-center justify-between rounded-xl border border-violet-200 bg-violet-50 px-2 py-1">

@@ -66,6 +66,7 @@ export async function POST(request: Request) {
           imageUrl2: (mp as any).imageUrl2 ?? null,
           unitLabel: mp.unitLabel ?? null,
           price: x.price,
+          mrp: x.price,
           stock: 100,
           isActive: true,
         };
@@ -80,6 +81,7 @@ export async function POST(request: Request) {
       imageUrl2: string | null;
       unitLabel: string | null;
       price: number;
+      mrp: number;
       stock: number;
       isActive: boolean;
     }[];

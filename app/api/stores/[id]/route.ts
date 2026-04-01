@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { dec } from "@/lib/serialize";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
 import { requireAuth } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
 import { effectiveProductUnitLabel } from "@/lib/product-unit";
+import { publicProductPricingFields } from "@/lib/product-pricing";
 import { storeOpeningHoursPublic } from "@/lib/store-opening-hours";
 
 export async function OPTIONS() {
@@ -63,19 +63,24 @@ export async function GET(
         .map((c) => ({
           id: c.id,
           name: c.name,
-          products: c.products.map((p) => ({
-            id: p.id,
-            name: p.name,
-            description: p.description,
-            price: dec(p.price),
-            stock: p.stock,
-            imageUrl: p.imageUrl,
-            categoryId: p.categoryId,
-            unitLabel: effectiveProductUnitLabel(
-              p.unitLabel,
-              p.masterProduct?.unitLabel,
-            ),
-          })),
+          products: c.products.map((p) => {
+            const pricing = publicProductPricingFields({ price: p.price, mrp: p.mrp });
+            return {
+              id: p.id,
+              name: p.name,
+              description: p.description,
+              price: pricing.price,
+              mrp: pricing.mrp,
+              discountPercent: pricing.discountPercent,
+              stock: p.stock,
+              imageUrl: p.imageUrl,
+              categoryId: p.categoryId,
+              unitLabel: effectiveProductUnitLabel(
+                p.unitLabel,
+                p.masterProduct?.unitLabel,
+              ),
+            };
+          }),
         })),
     },
   });

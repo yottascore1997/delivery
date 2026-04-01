@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { api } from "@/lib/client-api";
 import { addToShopCart, getShopCart, updateShopLineQty } from "@/lib/shop-cart";
 import { ProductThumb } from "@/components/shop/shop-visual";
+import { ShopPriceDisplay } from "@/components/shop/ShopPriceDisplay";
 import { ShopNearbyStoreCard } from "@/components/shop/ShopNearbyStoreCard";
 import { SHOP_VERTICAL_LABELS, isShopVerticalSlug } from "@/lib/shop-verticals";
 
@@ -26,6 +27,8 @@ type ProductItem = {
   name: string;
   description: string;
   price: number;
+  mrp?: number | null;
+  discountPercent?: number | null;
   stock: number;
   imageUrl?: string | null;
   unitLabel?: string | null;
@@ -144,12 +147,19 @@ function ShopSearchInner() {
                   <Link href={`/shop/product/${p.id}`} className="line-clamp-2 text-[11px] font-semibold text-slate-900">
                     {p.name}
                   </Link>
-                  <p className="mt-1 text-[13px] font-extrabold text-slate-900">
-                    ₹{Math.round(p.price)}
+                  <div className="mt-1 flex flex-wrap items-end gap-1">
+                    <ShopPriceDisplay
+                      price={p.price}
+                      mrp={p.mrp}
+                      discountPercent={p.discountPercent}
+                      size="sm"
+                    />
                     {p.unitLabel?.trim() ? (
-                      <span className="ml-1 text-[11px] font-semibold text-slate-500">· {p.unitLabel.trim()}</span>
+                      <span className="text-[11px] font-semibold text-slate-500">
+                        · {p.unitLabel.trim()}
+                      </span>
                     ) : null}
-                  </p>
+                  </div>
                   <p className="line-clamp-1 text-[10px] font-medium text-slate-500">{p.store.name}</p>
                   <div className="mt-2">
                     {(cartQty[p.id] ?? 0) > 0 ? (

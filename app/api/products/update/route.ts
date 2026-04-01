@@ -3,11 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
+import { dec } from "@/lib/serialize";
 
 const bodySchema = z.object({
   productId: z.string(),
   name: z.string().min(1).optional(),
   description: z.string().optional(),
+  mrp: z.number().positive().optional(),
   price: z.number().positive().optional(),
   stock: z.number().int().min(0).optional(),
   imageUrl: z.string().max(2048).optional().nullable(),
@@ -15,6 +17,8 @@ const bodySchema = z.object({
   categoryId: z.string().optional(),
   isActive: z.boolean().optional(),
   unitLabel: z.string().max(40).optional().nullable(),
+  /** null clears override (store / platform default) */
+  commissionPercent: z.number().min(0).max(100).nullable().optional(),
 });
 
 export async function OPTIONS() {
@@ -49,11 +53,21 @@ export async function PATCH(request: Request) {
       imageUrl2 = `${cdn}/${String(imageUrl2).replace(/^\//, "")}`;
     }
 
+    if (body.mrp != null || body.price != null) {
+      const nextMrp =
+        body.mrp != null ? body.mrp : dec(product.mrp != null ? product.mrp : product.price);
+      const nextPrice = body.price != null ? body.price : dec(product.price);
+      if (nextMrp < nextPrice) {
+        return jsonError("MRP must be greater than or equal to selling price");
+      }
+    }
+
     const updated = await prisma.product.update({
       where: { id: body.productId },
       data: {
         ...(body.name != null ? { name: body.name } : {}),
         ...(body.description != null ? { description: body.description } : {}),
+        ...(body.mrp != null ? { mrp: body.mrp } : {}),
         ...(body.price != null ? { price: body.price } : {}),
         ...(body.stock != null ? { stock: body.stock } : {}),
         ...(body.categoryId != null ? { categoryId: body.categoryId } : {}),
@@ -71,6 +85,9 @@ export async function PATCH(request: Request) {
                   ? null
                   : body.unitLabel.trim(),
             }
+          : {}),
+        ...(body.commissionPercent !== undefined
+          ? { commissionPercent: body.commissionPercent }
           : {}),
       },
     });

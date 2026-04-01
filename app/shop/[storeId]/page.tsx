@@ -7,12 +7,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client-api";
 import { addToShopCart } from "@/lib/shop-cart";
 import { ProductThumb, StoreCover } from "@/components/shop/shop-visual";
+import { ShopPriceDisplay } from "@/components/shop/ShopPriceDisplay";
 
 type Product = {
   id: string;
   name: string;
   description: string;
   price: number;
+  mrp?: number | null;
+  discountPercent?: number | null;
   stock: number;
   categoryId: string;
   imageUrl?: string | null;
@@ -329,9 +332,12 @@ export default function ShopStorePage() {
                         {p.name}
                       </Link>
                       <div className="mt-1.5 flex flex-wrap items-end gap-x-1.5 gap-y-0.5 sm:mt-2 sm:gap-2">
-                        <p className="text-[13px] font-extrabold leading-none text-slate-900 sm:text-[15px]">
-                          ₹{Number(p.price).toFixed(0)}
-                        </p>
+                        <ShopPriceDisplay
+                          price={p.price}
+                          mrp={p.mrp}
+                          discountPercent={p.discountPercent}
+                          size="sm"
+                        />
                         {p.unitLabel?.trim() ? (
                           <span className="text-[10px] font-semibold text-slate-500 sm:text-[11px]">
                             {p.unitLabel.trim()}

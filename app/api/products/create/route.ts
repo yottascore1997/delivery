@@ -4,17 +4,23 @@ import { requireAuth } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
 
-const bodySchema = z.object({
-  storeId: z.string(),
-  categoryId: z.string(),
-  name: z.string().min(1).max(200),
-  description: z.string().default(""),
-  price: z.number().positive(),
-  stock: z.number().int().min(0),
-  imageUrl: z.string().max(2048).optional().nullable(),
-  imageUrl2: z.string().max(2048).optional().nullable(),
-  unitLabel: z.string().max(40).optional().nullable(),
-});
+const bodySchema = z
+  .object({
+    storeId: z.string(),
+    categoryId: z.string(),
+    name: z.string().min(1).max(200),
+    description: z.string().default(""),
+    mrp: z.number().positive(),
+    price: z.number().positive(),
+    stock: z.number().int().min(0),
+    imageUrl: z.string().max(2048).optional().nullable(),
+    imageUrl2: z.string().max(2048).optional().nullable(),
+    unitLabel: z.string().max(40).optional().nullable(),
+    commissionPercent: z.number().min(0).max(100).nullable().optional(),
+  })
+  .refine((b) => b.mrp >= b.price, {
+    message: "MRP must be greater than or equal to selling price",
+  });
 
 export async function OPTIONS() {
   return emptyOptions();
@@ -59,11 +65,15 @@ export async function POST(request: Request) {
         categoryId: body.categoryId,
         name: body.name,
         description: body.description,
+        mrp: body.mrp,
         price: body.price,
         stock: body.stock,
         imageUrl: imageUrl || null,
         imageUrl2: imageUrl2 || null,
         ...(unitTrim ? { unitLabel: unitTrim } : {}),
+        ...(body.commissionPercent != null
+          ? { commissionPercent: body.commissionPercent }
+          : {}),
       },
     });
 

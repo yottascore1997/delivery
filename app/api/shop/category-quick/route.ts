@@ -4,6 +4,7 @@ import { dec } from "@/lib/serialize";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
 import { isShopVerticalSlug } from "@/lib/shop-verticals";
 import { effectiveProductUnitLabel } from "@/lib/product-unit";
+import { publicProductPricingFields } from "@/lib/product-pricing";
 import { storeOpeningHoursPublic } from "@/lib/store-opening-hours";
 
 export async function OPTIONS() {
@@ -211,11 +212,14 @@ export async function GET(request: Request) {
     })),
     products: deduped.map((p) => {
       const store = storeMap.get(p.storeId)!;
+      const pricing = publicProductPricingFields({ price: p.price, mrp: p.mrp });
       return {
         id: p.id,
         name: p.name,
         description: p.description,
-        price: dec(p.price),
+        price: pricing.price,
+        mrp: pricing.mrp,
+        discountPercent: pricing.discountPercent,
         stock: p.stock,
         imageUrl: p.imageUrl,
         masterProductId: p.masterProductId,

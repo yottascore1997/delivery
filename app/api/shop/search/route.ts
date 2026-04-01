@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { dec } from "@/lib/serialize";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
 import { effectiveProductUnitLabel } from "@/lib/product-unit";
+import { publicProductPricingFields } from "@/lib/product-pricing";
 import { storeOpeningHoursPublic } from "@/lib/store-opening-hours";
 
 export async function OPTIONS() {
@@ -73,25 +73,30 @@ export async function GET(request: Request) {
       longitude: s.longitude,
       openingHours: storeOpeningHoursPublic(s),
     })),
-    products: products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      price: dec(p.price),
-      stock: p.stock,
-      imageUrl: p.imageUrl,
-      unitLabel: effectiveProductUnitLabel(
-        p.unitLabel,
-        p.masterProduct?.unitLabel,
-      ),
-      categoryName: p.category.name,
-      store: {
+    products: products.map((p) => {
+      const pricing = publicProductPricingFields({ price: p.price, mrp: p.mrp });
+      return {
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        price: pricing.price,
+        mrp: pricing.mrp,
+        discountPercent: pricing.discountPercent,
+        stock: p.stock,
+        imageUrl: p.imageUrl,
+        unitLabel: effectiveProductUnitLabel(
+          p.unitLabel,
+          p.masterProduct?.unitLabel,
+        ),
+        categoryName: p.category.name,
+        store: {
         id: p.store.id,
         name: p.store.name,
         address: p.store.address,
         imageUrl: p.store.imageUrl,
         openingHours: storeOpeningHoursPublic(p.store),
       },
-    })),
+    };
+    }),
   });
 }

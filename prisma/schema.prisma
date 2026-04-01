@@ -189,7 +189,12 @@ model Product {
   masterProductId String?
   name        String
   description String   @db.Text
+  /// Maximum retail / list price (customer sees discount vs `price`).
+  mrp         Decimal? @db.Decimal(10, 2)
+  /// Selling price (what customer pays).
   price       Decimal  @db.Decimal(10, 2)
+  /// Optional % of line revenue to platform for this SKU; if null, store then platform default applies.
+  commissionPercent Float?
   stock       Int      @default(0)
   imageUrl    String?  @db.VarChar(2048)
   imageUrl2   String?  @db.VarChar(2048)
