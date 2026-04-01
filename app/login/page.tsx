@@ -12,6 +12,7 @@ import {
   type ConfirmationResult,
 } from "firebase/auth";
 import { useLocale } from "@/contexts/LocaleContext";
+import { MobileLoginHeroSlider } from "@/components/login/MobileLoginHeroSlider";
 
 const ALLOWED_NEXT = [
   "/admin",
@@ -284,11 +285,11 @@ function LoginForm() {
   const showAdminPanelNote = next === "/admin" || adminHint;
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-mesh-hero bg-stone-50">
-      <div className="pointer-events-none absolute -left-24 top-[-140px] h-[340px] w-[340px] rounded-full bg-orange-300/35 blur-3xl" />
-      <div className="pointer-events-none absolute -right-24 top-[180px] h-[380px] w-[380px] rounded-full bg-violet-300/25 blur-3xl" />
+    <div className="relative min-h-screen overflow-hidden bg-mesh-hero bg-stone-50 max-lg:h-dvh max-lg:min-h-0 max-lg:max-h-dvh">
+      <div className="pointer-events-none absolute -left-24 top-[-140px] hidden h-[340px] w-[340px] rounded-full bg-orange-300/35 blur-3xl lg:block" />
+      <div className="pointer-events-none absolute -right-24 top-[180px] hidden h-[380px] w-[380px] rounded-full bg-violet-300/25 blur-3xl lg:block" />
       <div id="firebase-recaptcha" />
-      <div className="mx-auto grid min-h-screen max-w-6xl lg:grid-cols-2">
+      <div className="mx-auto grid min-h-screen max-w-6xl lg:grid-cols-2 max-lg:h-dvh max-lg:min-h-0 max-lg:grid-rows-[minmax(0,1fr)]">
         <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-cta p-10 text-white lg:flex">
           <div className="hero-pattern absolute inset-0 opacity-30" />
           <div className="relative z-10">
@@ -347,7 +348,7 @@ function LoginForm() {
           <div className="pointer-events-none absolute -bottom-8 right-0 h-64 w-64 rounded-full bg-rush-400/40 blur-3xl" />
         </div>
 
-        <div className="relative flex flex-col justify-center px-4 py-10 sm:px-8 lg:px-14">
+        <div className="relative flex min-h-0 flex-1 flex-col justify-center px-4 py-10 sm:px-8 max-lg:h-full max-lg:justify-stretch max-lg:p-0 max-lg:py-0 lg:px-14">
           {/* Desktop/tablet header */}
           <div className="mb-6 hidden flex-wrap items-center justify-between gap-3 lg:mb-8 lg:flex">
             <Link
@@ -386,60 +387,87 @@ function LoginForm() {
             </div>
           </div>
 
-          {/* Mobile: hero + bottom-sheet login (Blinkit/Zomato style) */}
-          <div className="lg:hidden">
-            <div className="relative -mx-4 min-h-screen overflow-hidden bg-black">
-              <div className="absolute inset-0">
-                <Image
-                  src="https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?w=1400&h=1800&fit=crop&q=80"
-                  alt={t("loginImgAltHeroMobile")}
-                  fill
-                  className="object-cover opacity-95"
-                  priority
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/55 to-black/15" />
-              </div>
+          {/* Mobile: full-viewport green hero + bottom sheet — no page scroll */}
+          <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden lg:hidden">
+            <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-800">
+              <div className="pointer-events-none absolute -right-16 top-24 h-56 w-56 rounded-full bg-lime-300/25 blur-3xl" />
+              <div className="pointer-events-none absolute -left-20 bottom-40 h-48 w-48 rounded-full bg-teal-900/40 blur-3xl" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/10 to-transparent" />
 
-              <div className="relative z-10 px-4 pt-6">
-                <div className="flex items-center justify-between">
+              <div className="relative z-10 flex min-h-0 flex-1 flex-col px-5 pb-2 pt-[max(1.25rem,env(safe-area-inset-top))]">
+                <div className="flex shrink-0 items-center justify-between">
                   <Link
                     href="/"
-                    className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white/90 backdrop-blur hover:bg-white/15"
+                    className="rounded-full bg-white/15 px-3.5 py-2 text-xs font-bold text-white shadow-sm ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/25"
                   >
                     {t("loginHomeMobile")}
                   </Link>
                   {!isStorePartner ? (
                     <Link
                       href="/shop"
-                      className="rounded-full bg-white/10 px-4 py-2 text-xs font-black text-white/90 backdrop-blur hover:bg-white/15"
+                      className="rounded-full bg-white/15 px-4 py-2 text-xs font-black text-white ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/25"
                     >
                       Skip
                     </Link>
                   ) : null}
                 </div>
 
-                <div className="mt-16">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/75">
-                    {t("loginMobileHeroBrand")}
-                  </p>
-                  <h1 className="font-display mt-4 max-w-sm text-4xl font-black leading-[1.05] tracking-tight text-white">
-                    {isStorePartner ? t("loginTitlePartner") : t("loginTitleCustomer")}
-                  </h1>
-                  <p className="mt-3 max-w-sm text-sm font-semibold text-white/80">
-                    {isStorePartner ? t("loginSubPartner") : t("loginSubCustomer")}
-                  </p>
+                <div className="mt-5 flex min-h-0 flex-1 flex-col justify-center">
+                  <div className="mx-auto w-full max-w-sm shrink-0">
+                    <MobileLoginHeroSlider />
+                  </div>
+                  <div className="mx-auto mt-5 w-full max-w-sm">
+                    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 ring-1 ring-white/25 backdrop-blur-sm">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-lime-300 opacity-60" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-lime-200" />
+                      </span>
+                      <span className="text-[11px] font-black uppercase tracking-[0.18em] text-white/95">
+                        {t("loginMobileHeroBrand")}
+                      </span>
+                    </div>
+                    <h1 className="font-display text-4xl font-black leading-[1.08] tracking-tight text-white drop-shadow-sm sm:text-[2.125rem]">
+                      {isStorePartner ? t("loginTitlePartner") : t("loginTitleCustomer")}
+                    </h1>
+                    <p className="mt-3 text-[15px] font-semibold leading-snug text-white/90">
+                      {isStorePartner ? t("loginSubPartner") : t("loginSubCustomer")}
+                    </p>
+                    <div className="mt-6 flex flex-wrap gap-2">
+                      <span className="rounded-xl bg-white/15 px-3 py-1.5 text-[11px] font-bold text-white ring-1 ring-white/20">
+                        {t("loginStatSubCod")}
+                      </span>
+                      <span className="rounded-xl bg-white/15 px-3 py-1.5 text-[11px] font-bold text-white ring-1 ring-white/20">
+                        {t("loginStatSubMin")}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Bottom sheet */}
-              <div className="absolute inset-x-0 bottom-0 z-20">
-                <div className="rounded-t-[28px] border border-white/15 bg-white/95 px-4 pb-6 pt-5 shadow-2xl backdrop-blur">
-                  <p className="text-center text-sm font-black text-[#1a1a1a]">
-                    Choose your account
-                  </p>
-                  <p className="mt-1 text-center text-xs font-semibold text-zinc-500">
-                    Log in or sign up with OTP
-                  </p>
+              <div className="relative z-20 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <div className="rounded-t-[28px] border border-white/20 bg-white px-4 pb-5 pt-5 shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.2)]">
+                  {step === 1 ? (
+                    <>
+                      <p className="text-center text-sm font-black text-zinc-900">
+                        {t("loginMobileSheetTitle")}
+                      </p>
+                      <p className="mt-1 text-center text-xs font-semibold text-zinc-500">
+                        {t("loginMobileSheetSub")}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-center text-sm font-black text-zinc-900">
+                        {t("loginMobileSheetTitleOtp")}
+                      </p>
+                      <p className="mt-1 text-center text-xs font-semibold text-zinc-500">
+                        {isStorePartner
+                          ? t("loginMobileHintPartner")
+                          : t("loginMobileHintCustomer")}
+                      </p>
+                    </>
+                  )}
 
                   {step === 1 && (
                     <div className="mt-4 space-y-3">
@@ -455,8 +483,8 @@ function LoginForm() {
                         </div>
                       ) : null}
 
-                      <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-3 shadow-sm">
-                        <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-sm font-bold text-zinc-800">
+                      <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50/80 px-3 py-3 shadow-inner">
+                        <div className="flex items-center gap-2 rounded-xl border border-emerald-200/80 bg-white px-2.5 py-2 text-sm font-bold text-emerald-900">
                           +91
                         </div>
                         <input
@@ -472,17 +500,9 @@ function LoginForm() {
                         type="button"
                         disabled={loading}
                         onClick={sendOtp}
-                        className="w-full rounded-2xl bg-emerald-600 py-4 text-sm font-black text-white shadow-[0_14px_34px_-18px_rgba(16,185,129,0.65)] disabled:opacity-50"
+                        className="w-full rounded-2xl bg-emerald-600 py-4 text-sm font-black text-white shadow-[0_14px_34px_-14px_rgba(5,150,105,0.85)] disabled:opacity-50 active:scale-[0.99] transition-transform"
                       >
-                        {loading ? t("loginSending") : "Send OTP via WhatsApp"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={loading}
-                        onClick={sendOtp}
-                        className="w-full rounded-2xl border border-emerald-200 bg-white py-3.5 text-sm font-black text-emerald-700 disabled:opacity-50"
-                      >
-                        {loading ? t("loginSending") : "Send OTP via SMS"}
+                        {loading ? t("loginSending") : t("loginSendOtp")}
                       </button>
                     </div>
                   )}
@@ -758,28 +778,6 @@ function LoginForm() {
               <div className="mt-5 rounded-2xl border border-fresh-200 bg-fresh-50 px-4 py-3 text-sm text-fresh-900">
                 {msg}
               </div>
-            )}
-
-            {!isStorePartner ? (
-              <p className="mt-8 text-center text-sm font-semibold text-zinc-600">
-                {t("loginPartnerLead")}{" "}
-                <Link
-                  href="/login?partner=1"
-                  className="font-black text-orange-600 underline decoration-orange-200 underline-offset-2 hover:text-orange-700"
-                >
-                  {t("loginPartnerLink")}
-                </Link>
-              </p>
-            ) : (
-              <p className="mt-8 text-center text-sm font-semibold text-zinc-600">
-                {t("loginCustomerLead")}{" "}
-                <Link
-                  href="/login"
-                  className="font-black text-zinc-800 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-950"
-                >
-                  {t("loginCustomerLink")}
-                </Link>
-              </p>
             )}
           </div>
         </div>
