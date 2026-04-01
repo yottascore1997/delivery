@@ -16,9 +16,6 @@ function normalizePhone10(raw: string): string {
   return d.length >= 10 ? d.slice(-10) : raw.trim();
 }
 
-/** Local dev only — fixed OTP so you don’t need the random code from terminal. */
-const DEV_BYPASS_OTP = "123456";
-
 export async function OPTIONS() {
   return emptyOptions();
 }
@@ -29,9 +26,7 @@ export async function POST(request: Request) {
     const phone = normalizePhone10(body.phone);
     const code = body.code.trim();
 
-    const devBypass =
-      process.env.NODE_ENV === "development" && code === DEV_BYPASS_OTP;
-    const ok = devBypass ? true : await verifyOtp(phone, code);
+    const ok = await verifyOtp(phone, code);
     if (!ok) return jsonError("Invalid or expired OTP", 401);
 
     const user = await prisma.user.findUnique({ where: { phone } });

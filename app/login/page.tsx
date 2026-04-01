@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, setSession, updateSessionUser } from "@/lib/client-api";
-/* Production SMS OTP — skipped when USE_DEV_OTP (local uses /api/auth/login + verify-otp; OTP in server logs). */
 import { getFirebaseAuth } from "@/lib/firebase-client";
 import {
   RecaptchaVerifier,
@@ -27,9 +26,6 @@ const ALLOWED_NEXT = [
   "/shop/profile",
   "/shop/help",
 ] as const;
-
-/** Local `next dev`: DB-backed OTP (see terminal `[OTP] phone -> code`). Production: Firebase SMS. */
-const USE_DEV_OTP = process.env.NODE_ENV === "development";
 
 function normalizeLoginPhone10(raw: string): string {
   const d = raw.replace(/\D/g, "");
@@ -141,62 +137,21 @@ function LoginForm() {
         return;
       }
 
-      if (USE_DEV_OTP) {
-        let sendOk = false;
-        if (isStorePartner) {
-          const regRes = await api<{ ok?: boolean; message?: string }>("/api/auth/register", {
-            method: "POST",
-            body: JSON.stringify({
-              phone: phone10,
-              name: storePartnerName.trim(),
-              role: "STORE_OWNER",
-            }),
-          });
-          sendOk = regRes.ok;
-          if (!sendOk) setMsg(regRes.error || t("loginErrCouldNotSend"));
-        } else {
-          const loginRes = await api<{ ok?: boolean; message?: string }>("/api/auth/login", {
-            method: "POST",
-            body: JSON.stringify({ phone: phone10 }),
-          });
-          sendOk = loginRes.ok;
-          if (!sendOk && loginRes.status === 404) {
-            const regRes = await api("/api/auth/register", {
-              method: "POST",
-              body: JSON.stringify({
-                phone: phone10,
-                name: "Customer",
-                role: "CUSTOMER",
-              }),
-            });
-            sendOk = regRes.ok;
-            if (!sendOk) setMsg(regRes.error || t("loginErrCouldNotSend"));
-          } else if (!sendOk) {
-            setMsg(loginRes.error || t("loginErrCouldNotSend"));
-          }
-        }
-        if (sendOk) {
-          setFbConfirm(null);
-          setMsg(`${t("loginMsgOtpSent")} (dev — use OTP 123456 or check server terminal)`);
-          setStep(2);
-        }
-      } else {
-        const auth = getFirebaseAuth();
-        const digits = phone.replace(/\D/g, "");
-        const e164 = digits.startsWith("91") ? `+${digits}` : `+91${digits}`;
+      const auth = getFirebaseAuth();
+      const digits = phone.replace(/\D/g, "");
+      const e164 = digits.startsWith("91") ? `+${digits}` : `+91${digits}`;
 
-        const verifier =
-          (window as any).dlfRecaptchaVerifier ??
-          new RecaptchaVerifier(auth, "firebase-recaptcha", {
-            size: "invisible",
-          });
-        (window as any).dlfRecaptchaVerifier = verifier;
+      const verifier =
+        (window as any).dlfRecaptchaVerifier ??
+        new RecaptchaVerifier(auth, "firebase-recaptcha", {
+          size: "invisible",
+        });
+      (window as any).dlfRecaptchaVerifier = verifier;
 
-        const confirm = await signInWithPhoneNumber(auth, e164, verifier);
-        setFbConfirm(confirm);
-        setMsg(t("loginMsgOtpSent"));
-        setStep(2);
-      }
+      const confirm = await signInWithPhoneNumber(auth, e164, verifier);
+      setFbConfirm(confirm);
+      setMsg(t("loginMsgOtpSent"));
+      setStep(2);
     } catch (e: any) {
       setMsg(e?.message || t("loginErrCouldNotSend"));
     } finally {
@@ -276,8 +231,6 @@ function LoginForm() {
     setMsg(null);
 
     try {
-      const phone10 = normalizeLoginPhone10(phone);
-
       let res: {
         ok: boolean;
         data?: {
@@ -288,45 +241,29 @@ function LoginForm() {
         error?: string;
       };
 
-      if (USE_DEV_OTP) {
-        if (phone10.length < 10) {
-          setMsg(t("loginErrSendOtpAgain"));
-          return;
-        }
-        const verifyRes = await api<{
-          token: string;
-          needsProfile?: boolean;
-          user: { id: string; name: string; phone: string; role: string; imageUrl?: string | null };
-        }>("/api/auth/verify-otp", {
-          method: "POST",
-          body: JSON.stringify({ phone: phone10, code: otp.trim() }),
-        });
-        res = verifyRes;
-      } else {
-        if (!fbConfirm) {
-          setMsg(t("loginErrSendOtpAgain"));
-          return;
-        }
-        const cred = await fbConfirm.confirm(otp);
-        const idToken = await cred.user.getIdToken();
-        const fbRes = await api<{
-          token: string;
-          needsProfile?: boolean;
-          user: { id: string; name: string; phone: string; role: string; imageUrl?: string | null };
-        }>("/api/auth/firebase", {
-          method: "POST",
-          body: JSON.stringify(
-            isStorePartner
-              ? {
-                  idToken,
-                  name: storePartnerName.trim(),
-                  registerAsStorePartner: true,
-                }
-              : { idToken },
-          ),
-        });
-        res = fbRes;
+      if (!fbConfirm) {
+        setMsg(t("loginErrSendOtpAgain"));
+        return;
       }
+      const cred = await fbConfirm.confirm(otp);
+      const idToken = await cred.user.getIdToken();
+      const fbRes = await api<{
+        token: string;
+        needsProfile?: boolean;
+        user: { id: string; name: string; phone: string; role: string; imageUrl?: string | null };
+      }>("/api/auth/firebase", {
+        method: "POST",
+        body: JSON.stringify(
+          isStorePartner
+            ? {
+                idToken,
+                name: storePartnerName.trim(),
+                registerAsStorePartner: true,
+              }
+            : { idToken },
+        ),
+      });
+      res = fbRes;
 
       if (!res.ok || !res.data) {
         setMsg(res.error || t("loginErrVerifyFailed"));
@@ -379,7 +316,7 @@ function LoginForm() {
     <div className="relative h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden bg-mesh-hero bg-stone-50 lg:bg-zinc-100">
       <div className="pointer-events-none absolute -left-24 top-[-140px] hidden h-[340px] w-[340px] rounded-full bg-orange-300/35 blur-3xl max-lg:block lg:hidden" />
       <div className="pointer-events-none absolute -right-24 top-[180px] hidden h-[380px] w-[380px] rounded-full bg-violet-300/25 blur-3xl max-lg:block lg:hidden" />
-      {!USE_DEV_OTP ? <div id="firebase-recaptcha" /> : null}
+      <div id="firebase-recaptcha" />
       <div className="mx-auto grid h-full min-h-0 w-full grid-rows-[minmax(0,1fr)] lg:grid-cols-2 lg:max-w-none">
         {/* Desktop: grocery-style green hero (mobile keeps its own hero below) */}
         <div className="relative hidden min-h-0 flex-col overflow-hidden bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 text-white lg:flex lg:h-full">
