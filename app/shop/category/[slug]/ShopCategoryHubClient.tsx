@@ -46,7 +46,7 @@ type CatalogCategory = {
 };
 
 type CatalogRes = {
-  mainCategory: { name: string };
+  mainCategory: { name: string } | null;
   categories: CatalogCategory[];
 };
 
@@ -196,7 +196,7 @@ export function ShopCategoryHubClient({ slug }: { slug: ShopVerticalSlug }) {
 
       <section aria-labelledby="subcat-heading" className="mb-8">
         <h2 id="subcat-heading" className="mb-3 text-sm font-black text-slate-900 sm:text-base">
-          {data?.mainCategory.name ?? label}
+          {data?.mainCategory?.name ?? label}
         </h2>
 
         {loading ? (
@@ -268,7 +268,7 @@ export function ShopCategoryHubClient({ slug }: { slug: ShopVerticalSlug }) {
           <SubcategoryGrid slug={slug} categories={categories} />
         )}
 
-        {!loading && !err && (data?.categories.length ?? 0) === 0 && (
+        {!loading && !err && (data?.categories?.length ?? 0) === 0 && (
           <p className="mt-4 text-center text-sm font-medium text-slate-500">
             No subcategories in catalog yet. Check back later or browse from the shop home.
           </p>

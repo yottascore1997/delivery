@@ -111,6 +111,8 @@ export function ShopSiteHeader() {
   /** null = guest or loading (when token exists); "" = logged in, no saved line yet */
   const [deliverLine, setDeliverLine] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  /** Avoid getToken() during SSR/first paint — it differs from client and causes hydration mismatches. */
+  const [addressUiReady, setAddressUiReady] = useState(false);
 
   const appName = getAppName();
   const mark = getAppMarkInitial();
@@ -132,6 +134,10 @@ export function ShopSiteHeader() {
     setLabel(u?.name ?? (getToken() ? "Signed in" : null));
     setAvatarUrl(u?.imageUrl?.trim() || null);
   }
+
+  useEffect(() => {
+    setAddressUiReady(true);
+  }, []);
 
   useEffect(() => {
     syncUserFace();
@@ -169,12 +175,15 @@ export function ShopSiteHeader() {
     return () => window.removeEventListener(DELIVERY_ADDRESS_UPDATED_EVENT, onAddressUpdated);
   }, [pathname]);
 
-  const mobileDeliverHref = getToken()
-    ? "/shop/cart#delivery-address"
-    : "/login?next=/shop/cart&customer=1&focus=address";
+  const mobileDeliverHref = !addressUiReady
+    ? "/shop/cart"
+    : getToken()
+      ? "/shop/cart#delivery-address"
+      : "/login?next=/shop/cart&customer=1&focus=address";
 
-  const mobileDeliverSubtitle =
-    !getToken()
+  const mobileDeliverSubtitle = !addressUiReady
+    ? "…"
+    : !getToken()
       ? "Login · set delivery address"
       : deliverLine === null
         ? "…"
@@ -243,7 +252,10 @@ export function ShopSiteHeader() {
                   >
                     Deliver to
                   </span>
-                  <span className="mt-0.5 line-clamp-1 text-[12px] font-bold leading-tight text-white">
+                  <span
+                    className="mt-0.5 line-clamp-1 text-[12px] font-bold leading-tight text-white"
+                    suppressHydrationWarning
+                  >
                     {mobileDeliverSubtitle}
                   </span>
                 </span>

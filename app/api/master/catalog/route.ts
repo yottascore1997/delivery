@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     mains.find((m) => m.name.trim().toLowerCase().includes(normalized)) ??
     null;
   if (!main) {
-    return jsonOk({ mainKey, categories: [] });
+    return jsonOk({ mainKey, mainCategory: null, categories: [] });
   }
 
   const categories = await prisma.masterCategory.findMany({
