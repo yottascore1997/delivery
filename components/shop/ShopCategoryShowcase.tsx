@@ -169,10 +169,10 @@ function CategoryFeaturedCard({
       }}
     >
       <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/45 via-transparent to-transparent"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent"
         aria-hidden
       />
-      <div className="relative z-10 grid min-h-[184px] min-w-0 grid-cols-[minmax(0,1fr)_minmax(7.25rem,36%)] sm:min-h-[208px] sm:grid-cols-[minmax(0,1fr)_minmax(8.5rem,38%)]">
+      <div className="relative z-10 grid min-h-[184px] min-w-0 grid-cols-[minmax(0,1fr)_minmax(8.5rem,40%)] sm:min-h-[216px] sm:grid-cols-[minmax(0,1fr)_minmax(10rem,42%)]">
         <div className="flex min-w-0 flex-col justify-center px-3 py-4 pb-11 pr-2 sm:px-4 sm:py-5 sm:pb-12">
           <span className="mb-1 inline-flex w-fit rounded-full bg-white/85 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-600 shadow-sm ring-1 ring-black/5 sm:text-[10px]">
             Main category
@@ -189,20 +189,20 @@ function CategoryFeaturedCard({
         </div>
         <div className="relative z-0 flex min-h-0 min-w-0 items-center justify-center px-1 py-3 sm:px-2 sm:py-4">
           <div
-            className="flex aspect-square w-full max-w-[7.25rem] shrink-0 items-center justify-center rounded-full shadow-lg ring-4 ring-white/90 sm:max-w-[8.75rem]"
+            className="flex aspect-square w-full max-w-[8.75rem] shrink-0 items-center justify-center rounded-full shadow-lg ring-4 ring-white/90 sm:max-w-[10.5rem]"
             style={{
               background: haloGradient,
-              boxShadow: `inset 0 2px 16px rgba(255,255,255,0.3), 0 12px 28px -10px ${glow}`,
+              boxShadow: `inset 0 2px 16px rgba(255,255,255,0.25), 0 12px 28px -10px ${glow}`,
             }}
           >
             <div
-              className={`relative aspect-square w-[70%] overflow-hidden rounded-full bg-white shadow-md ring-2 ring-white transition-transform duration-500 ease-out group-hover:rotate-0 group-hover:scale-105 ${imgTilt}`}
+              className={`relative aspect-square w-[76%] overflow-hidden rounded-full bg-slate-50 shadow-md ring-2 ring-white/95 transition-transform duration-500 ease-out group-hover:rotate-0 group-hover:scale-105 ${imgTilt}`}
             >
               <Image
                 src={image}
                 alt={imageAlt}
                 fill
-                sizes="(max-width: 768px) 112px, 132px"
+                sizes="(max-width: 768px) 140px, 168px"
                 className="object-cover"
               />
             </div>
@@ -361,18 +361,26 @@ export function ShopCategoryShowcase() {
                 {main.subcategories.length === 0 ? (
                   <p className="mt-3 text-sm font-medium text-slate-500">No subcategories under this main yet.</p>
                 ) : (
-                  <div className="scrollbar-hide mt-4 flex gap-2.5 overflow-x-auto pb-1 pt-0.5">
+                  <div className="scrollbar-hide mt-4 flex gap-3 overflow-x-auto pb-1 pt-0.5">
                     {main.subcategories.map((s) => (
                       <Link
                         key={s.id}
                         href={`/shop/category/${encodeMainKey(main.key)}/sub/${s.id}?subname=${encodeURIComponent(s.name)}`}
-                        className="flex w-[4.75rem] shrink-0 flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/90 p-2 transition hover:border-emerald-300 hover:bg-emerald-50/50 sm:w-[5.5rem]"
+                        className="flex w-[6.75rem] shrink-0 flex-col items-center gap-2 rounded-2xl border border-slate-200/95 bg-gradient-to-b from-white to-slate-100/90 p-2.5 shadow-sm transition hover:border-emerald-400/70 hover:from-emerald-50/90 hover:to-white hover:shadow-md sm:w-[7.75rem] sm:p-3"
                       >
-                        <div className="relative h-14 w-14 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 sm:h-16 sm:w-16">
+                        <div className="relative aspect-square w-full max-w-[5.25rem] overflow-hidden rounded-2xl bg-slate-100 shadow-md ring-2 ring-white ring-offset-1 ring-offset-slate-100/80 sm:max-w-[6.25rem]">
                           {s.imageUrl?.trim() ? (
-                            <Image src={s.imageUrl.trim()} alt="" fill className="object-cover" sizes="64px" />
+                            <Image
+                              src={s.imageUrl.trim()}
+                              alt=""
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 640px) 100px, 120px"
+                            />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xl">🛍️</div>
+                            <div className="flex h-full min-h-[5.25rem] w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-2xl sm:min-h-[6.25rem] sm:text-3xl">
+                              🛍️
+                            </div>
                           )}
                         </div>
                         <span className="line-clamp-2 w-full text-center text-[10px] font-extrabold leading-tight text-slate-800 sm:text-[11px]">
