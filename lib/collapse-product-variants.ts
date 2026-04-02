@@ -69,10 +69,10 @@ export function collapseProductsForStorefront(
 
   const out: StorefrontProductCollapsed[] = standalone.map(mapProduct);
 
-  for (const [, arr] of byGroup) {
+  byGroup.forEach((arr) => {
     arr.sort((a, b) => a.variantSort - b.variantSort || a.id.localeCompare(b.id));
     const rep = arr[0];
-    if (!rep) continue;
+    if (!rep) return;
 
     const priced = arr.map((x) => publicProductPricingFields({ price: x.price, mrp: x.mrp }));
     const prices = priced.map((x) => x.price);
@@ -93,7 +93,7 @@ export function collapseProductsForStorefront(
           ? `${arr.length} options`
           : base.unitLabel,
     });
-  }
+  });
 
   return out;
 }
