@@ -3,8 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
 import { requireAuth } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
-import { effectiveProductUnitLabel } from "@/lib/product-unit";
-import { publicProductPricingFields } from "@/lib/product-pricing";
+import { collapseProductsForStorefront } from "@/lib/collapse-product-variants";
 import { storeOpeningHoursPublic } from "@/lib/store-opening-hours";
 
 export async function OPTIONS() {
@@ -63,24 +62,23 @@ export async function GET(
         .map((c) => ({
           id: c.id,
           name: c.name,
-          products: c.products.map((p) => {
-            const pricing = publicProductPricingFields({ price: p.price, mrp: p.mrp });
-            return {
+          products: collapseProductsForStorefront(
+            c.products.map((p) => ({
               id: p.id,
               name: p.name,
               description: p.description,
-              price: pricing.price,
-              mrp: pricing.mrp,
-              discountPercent: pricing.discountPercent,
+              price: p.price,
+              mrp: p.mrp,
               stock: p.stock,
               imageUrl: p.imageUrl,
               categoryId: p.categoryId,
-              unitLabel: effectiveProductUnitLabel(
-                p.unitLabel,
-                p.masterProduct?.unitLabel,
-              ),
-            };
-          }),
+              unitLabel: p.unitLabel,
+              masterProduct: p.masterProduct,
+              variantGroupId: p.variantGroupId,
+              variantLabel: p.variantLabel,
+              variantSort: p.variantSort,
+            })),
+          ),
         })),
     },
   });

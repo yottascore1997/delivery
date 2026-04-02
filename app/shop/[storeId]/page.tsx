@@ -20,6 +20,8 @@ type Product = {
   categoryId: string;
   imageUrl?: string | null;
   unitLabel?: string | null;
+  variantOptionsCount?: number;
+  priceMax?: number;
 };
 
 type Category = { id: string; name: string; products: Product[] };
@@ -332,12 +334,20 @@ export default function ShopStorePage() {
                         {p.name}
                       </Link>
                       <div className="mt-1.5 flex flex-wrap items-end gap-x-1.5 gap-y-0.5 sm:mt-2 sm:gap-2">
+                        {(p.variantOptionsCount ?? 0) > 1 && p.priceMax != null && p.priceMax > p.price ? (
+                          <span className="text-[10px] font-black text-slate-600 sm:text-[11px]">From</span>
+                        ) : null}
                         <ShopPriceDisplay
                           price={p.price}
                           mrp={p.mrp}
                           discountPercent={p.discountPercent}
                           size="sm"
                         />
+                        {p.priceMax != null && p.priceMax > p.price ? (
+                          <span className="text-[10px] font-semibold text-slate-500 sm:text-[11px]">
+                            – ₹{p.priceMax}
+                          </span>
+                        ) : null}
                         {p.unitLabel?.trim() ? (
                           <span className="text-[10px] font-semibold text-slate-500 sm:text-[11px]">
                             {p.unitLabel.trim()}
@@ -351,18 +361,39 @@ export default function ShopStorePage() {
                         Delivery in minutes
                       </p>
                       <div className="mt-2 sm:mt-3">
-                        <button
-                          type="button"
-                          disabled={p.stock < 1 || storeClosed}
-                          onClick={() => add(p)}
-                          className="w-full rounded-lg border border-emerald-700 bg-emerald-600 py-1.5 text-[10px] font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 sm:text-[11px]"
-                        >
-                          {storeClosed
-                            ? "Store closed"
-                            : p.stock < 1
-                              ? "Out of stock"
-                              : "Add To Cart"}
-                        </button>
+                        {(p.variantOptionsCount ?? 0) > 1 ? (
+                          <Link
+                            href={`/shop/product/${p.id}`}
+                            className={`flex w-full items-center justify-center rounded-lg border py-1.5 text-[10px] font-black transition sm:text-[11px] ${
+                              storeClosed || p.stock < 1
+                                ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+                                : "border-violet-600 bg-violet-600 text-white hover:bg-violet-700"
+                            }`}
+                            aria-disabled={storeClosed || p.stock < 1}
+                            onClick={(e) => {
+                              if (storeClosed || p.stock < 1) e.preventDefault();
+                            }}
+                          >
+                            {storeClosed
+                              ? "Store closed"
+                              : p.stock < 1
+                                ? "Out of stock"
+                                : "Choose pack"}
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={p.stock < 1 || storeClosed}
+                            onClick={() => add(p)}
+                            className="w-full rounded-lg border border-emerald-700 bg-emerald-600 py-1.5 text-[10px] font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 sm:text-[11px]"
+                          >
+                            {storeClosed
+                              ? "Store closed"
+                              : p.stock < 1
+                                ? "Out of stock"
+                                : "Add To Cart"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

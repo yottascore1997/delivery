@@ -107,6 +107,9 @@ export async function GET(request: Request) {
             isActive: p.isActive,
             masterProductId: p.masterProductId,
             unitLabel: p.unitLabel ?? null,
+            variantGroupId: p.variantGroupId ?? null,
+            variantLabel: p.variantLabel ?? null,
+            variantSort: p.variantSort,
             unitLabelHint: p.masterProduct?.unitLabel ?? null,
             unitLabelEffective: effectiveProductUnitLabel(
               p.unitLabel,

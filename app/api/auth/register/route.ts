@@ -3,6 +3,7 @@ import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { issueOtp } from "@/lib/otp";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
+import { normalizePhone10 } from "@/lib/phone";
 
 const bodySchema = z.object({
   phone: z.string().min(8).max(20),
@@ -18,7 +19,10 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await request.json());
-    const phone = body.phone.trim();
+    const phone = normalizePhone10(body.phone);
+    if (phone.replace(/\D/g, "").length < 10) {
+      return jsonError("Enter a valid 10-digit mobile number");
+    }
 
     if (body.role === UserRole.ADMIN || body.role === UserRole.DELIVERY) {
       return jsonError("This role cannot self-register", 403);

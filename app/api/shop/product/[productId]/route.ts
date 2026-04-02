@@ -40,6 +40,36 @@ export async function GET(
     return jsonError("Product not found", 404);
   }
 
+  const gid = product.variantGroupId?.trim();
+  const siblings =
+    gid != null && gid.length > 0
+      ? await prisma.product.findMany({
+          where: {
+            storeId: product.storeId,
+            variantGroupId: gid,
+            isActive: true,
+          },
+          orderBy: [{ variantSort: "asc" }, { id: "asc" }],
+          include: { masterProduct: { select: { unitLabel: true } } },
+        })
+      : [product];
+
+  const variants = siblings.map((p) => {
+    const pricing = publicProductPricingFields({ price: p.price, mrp: p.mrp });
+    return {
+      id: p.id,
+      variantLabel: p.variantLabel?.trim() || null,
+      price: pricing.price,
+      mrp: pricing.mrp,
+      discountPercent: pricing.discountPercent,
+      stock: p.stock,
+      unitLabel: effectiveProductUnitLabel(
+        p.unitLabel,
+        p.masterProduct?.unitLabel,
+      ),
+    };
+  });
+
   const pricing = publicProductPricingFields({
     price: product.price,
     mrp: product.mrp,
@@ -61,6 +91,7 @@ export async function GET(
         product.masterProduct?.unitLabel,
       ),
       categoryName: product.category.name,
+      variants: variants.length > 1 ? variants : undefined,
       store: {
         id: product.store.id,
         name: product.store.name,

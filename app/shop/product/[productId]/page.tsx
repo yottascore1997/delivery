@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/client-api";
 import { addToShopCart, getShopCart, updateShopLineQty } from "@/lib/shop-cart";
@@ -15,6 +15,16 @@ type OpeningHoursPayload = {
   isOpenNow: boolean;
 };
 
+type VariantOption = {
+  id: string;
+  variantLabel: string | null;
+  price: number;
+  mrp?: number | null;
+  discountPercent?: number | null;
+  stock: number;
+  unitLabel?: string | null;
+};
+
 type ProductDetail = {
   id: string;
   name: string;
@@ -26,6 +36,7 @@ type ProductDetail = {
   imageUrl?: string | null;
   unitLabel?: string | null;
   categoryName: string;
+  variants?: VariantOption[];
   store: {
     id: string;
     name: string;
@@ -46,10 +57,12 @@ type StoreProduct = {
   imageUrl?: string | null;
   unitLabel?: string | null;
   categoryName: string;
+  variantOptionsCount?: number;
 };
 
 export default function ShopProductPage() {
   const params = useParams();
+  const router = useRouter();
   const productId =
     typeof params.productId === "string" ? params.productId : params.productId?.[0] ?? "";
   const [item, setItem] = useState<ProductDetail | null>(null);
@@ -58,6 +71,8 @@ export default function ShopProductPage() {
   const [qty, setQty] = useState(0);
   const [cartQtyByProduct, setCartQtyByProduct] = useState<Record<string, number>>({});
   const [suggested, setSuggested] = useState<StoreProduct[]>([]);
+  /** Local override while user switches pack; URL updates via router.replace */
+  const [skuOverride, setSkuOverride] = useState<string | null>(null);
 
   useEffect(() => {
     if (!productId) return;
@@ -75,9 +90,49 @@ export default function ShopProductPage() {
   }, [productId]);
 
   useEffect(() => {
+    setSkuOverride(null);
+  }, [productId]);
+
+  const activeSkuId = useMemo(() => {
+    if (!item) return productId;
+    const vars = item.variants;
+    if (!vars?.length) return item.id;
+    if (skuOverride && vars.some((v) => v.id === skuOverride)) return skuOverride;
+    if (vars.some((v) => v.id === productId)) return productId;
+    return vars[0]!.id;
+  }, [item, productId, skuOverride]);
+
+  const activeLine = useMemo(() => {
+    if (!item) return null;
+    const vars = item.variants;
+    if (!vars?.length) {
+      return {
+        id: item.id,
+        price: item.price,
+        mrp: item.mrp,
+        discountPercent: item.discountPercent,
+        stock: item.stock,
+        unitLabel: item.unitLabel,
+        variantLabel: null as string | null,
+      };
+    }
+    const v = vars.find((x) => x.id === activeSkuId) ?? vars[0]!;
+    return {
+      id: v.id,
+      price: v.price,
+      mrp: v.mrp,
+      discountPercent: v.discountPercent,
+      stock: v.stock,
+      unitLabel: v.unitLabel,
+      variantLabel: v.variantLabel,
+    };
+  }, [item, activeSkuId]);
+
+  useEffect(() => {
     function syncQty() {
       const cart = getShopCart();
-      const line = cart.find((l) => l.productId === productId);
+      const sid = activeLine?.id ?? productId;
+      const line = cart.find((l) => l.productId === sid);
       setQty(line?.quantity ?? 0);
       const map: Record<string, number> = {};
       for (const l of cart) map[l.productId] = l.quantity;
@@ -86,7 +141,7 @@ export default function ShopProductPage() {
     syncQty();
     window.addEventListener("dlf-cart", syncQty);
     return () => window.removeEventListener("dlf-cart", syncQty);
-  }, [productId]);
+  }, [activeLine?.id, productId]);
 
   useEffect(() => {
     if (!item?.store.id) return;
@@ -100,7 +155,13 @@ export default function ShopProductPage() {
         return;
       }
       const related = res.data.products
-        .filter((p) => p.id !== item.id && p.stock > 0)
+        .filter(
+          (p) =>
+            p.id !== item.id &&
+            p.id !== activeSkuId &&
+            p.stock > 0 &&
+            (p.variantOptionsCount ?? 0) <= 1,
+        )
         .sort((a, b) => {
           const am = a.categoryName === item.categoryName ? 0 : 1;
           const bm = b.categoryName === item.categoryName ? 0 : 1;
@@ -109,7 +170,7 @@ export default function ShopProductPage() {
         .slice(0, 6);
       setSuggested(related);
     })();
-  }, [item]);
+  }, [item, activeSkuId]);
 
   const mapUrl = useMemo(() => {
     if (!item) return "#";
@@ -126,7 +187,7 @@ export default function ShopProductPage() {
     return <div className="rounded-2xl bg-white p-8 text-sm font-semibold text-slate-600">Loading product...</div>;
   }
 
-  if (err || !item) {
+  if (err || !item || !activeLine) {
     return (
       <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8">
         <p className="text-sm font-bold text-rose-800">{err || "Product not found"}</p>
@@ -137,16 +198,29 @@ export default function ShopProductPage() {
     );
   }
 
+  function selectPackVariant(id: string) {
+    if (id === activeSkuId) return;
+    setSkuOverride(id);
+    router.replace(`/shop/product/${id}`, { scroll: false });
+  }
+
   function addOne() {
-    if (!item || storeClosed) return;
+    if (!item || storeClosed || !activeLine) return;
+    const cartName =
+      activeLine.variantLabel?.trim() != null && activeLine.variantLabel.trim().length > 0
+        ? `${item.name} (${activeLine.variantLabel.trim()})`
+        : item.name;
+    const u =
+      activeLine.unitLabel?.trim() ||
+      (activeLine.variantLabel?.trim() ? activeLine.variantLabel.trim() : undefined);
     addToShopCart({
-      productId: item.id,
+      productId: activeLine.id,
       storeId: item.store.id,
-      name: item.name,
+      name: cartName,
       imageUrl: item.imageUrl ?? null,
-      price: item.price,
+      price: activeLine.price,
       quantity: 1,
-      ...(item.unitLabel?.trim() ? { unitLabel: item.unitLabel.trim() } : {}),
+      ...(u ? { unitLabel: u } : {}),
     });
   }
 
@@ -170,19 +244,49 @@ export default function ShopProductPage() {
         <p className="mt-2 text-sm font-medium leading-relaxed text-slate-600">
           {item.description || "Fresh quality product from nearby trusted store."}
         </p>
+        {item.variants && item.variants.length > 1 ? (
+          <div className="mt-4">
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">Pack size</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {item.variants.map((v) => {
+                const label = v.variantLabel?.trim() || v.unitLabel?.trim() || "Option";
+                const sel = v.id === activeSkuId;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => selectPackVariant(v.id)}
+                    className={`rounded-xl border px-3 py-2 text-xs font-black transition sm:text-sm ${
+                      sel
+                        ? "border-violet-600 bg-violet-600 text-white"
+                        : "border-slate-200 bg-white text-slate-800 hover:border-violet-300"
+                    }`}
+                  >
+                    {label}
+                    <span className={`ml-1.5 font-bold ${sel ? "text-white/90" : "text-slate-500"}`}>
+                      ₹{Math.round(v.price)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <ShopPriceDisplay
-            price={item.price}
-            mrp={item.mrp}
-            discountPercent={item.discountPercent}
+            price={activeLine.price}
+            mrp={activeLine.mrp}
+            discountPercent={activeLine.discountPercent}
             size="lg"
           />
-          {item.unitLabel?.trim() ? (
+          {activeLine.unitLabel?.trim() ? (
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-              {item.unitLabel.trim()}
+              {activeLine.unitLabel.trim()}
             </span>
           ) : null}
-          <p className="text-sm font-semibold text-emerald-600">{item.stock > 0 ? "In stock" : "Out of stock"}</p>
+          <p className="text-sm font-semibold text-emerald-600">
+            {activeLine.stock > 0 ? "In stock" : "Out of stock"}
+          </p>
         </div>
 
         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
@@ -194,7 +298,7 @@ export default function ShopProductPage() {
               <div className="flex items-center justify-between rounded-xl border border-violet-200 bg-white px-2 py-1.5 shadow-sm">
                 <button
                   type="button"
-                  onClick={() => updateShopLineQty(item.id, qty - 1)}
+                  onClick={() => updateShopLineQty(activeLine.id, qty - 1)}
                   className="h-10 w-10 rounded-lg text-2xl font-black text-violet-700 hover:bg-violet-50"
                 >
                   -
@@ -202,13 +306,13 @@ export default function ShopProductPage() {
                 <div className="text-center">
                   <p className="text-lg font-black text-slate-900">{qty}</p>
                   <p className="text-[11px] font-semibold text-slate-500">
-                    ₹{Math.round(item.price)} each
+                    ₹{Math.round(activeLine.price)} each
                   </p>
                 </div>
                 <button
                   type="button"
                   disabled={storeClosed}
-                  onClick={() => updateShopLineQty(item.id, qty + 1)}
+                  onClick={() => updateShopLineQty(activeLine.id, qty + 1)}
                   className="h-10 w-10 rounded-lg text-2xl font-black text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   +
@@ -218,7 +322,7 @@ export default function ShopProductPage() {
               <button
                 type="button"
                 onClick={addOne}
-                disabled={item.stock < 1 || storeClosed}
+                disabled={activeLine.stock < 1 || storeClosed}
                 className="w-full rounded-xl border border-emerald-700 bg-emerald-600 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {storeClosed ? "Store closed" : "Add To Cart"}

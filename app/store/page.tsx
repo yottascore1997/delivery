@@ -92,6 +92,9 @@ export default function StorePanelPage() {
         unitLabel?: string | null;
         unitLabelHint?: string | null;
         unitLabelEffective?: string | null;
+        variantGroupId?: string | null;
+        variantLabel?: string | null;
+        variantSort?: number;
       }[];
     }[];
   } | null>(null);
@@ -114,6 +117,7 @@ export default function StorePanelPage() {
     totalRevenue: number;
   } | null>(null);
   const [exportingOrders, setExportingOrders] = useState(false);
+  const [downloadingPdfOrderId, setDownloadingPdfOrderId] = useState<string | null>(null);
 
   const [newStoreName, setNewStoreName] = useState("");
   const [newStoreAddr, setNewStoreAddr] = useState("");
@@ -130,6 +134,13 @@ export default function StorePanelPage() {
   const [pPlatformPct, setPPlatformPct] = useState("");
   const [pStock, setPStock] = useState("");
   const [pUnitLabel, setPUnitLabel] = useState("");
+  const [pMultiPack, setPMultiPack] = useState(false);
+  const [pPackRows, setPPackRows] = useState<
+    { variantLabel: string; unitLabel: string; mrp: string; price: string; stock: string }[]
+  >([
+    { variantLabel: "", unitLabel: "", mrp: "", price: "", stock: "" },
+    { variantLabel: "", unitLabel: "", mrp: "", price: "", stock: "" },
+  ]);
   const [pCat, setPCat] = useState("");
   const [pImage, setPImage] = useState("");
   const [pImage2, setPImage2] = useState("");
@@ -213,6 +224,39 @@ export default function StorePanelPage() {
     }
   }
 
+  async function downloadOrderPdf(orderId: string) {
+    const token = getToken();
+    if (!token) {
+      pushToast("error", "Sign in again to download.");
+      return;
+    }
+    setDownloadingPdfOrderId(orderId);
+    try {
+      const res = await fetch(`/api/orders/store/${encodeURIComponent(orderId)}/invoice`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        pushToast("error", "Could not download PDF.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `speedza-order-${orderId.slice(-10)}.pdf`;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      pushToast("success", "PDF downloaded.");
+    } catch {
+      pushToast("error", "Could not download PDF.");
+    } finally {
+      setDownloadingPdfOrderId(null);
+    }
+  }
+
   function pushToast(type: "error" | "success" | "info", message: string) {
     setToast({ type, message });
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -260,6 +304,9 @@ export default function StorePanelPage() {
         unitLabel?: string | null;
         unitLabelHint?: string | null;
         unitLabelEffective?: string | null;
+        variantGroupId?: string | null;
+        variantLabel?: string | null;
+        variantSort?: number;
       }[];
     };
     const res = await api<{ store: { categories: Cat[] } }>(
@@ -557,6 +604,126 @@ export default function StorePanelPage() {
       const m = t("storeAddCategoryFirst");
       setMsg(m);
       pushToast("error", m);
+      return;
+    }
+    if (pMultiPack) {
+      if (!pName.trim()) {
+        const m = t("storeNameLabel") + " required";
+        setMsg(m);
+        pushToast("error", m);
+        return;
+      }
+      const rows = pPackRows.filter((r) => r.variantLabel.trim() && r.price.trim());
+      if (rows.length < 2) {
+        const m = "Add at least 2 pack sizes (label + price each).";
+        setMsg(m);
+        pushToast("error", m);
+        return;
+      }
+      const variants: {
+        variantLabel: string;
+        unitLabel?: string;
+        mrp: number;
+        price: number;
+        stock: number;
+      }[] = [];
+      for (const r of pPackRows) {
+        if (!r.variantLabel.trim() && !r.price.trim() && !r.mrp.trim() && !r.stock.trim()) continue;
+        if (!r.variantLabel.trim()) {
+          const m = "Each pack row needs a label (e.g. 3 kg).";
+          setMsg(m);
+          pushToast("error", m);
+          return;
+        }
+        const mrp = Number(r.mrp);
+        const price = Number(r.price);
+        const stock = Number(r.stock);
+        if (!Number.isFinite(mrp) || mrp <= 0) {
+          const m = "Enter valid MRP for each pack row.";
+          setMsg(m);
+          pushToast("error", m);
+          return;
+        }
+        if (!Number.isFinite(price) || price <= 0) {
+          const m = t("storeInvalidProductPrice");
+          setMsg(m);
+          pushToast("error", m);
+          return;
+        }
+        if (mrp < price) {
+          const m = "MRP must be ≥ selling price on each row.";
+          setMsg(m);
+          pushToast("error", m);
+          return;
+        }
+        if (!Number.isFinite(stock) || !Number.isInteger(stock) || stock < 0) {
+          const m = t("storeInvalidStock");
+          setMsg(m);
+          pushToast("error", m);
+          return;
+        }
+        variants.push({
+          variantLabel: r.variantLabel.trim(),
+          mrp,
+          price,
+          stock,
+          ...(r.unitLabel.trim() ? { unitLabel: r.unitLabel.trim().slice(0, 40) } : {}),
+        });
+      }
+      if (variants.length < 2) {
+        const m = "Need at least 2 valid pack rows.";
+        setMsg(m);
+        pushToast("error", m);
+        return;
+      }
+      const pctRaw = pPlatformPct.trim();
+      let commissionPercent: number | undefined;
+      if (pctRaw !== "") {
+        const p = Number(pctRaw);
+        if (!Number.isFinite(p) || p < 0 || p > 100) {
+          const m = "Platform % must be between 0 and 100 (or leave empty)";
+          setMsg(m);
+          pushToast("error", m);
+          return;
+        }
+        commissionPercent = p;
+      }
+      setMsg(null);
+      const res = await api("/api/products/create-variants", {
+        method: "POST",
+        body: JSON.stringify({
+          storeId,
+          categoryId: pCat,
+          name: pName.trim(),
+          description: "",
+          imageUrl: pImage || undefined,
+          imageUrl2: pImage2 || undefined,
+          ...(commissionPercent !== undefined ? { commissionPercent } : {}),
+          variants,
+        }),
+      });
+      if (!res.ok) {
+        const errMsg = res.error || "Could not add products";
+        setMsg(errMsg);
+        pushToast("error", errMsg);
+        return;
+      }
+      const okMsg = "Products added (pack options) ✓";
+      setMsg(okMsg);
+      pushToast("success", okMsg);
+      setPName("");
+      setPMrp("");
+      setPPrice("");
+      setPPlatformPct("");
+      setPStock("");
+      setPUnitLabel("");
+      setPImage("");
+      setPImage2("");
+      setPPackRows([
+        { variantLabel: "", unitLabel: "", mrp: "", price: "", stock: "" },
+        { variantLabel: "", unitLabel: "", mrp: "", price: "", stock: "" },
+      ]);
+      await loadCatalog(storeId);
       return;
     }
     const mrp = Number(pMrp);
@@ -979,7 +1146,8 @@ export default function StorePanelPage() {
         if (!q) return true;
         return (
           p.name.toLowerCase().includes(q) ||
-          (p.categoryName ?? "").toLowerCase().includes(q)
+          (p.categoryName ?? "").toLowerCase().includes(q) ||
+          (p.variantLabel ?? "").toLowerCase().includes(q)
         );
       });
   }, [catalogProducts, productQuery, productShowInactive, productCatFilter]);
@@ -1945,76 +2113,217 @@ export default function StorePanelPage() {
                     className="ui-input !py-2"
                     value={pName}
                     onChange={(e) => setPName(e.target.value)}
+                    placeholder="e.g. Whole wheat atta"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="ui-label">MRP (₹)</label>
-                    <input
-                      className="ui-input !py-2"
-                      inputMode="decimal"
-                      placeholder="e.g. 100"
-                      value={pMrp}
-                      onChange={(e) => setPMrp(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="ui-label">Selling price (₹)</label>
-                    <input
-                      className="ui-input !py-2"
-                      inputMode="decimal"
-                      placeholder="e.g. 80"
-                      value={pPrice}
-                      onChange={(e) => setPPrice(e.target.value)}
-                    />
-                  </div>
-                </div>
-                {(() => {
-                  const m = Number(pMrp);
-                  const s = Number(pPrice);
-                  const off = customerDiscountPercent(m, s);
-                  return off != null ? (
-                    <p className="text-xs font-black text-emerald-700">
-                      Customers see ~{off}% off (MRP vs your selling price)
-                    </p>
-                  ) : m > 0 && s > 0 && m === s ? (
-                    <p className="text-xs font-semibold text-zinc-500">No discount vs MRP</p>
-                  ) : null;
-                })()}
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="ui-label">Stock</label>
-                    <input
-                      className="ui-input !py-2"
-                      value={pStock}
-                      onChange={(e) => setPStock(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="ui-label">Platform % (optional)</label>
-                    <input
-                      className="ui-input !py-2"
-                      inputMode="decimal"
-                      placeholder="Empty = store default"
-                      value={pPlatformPct}
-                      onChange={(e) => setPPlatformPct(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <p className="text-[11px] font-semibold text-zinc-500">
-                  Per-product platform share on this item’s sales. If empty, Admin store % or platform default applies.
-                </p>
-                <div>
-                  <label className="ui-label">Unit / pack (customer)</label>
+                <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm font-bold text-zinc-800">
                   <input
-                    className="ui-input !py-2"
-                    list="store-unit-presets"
-                    placeholder="e.g. 500 g, 1 pc"
-                    maxLength={40}
-                    value={pUnitLabel}
-                    onChange={(e) => setPUnitLabel(e.target.value)}
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-zinc-300"
+                    checked={pMultiPack}
+                    onChange={(e) => setPMultiPack(e.target.checked)}
                   />
-                </div>
+                  Multiple pack sizes (one listing — customer picks e.g. 3 kg / 5 kg)
+                </label>
+                {pMultiPack ? (
+                  <div className="mt-3 overflow-hidden rounded-xl border border-violet-200 bg-violet-50/40">
+                    <p className="border-b border-violet-100 bg-violet-50 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-violet-800">
+                      Pack rows (min 2)
+                    </p>
+                    <div className="overflow-x-auto p-2">
+                      <table className="w-full min-w-[520px] text-left text-xs">
+                        <thead className="text-[10px] font-black uppercase text-zinc-500">
+                          <tr>
+                            <th className="px-2 py-2">Pack label</th>
+                            <th className="px-2 py-2">Unit (opt.)</th>
+                            <th className="px-2 py-2">MRP</th>
+                            <th className="px-2 py-2">Price</th>
+                            <th className="px-2 py-2">Stock</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-violet-100">
+                          {pPackRows.map((row, idx) => (
+                            <tr key={idx} className="bg-white/90">
+                              <td className="p-1.5">
+                                <input
+                                  className="ui-input !py-1.5 !text-xs"
+                                  placeholder="3 kg"
+                                  value={row.variantLabel}
+                                  onChange={(e) =>
+                                    setPPackRows((rows) =>
+                                      rows.map((r, i) =>
+                                        i === idx ? { ...r, variantLabel: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </td>
+                              <td className="p-1.5">
+                                <input
+                                  className="ui-input !py-1.5 !text-xs"
+                                  placeholder="3 kg pack"
+                                  list="store-unit-presets"
+                                  value={row.unitLabel}
+                                  onChange={(e) =>
+                                    setPPackRows((rows) =>
+                                      rows.map((r, i) =>
+                                        i === idx ? { ...r, unitLabel: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </td>
+                              <td className="p-1.5">
+                                <input
+                                  className="ui-input !py-1.5 !text-xs"
+                                  inputMode="decimal"
+                                  value={row.mrp}
+                                  onChange={(e) =>
+                                    setPPackRows((rows) =>
+                                      rows.map((r, i) =>
+                                        i === idx ? { ...r, mrp: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </td>
+                              <td className="p-1.5">
+                                <input
+                                  className="ui-input !py-1.5 !text-xs"
+                                  inputMode="decimal"
+                                  value={row.price}
+                                  onChange={(e) =>
+                                    setPPackRows((rows) =>
+                                      rows.map((r, i) =>
+                                        i === idx ? { ...r, price: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </td>
+                              <td className="p-1.5">
+                                <input
+                                  className="ui-input !py-1.5 !text-xs"
+                                  inputMode="numeric"
+                                  value={row.stock}
+                                  onChange={(e) =>
+                                    setPPackRows((rows) =>
+                                      rows.map((r, i) =>
+                                        i === idx ? { ...r, stock: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="flex flex-wrap gap-2 border-t border-violet-100 px-2 py-2">
+                      <button
+                        type="button"
+                        className="rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-bold text-violet-800 hover:bg-violet-50"
+                        onClick={() =>
+                          setPPackRows((rows) => [
+                            ...rows,
+                            { variantLabel: "", unitLabel: "", mrp: "", price: "", stock: "" },
+                          ])
+                        }
+                      >
+                        + Add pack row
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                {!pMultiPack ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="ui-label">MRP (₹)</label>
+                        <input
+                          className="ui-input !py-2"
+                          inputMode="decimal"
+                          placeholder="e.g. 100"
+                          value={pMrp}
+                          onChange={(e) => setPMrp(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="ui-label">Selling price (₹)</label>
+                        <input
+                          className="ui-input !py-2"
+                          inputMode="decimal"
+                          placeholder="e.g. 80"
+                          value={pPrice}
+                          onChange={(e) => setPPrice(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    {(() => {
+                      const m = Number(pMrp);
+                      const s = Number(pPrice);
+                      const off = customerDiscountPercent(m, s);
+                      return off != null ? (
+                        <p className="text-xs font-black text-emerald-700">
+                          Customers see ~{off}% off (MRP vs your selling price)
+                        </p>
+                      ) : m > 0 && s > 0 && m === s ? (
+                        <p className="text-xs font-semibold text-zinc-500">No discount vs MRP</p>
+                      ) : null;
+                    })()}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="ui-label">Stock</label>
+                        <input
+                          className="ui-input !py-2"
+                          value={pStock}
+                          onChange={(e) => setPStock(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="ui-label">Platform % (optional)</label>
+                        <input
+                          className="ui-input !py-2"
+                          inputMode="decimal"
+                          placeholder="Empty = store default"
+                          value={pPlatformPct}
+                          onChange={(e) => setPPlatformPct(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[11px] font-semibold text-zinc-500">
+                      Per-product platform share on this item’s sales. If empty, Admin store % or platform default applies.
+                    </p>
+                    <div>
+                      <label className="ui-label">Unit / pack (customer)</label>
+                      <input
+                        className="ui-input !py-2"
+                        list="store-unit-presets"
+                        placeholder="e.g. 500 g, 1 pc"
+                        maxLength={40}
+                        value={pUnitLabel}
+                        onChange={(e) => setPUnitLabel(e.target.value)}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mt-3">
+                      <label className="ui-label">Platform % (optional)</label>
+                      <input
+                        className="ui-input !py-2"
+                        inputMode="decimal"
+                        placeholder="Empty = store default"
+                        value={pPlatformPct}
+                        onChange={(e) => setPPlatformPct(e.target.value)}
+                      />
+                    </div>
+                    <p className="text-[11px] font-semibold text-zinc-500">
+                      Same photos &amp; name for all packs. Each row is a separate SKU (stock per pack).
+                    </p>
+                  </>
+                )}
                 <div>
                   <label className="ui-label">Product photos (optional) — 2 images</label>
                   <div className="mt-2 grid gap-2.5 sm:grid-cols-2">
@@ -2303,6 +2612,12 @@ export default function StorePanelPage() {
                           <div className="min-w-0">
                             <p className="truncate text-sm font-black text-zinc-900">
                               {p.name}
+                              {p.variantLabel?.trim() ? (
+                                <span className="font-semibold text-violet-700">
+                                  {" "}
+                                  · {p.variantLabel.trim()}
+                                </span>
+                              ) : null}
                             </p>
                             <p className="mt-0.5 truncate text-xs font-semibold text-zinc-500">
                               {p.categoryName}
@@ -2532,7 +2847,15 @@ export default function StorePanelPage() {
                                 </div>
                                 <div className="min-w-0">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate font-black text-zinc-900">{p.name}</p>
+                                    <p className="truncate font-black text-zinc-900">
+                                      {p.name}
+                                      {p.variantLabel?.trim() ? (
+                                        <span className="font-semibold text-violet-700">
+                                          {" "}
+                                          · {p.variantLabel.trim()}
+                                        </span>
+                                      ) : null}
+                                    </p>
                                     <label className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-bold text-zinc-700 hover:bg-zinc-50">
                                       <span className="text-zinc-500">Change photo</span>
                                       <input
@@ -2896,6 +3219,14 @@ export default function StorePanelPage() {
                     className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-bold text-zinc-800 hover:bg-zinc-100"
                   >
                     Copy ID
+                  </button>
+                  <button
+                    type="button"
+                    disabled={downloadingPdfOrderId === viewOrder.id}
+                    onClick={() => void downloadOrderPdf(viewOrder.id)}
+                    className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-900 hover:bg-emerald-100 disabled:opacity-60"
+                  >
+                    {downloadingPdfOrderId === viewOrder.id ? "PDF…" : "Download PDF"}
                   </button>
                   <span className="rounded-xl bg-violet-50 px-3 py-2 text-xs font-black text-violet-800">
                     ₹{viewOrder.totalAmount}

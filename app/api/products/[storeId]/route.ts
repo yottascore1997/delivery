@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
-import { effectiveProductUnitLabel } from "@/lib/product-unit";
-import { publicProductPricingFields } from "@/lib/product-pricing";
+import { collapseProductsForStorefront } from "@/lib/collapse-product-variants";
 import { storeOpeningHoursPublic } from "@/lib/store-opening-hours";
 
 export async function OPTIONS() {
@@ -44,27 +43,33 @@ export async function GET(
     prisma.product.count({ where }),
   ]);
 
+  const flat = items.map((p) => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    price: p.price,
+    mrp: p.mrp,
+    stock: p.stock,
+    imageUrl: p.imageUrl,
+    categoryId: p.categoryId,
+    unitLabel: p.unitLabel,
+    masterProduct: p.masterProduct,
+    variantGroupId: p.variantGroupId,
+    variantLabel: p.variantLabel,
+    variantSort: p.variantSort,
+  }));
+
+  const collapsed = collapseProductsForStorefront(flat);
+
   return jsonOk({
     store: {
       openingHours: storeOpeningHoursPublic(store),
     },
-    products: items.map((p) => {
-      const pricing = publicProductPricingFields({ price: p.price, mrp: p.mrp });
+    products: collapsed.map((p) => {
+      const cat = items.find((i) => i.categoryId === p.categoryId)?.category;
       return {
-        id: p.id,
-        name: p.name,
-        description: p.description,
-        price: pricing.price,
-        mrp: pricing.mrp,
-        discountPercent: pricing.discountPercent,
-        stock: p.stock,
-        imageUrl: p.imageUrl,
-        categoryId: p.categoryId,
-        categoryName: p.category.name,
-        unitLabel: effectiveProductUnitLabel(
-          p.unitLabel,
-          p.masterProduct?.unitLabel,
-        ),
+        ...p,
+        categoryName: cat?.name ?? "",
       };
     }),
     total,
