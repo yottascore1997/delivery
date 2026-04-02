@@ -5,11 +5,55 @@ import { dec } from "@/lib/serialize";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
 import { getCommissionPercent } from "@/lib/settings";
 import { effectiveProductCommissionPercent } from "@/lib/product-pricing";
+import { istDayStart, istMondayStart, istMonthStart } from "@/lib/ist-calendar";
 
 export async function OPTIONS() {
   return emptyOptions();
 }
 
+type ItemRow = {
+  quantity: number;
+  price: Parameters<typeof dec>[0];
+  product: { commissionPercent: number | null };
+};
+
+type OrderRow = { createdAt: Date; items: ItemRow[] };
+
+function summarizeDelivered(
+  orders: OrderRow[],
+  storePct: number | null,
+  platformDefault: number,
+) {
+  let gross = 0;
+  let platformCut = 0;
+  for (const order of orders) {
+    for (const item of order.items) {
+      const lineGross = dec(item.price) * item.quantity;
+      gross += lineGross;
+      const pct = effectiveProductCommissionPercent(
+        item.product.commissionPercent,
+        storePct,
+        platformDefault,
+      );
+      platformCut += (lineGross * pct) / 100;
+    }
+  }
+  const net = gross - platformCut;
+  const blendedCommissionPercent =
+    gross > 0 ? Math.round((platformCut / gross) * 1000) / 10 : platformDefault;
+  return {
+    deliveredOrders: orders.length,
+    gross: Math.round(gross * 100) / 100,
+    commissionPercent: blendedCommissionPercent,
+    platformCommissionTotal: Math.round(platformCut * 100) / 100,
+    estimatedNet: Math.round(net * 100) / 100,
+  };
+}
+
+/**
+ * Delivered-order earnings: item gross minus platform %.
+ * `today` / `thisWeek` / `thisMonth` use Asia/Kolkata calendar boundaries.
+ */
 export async function GET(request: Request) {
   const auth = await requireAuth(request, [UserRole.STORE_OWNER]);
   if ("error" in auth) return auth.error;
@@ -27,7 +71,7 @@ export async function GET(request: Request) {
   const orders = await prisma.order.findMany({
     where: { storeId, status: OrderStatus.DELIVERED },
     select: {
-      id: true,
+      createdAt: true,
       items: {
         select: {
           quantity: true,
@@ -44,32 +88,31 @@ export async function GET(request: Request) {
       ? store.commissionPercent
       : null;
 
-  let gross = 0;
-  let platformCut = 0;
+  const now = new Date();
+  const todayStart = istDayStart(now);
+  const weekStart = istMondayStart(now);
+  const monthStart = istMonthStart(now);
 
-  for (const order of orders) {
-    for (const item of order.items) {
-      const lineGross = dec(item.price) * item.quantity;
-      gross += lineGross;
-      const pct = effectiveProductCommissionPercent(
-        item.product.commissionPercent,
-        storePct,
-        platformDefault,
-      );
-      platformCut += (lineGross * pct) / 100;
-    }
-  }
+  const todayOrders = orders.filter((o) => o.createdAt >= todayStart && o.createdAt <= now);
+  const weekOrders = orders.filter((o) => o.createdAt >= weekStart && o.createdAt <= now);
+  const monthOrders = orders.filter((o) => o.createdAt >= monthStart && o.createdAt <= now);
 
-  const net = gross - platformCut;
-  const blendedCommissionPercent =
-    gross > 0 ? Math.round((platformCut / gross) * 1000) / 10 : platformDefault;
+  const allTime = summarizeDelivered(orders, storePct, platformDefault);
+  const today = summarizeDelivered(todayOrders, storePct, platformDefault);
+  const thisWeek = summarizeDelivered(weekOrders, storePct, platformDefault);
+  const thisMonth = summarizeDelivered(monthOrders, storePct, platformDefault);
 
   return jsonOk({
     storeId,
-    deliveredOrders: orders.length,
-    gross: Math.round(gross * 100) / 100,
-    commissionPercent: blendedCommissionPercent,
-    platformCommissionTotal: Math.round(platformCut * 100) / 100,
-    estimatedNet: Math.round(net * 100) / 100,
+    allTime,
+    today,
+    thisWeek,
+    thisMonth,
+    /** @deprecated use allTime — kept for older clients */
+    deliveredOrders: allTime.deliveredOrders,
+    gross: allTime.gross,
+    commissionPercent: allTime.commissionPercent,
+    platformCommissionTotal: allTime.platformCommissionTotal,
+    estimatedNet: allTime.estimatedNet,
   });
 }

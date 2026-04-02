@@ -60,6 +60,16 @@ export const messages: Record<Locale, Record<string, string>> = {
     storeDeliveredAll: "Delivered — all time",
     storeEstNet: "Est. net after commission",
     storeOrdersCount: "orders",
+    storeEarningsHeading: "Delivered earnings (estimated)",
+    storeEarningsFoot:
+      "India time (IST) · Net = item sales minus platform % · Delivery fee not in item gross here",
+    storeEarnToday: "Today",
+    storeEarnWeek: "This week",
+    storeEarnMonth: "This month",
+    storeEarnAll: "All time",
+    storeEarnGross: "Gross",
+    storeEarnDel: "delivered",
+    storeEarnAvgFeeSuffix: "avg. platform fee",
     storeInvRisk: "Inventory risk",
     storeInvRiskSub:
       "SKUs at or below {n} units — restock before you lose sales",
@@ -330,6 +340,16 @@ export const messages: Record<Locale, Record<string, string>> = {
     storeDeliveredAll: "डिलीवर्ड — कुल",
     storeEstNet: "कमीशन के बाद अनुमानित नेट",
     storeOrdersCount: "ऑर्डर",
+    storeEarningsHeading: "डिलीवर्ड कमाई (अनुमानित)",
+    storeEarningsFoot:
+      "भारत समय (IST) · नेट = आइटम बिक्री माइनस प्लेटफॉर्म % · डिलीवरी शुल्क इस ग्रॉस में नहीं",
+    storeEarnToday: "आज",
+    storeEarnWeek: "इस हफ्ते",
+    storeEarnMonth: "इस महीने",
+    storeEarnAll: "कुल (सब)",
+    storeEarnGross: "ग्रॉस",
+    storeEarnDel: "डिलीवर्ड",
+    storeEarnAvgFeeSuffix: "औसत प्लेटफॉर्म शुल्क",
     storeInvRisk: "इन्वेंटरी जोखिम",
     storeInvRiskSub:
       "{n} यूनिट या उससे कम वाले SKU — बिक्री न चूकें, स्टॉक भरें",

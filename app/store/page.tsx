@@ -98,10 +98,18 @@ export default function StorePanelPage() {
       }[];
     }[];
   } | null>(null);
-  const [earnings, setEarnings] = useState<{
+  type EarningsSlice = {
     deliveredOrders: number;
     gross: number;
     estimatedNet: number;
+    platformCommissionTotal: number;
+    commissionPercent: number;
+  };
+  const [earnings, setEarnings] = useState<{
+    today: EarningsSlice;
+    thisWeek: EarningsSlice;
+    thisMonth: EarningsSlice;
+    allTime: EarningsSlice;
   } | null>(null);
   const [plans, setPlans] = useState<
     { id: string; name: string; price: number }[]
@@ -325,8 +333,40 @@ export default function StorePanelPage() {
   }
 
   async function loadRest(id: string) {
-    const e = await api<typeof earnings>(`/api/store/earnings?storeId=${id}`);
-    if (e.ok && e.data) setEarnings(e.data);
+    const e = await api<{
+      today: EarningsSlice;
+      thisWeek: EarningsSlice;
+      thisMonth: EarningsSlice;
+      allTime: EarningsSlice;
+      estimatedNet?: number;
+      gross?: number;
+      deliveredOrders?: number;
+    }>(`/api/store/earnings?storeId=${id}`);
+    if (e.ok && e.data) {
+      const d = e.data;
+      if (d.allTime && d.today && d.thisWeek && d.thisMonth) {
+        setEarnings({
+          today: d.today,
+          thisWeek: d.thisWeek,
+          thisMonth: d.thisMonth,
+          allTime: d.allTime,
+        });
+      } else if (d.estimatedNet != null && d.gross != null && d.deliveredOrders != null) {
+        const legacy: EarningsSlice = {
+          deliveredOrders: d.deliveredOrders,
+          gross: d.gross,
+          estimatedNet: d.estimatedNet,
+          platformCommissionTotal: 0,
+          commissionPercent: 0,
+        };
+        setEarnings({
+          allTime: legacy,
+          today: { ...legacy, deliveredOrders: 0, gross: 0, estimatedNet: 0 },
+          thisWeek: { ...legacy, deliveredOrders: 0, gross: 0, estimatedNet: 0 },
+          thisMonth: { ...legacy, deliveredOrders: 0, gross: 0, estimatedNet: 0 },
+        });
+      } else setEarnings(null);
+    } else setEarnings(null);
 
     const pl = await api<{ plans: typeof plans }>("/api/subscription-plans");
     if (pl.ok && pl.data) setPlans(pl.data.plans);
@@ -1518,17 +1558,48 @@ export default function StorePanelPage() {
               </div>
 
               {earnings && (
-                <div className="rounded-3xl border border-violet-200/60 bg-violet-50/50 p-6">
+                <div className="rounded-3xl border border-violet-200/60 bg-gradient-to-b from-violet-50/70 to-white p-5 shadow-sm sm:p-6">
                   <h3 className="text-xs font-bold uppercase tracking-wide text-violet-800">
-                    {t("storeDeliveredAll")}
+                    {t("storeEarningsHeading")}
                   </h3>
-                  <p className="font-display mt-2 text-2xl font-black text-violet-900">
-                    ₹{earnings.estimatedNet}
+                  <p className="mt-1.5 text-[11px] font-medium leading-snug text-violet-800/85">
+                    {t("storeEarningsFoot")}
                   </p>
-                  <p className="mt-1 text-xs text-violet-700/90">
-                    {t("storeEstNet")} · {earnings.deliveredOrders}{" "}
-                    {t("storeOrdersCount")}
-                  </p>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    {(
+                      [
+                        ["today", earnings.today, t("storeEarnToday")] as const,
+                        ["week", earnings.thisWeek, t("storeEarnWeek")] as const,
+                        ["month", earnings.thisMonth, t("storeEarnMonth")] as const,
+                        ["all", earnings.allTime, t("storeEarnAll")] as const,
+                      ] as const
+                    ).map(([key, slice, label]) => (
+                      <div
+                        key={key}
+                        className={`rounded-2xl border bg-white/95 p-3.5 shadow-sm ${
+                          key === "all"
+                            ? "col-span-2 border-violet-300/80 ring-1 ring-violet-200/60"
+                            : "border-violet-100"
+                        }`}
+                      >
+                        <p className="text-[10px] font-black uppercase tracking-wide text-violet-600">
+                          {label}
+                        </p>
+                        <p className="font-display mt-1.5 text-xl font-black text-violet-950 sm:text-2xl">
+                          ₹{slice.estimatedNet}
+                        </p>
+                        <p className="mt-1 text-[10px] font-semibold leading-snug text-slate-600 sm:text-[11px]">
+                          {t("storeEstNet")} · {slice.deliveredOrders} {t("storeEarnDel")}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-slate-500">
+                          {t("storeEarnGross")}: ₹{slice.gross}
+                          {slice.gross > 0
+                            ? ` · ~${slice.commissionPercent}% ${t("storeEarnAvgFeeSuffix")}`
+                            : ""}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
