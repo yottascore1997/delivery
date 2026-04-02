@@ -4,6 +4,8 @@ import { requireAuth } from "@/lib/auth";
 import { emptyOptions, jsonError } from "@/lib/api-response";
 import { generateOrderInvoicePdf } from "@/lib/order-invoice-pdf";
 
+export const runtime = "nodejs";
+
 export async function OPTIONS() {
   return emptyOptions();
 }
@@ -36,16 +38,22 @@ export async function GET(
 
   if (!order) return jsonError("Order not found", 404);
 
-  const bytes = await generateOrderInvoicePdf({
-    id: order.id,
-    createdAt: order.createdAt,
-    totalAmount: order.totalAmount,
-    paymentType: order.paymentType,
-    deliveryAddress: order.deliveryAddress,
-    status: order.status,
-    user: order.user,
-    items: order.items,
-  });
+  let bytes: Uint8Array;
+  try {
+    bytes = await generateOrderInvoicePdf({
+      id: order.id,
+      createdAt: order.createdAt,
+      totalAmount: order.totalAmount,
+      paymentType: order.paymentType,
+      deliveryAddress: order.deliveryAddress,
+      status: order.status,
+      user: order.user,
+      items: order.items,
+    });
+  } catch (e) {
+    console.error("[invoice-pdf]", orderId, e);
+    return jsonError("Could not generate PDF", 500);
+  }
 
   const safeSuffix = order.id.replace(/[^a-zA-Z0-9_-]/g, "").slice(-12) || order.id.slice(0, 8);
 

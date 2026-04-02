@@ -27,9 +27,31 @@ function fmtQty(n: number): string {
 }
 
 function fmtDiscPct(mrp: number, rate: number): string {
-  if (mrp <= 0 || rate >= mrp) return "—";
+  if (mrp <= 0 || rate >= mrp) return "-";
   const p = ((mrp - rate) / mrp) * 100;
   return `${p.toFixed(1)}%`;
+}
+
+/**
+ * Standard 14 PDF fonts only support WinAnsi; ₹, Hindi, smart quotes, etc. throw at runtime.
+ */
+function pdfSafeText(text: string): string {
+  const normalized = text.normalize("NFKC").replace(/\r\n/g, "\n");
+  let out = "";
+  for (const ch of normalized) {
+    const cp = ch.codePointAt(0);
+    if (cp === undefined) continue;
+    if (cp === 9 || cp === 10 || cp === 13) {
+      out += " ";
+      continue;
+    }
+    if (cp >= 32 && cp <= 126) {
+      out += ch;
+      continue;
+    }
+    out += "?";
+  }
+  return out.replace(/\s+/g, " ").trim() || "-";
 }
 
 function splitToWidth(
@@ -93,7 +115,7 @@ export async function generateOrderInvoicePdf(order: InvoiceOrderInput): Promise
       page = pdfDoc.addPage([pageWidth, 1200]);
       y = 1120;
     }
-    page.drawText(text, {
+    page.drawText(pdfSafeText(text), {
       x: margin,
       y,
       size,
@@ -104,7 +126,7 @@ export async function generateOrderInvoicePdf(order: InvoiceOrderInput): Promise
   };
 
   const drawLines = (text: string, size: number, maxW: number) => {
-    for (const ln of splitToWidth(text, font, size, maxW)) {
+    for (const ln of splitToWidth(pdfSafeText(text), font, size, maxW)) {
       draw(ln, { size, dy: size + 2 });
     }
   };
@@ -124,7 +146,7 @@ export async function generateOrderInvoicePdf(order: InvoiceOrderInput): Promise
   };
 
   draw(appName.toUpperCase(), { size: 14, bold: true, dy: 18 });
-  draw("Order bill · Delivery copy", { size: 8, dy: 12 });
+  draw("Order bill - Delivery copy", { size: 8, dy: 12 });
   lineH(margin, pageWidth - margin);
 
   draw(`Customer: ${order.user.name}`, { size: 9, dy: 11 });
@@ -211,13 +233,13 @@ export async function generateOrderInvoicePdf(order: InvoiceOrderInput): Promise
     lineNet += amt;
     itemCount += 1;
 
-    const nameLines = splitToWidth(it.product.name, font, 8, colMRP - colPart - 4);
+    const nameLines = splitToWidth(pdfSafeText(it.product.name), font, 8, colMRP - colPart - 4);
     for (let i = 0; i < nameLines.length; i++) {
       if (y < 72) {
         page = pdfDoc.addPage([pageWidth, 1200]);
         y = 1120;
       }
-      page.drawText(nameLines[i] ?? "", {
+      page.drawText(pdfSafeText(nameLines[i] ?? ""), {
         x: colPart,
         y,
         size: 8,
@@ -298,9 +320,9 @@ export async function generateOrderInvoicePdf(order: InvoiceOrderInput): Promise
 
   const qtySum = order.items.reduce((n, it) => n + it.quantity, 0);
   draw(`Items: ${itemCount} · Total qty: ${qtySum}`, { size: 9, dy: 11 });
-  draw(`Gross (on MRP): ₹${fmt2(grossMrp)}`, { size: 9, dy: 11 });
-  draw(`Discount on MRP: ₹${fmt2(savings)}`, { size: 9, dy: 11 });
-  draw(`Net amount: ₹${fmt2(total)}`, { size: 11, bold: true, dy: 14 });
+  draw(`Gross (on MRP): Rs.${fmt2(grossMrp)}`, { size: 9, dy: 11 });
+  draw(`Discount on MRP: Rs.${fmt2(savings)}`, { size: 9, dy: 11 });
+  draw(`Net amount: Rs.${fmt2(total)}`, { size: 11, bold: true, dy: 14 });
 
   y -= 6;
   lineH(margin, pageWidth - margin);
