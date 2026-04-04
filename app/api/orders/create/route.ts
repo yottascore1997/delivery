@@ -7,6 +7,7 @@ import { dec } from "@/lib/serialize";
 import { getShopOrderingClosedMessage, isShopOrderingOpenNow } from "@/lib/shop-ordering-hours";
 import { getStoreClosedByHoursMessage, isStoreWithinOpeningHours } from "@/lib/store-opening-hours";
 import { getDeliveryFeePerOrder } from "@/lib/settings";
+import { deliveryFeeForSubtotal } from "@/lib/free-delivery";
 
 const MIN_ORDER_AMOUNT = 100;
 
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
     });
     if (!addr) return jsonError("Set delivery address before ordering", 400);
 
-    const deliveryFee = await getDeliveryFeePerOrder();
+    const feePerOrder = await getDeliveryFeePerOrder();
 
     const order = await prisma.$transaction(async (tx) => {
       const lines: { productId: string; quantity: number; price: number }[] = [];
@@ -95,6 +96,7 @@ export async function POST(request: Request) {
         );
       }
 
+      const deliveryFee = deliveryFeeForSubtotal(total, feePerOrder, true);
       const grandTotal = Math.round((total + deliveryFee) * 100) / 100;
 
       const created = await tx.order.create({

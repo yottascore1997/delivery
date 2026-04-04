@@ -1,5 +1,6 @@
 import { jsonOk, emptyOptions } from "@/lib/api-response";
 import { getDeliveryFeePerOrder } from "@/lib/settings";
+import { FREE_DELIVERY_MIN_SUBTOTAL } from "@/lib/free-delivery";
 import {
   getShopOrderEndHour,
   getShopOrderStartHour,
@@ -18,6 +19,7 @@ export async function GET() {
   return jsonOk({
     open,
     deliveryFeePerOrder,
+    freeDeliveryMinSubtotal: FREE_DELIVERY_MIN_SUBTOTAL,
     timezone: "Asia/Kolkata",
     startHour: getShopOrderStartHour(),
     endHour: getShopOrderEndHour(),

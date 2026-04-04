@@ -14,6 +14,7 @@ import {
 } from "@/lib/shop-cart";
 import { emitDeliveryAddressUpdated } from "@/lib/shop-delivery-address";
 import { ProductThumb } from "@/components/shop/shop-visual";
+import { deliveryFeeForSubtotal, FREE_DELIVERY_MIN_SUBTOTAL } from "@/lib/free-delivery";
 
 export default function ShopCartPage() {
   const router = useRouter();
@@ -40,6 +41,7 @@ export default function ShopCartPage() {
   const [orderingOpen, setOrderingOpen] = useState<boolean | null>(null);
   const [orderingClosedMsg, setOrderingClosedMsg] = useState<string>("");
   const [deliveryFeePerOrder, setDeliveryFeePerOrder] = useState(25);
+  const [freeDeliveryMinSubtotal, setFreeDeliveryMinSubtotal] = useState(FREE_DELIVERY_MIN_SUBTOTAL);
   const [addressHydrated, setAddressHydrated] = useState(false);
 
   function pushToast(type: "error" | "success" | "info", message: string) {
@@ -130,6 +132,7 @@ export default function ShopCartPage() {
           open: boolean;
           closedMessage: string | null;
           deliveryFeePerOrder?: number;
+          freeDeliveryMinSubtotal?: number;
         }>("/api/shop/ordering-status");
         if (res.ok && res.data) {
           setOrderingOpen(res.data.open);
@@ -139,6 +142,13 @@ export default function ShopCartPage() {
             Number.isFinite(res.data.deliveryFeePerOrder)
           ) {
             setDeliveryFeePerOrder(res.data.deliveryFeePerOrder);
+          }
+          if (
+            typeof res.data.freeDeliveryMinSubtotal === "number" &&
+            Number.isFinite(res.data.freeDeliveryMinSubtotal) &&
+            res.data.freeDeliveryMinSubtotal > 0
+          ) {
+            setFreeDeliveryMinSubtotal(res.data.freeDeliveryMinSubtotal);
           }
         } else {
           setOrderingOpen(true);
@@ -152,9 +162,18 @@ export default function ShopCartPage() {
 
   const total = shopCartTotal(lines);
   const storeId = lines[0]?.storeId;
-  const deliveryFee = lines.length > 0 ? deliveryFeePerOrder : 0;
+  const deliveryFee = deliveryFeeForSubtotal(
+    total,
+    deliveryFeePerOrder,
+    lines.length > 0,
+    freeDeliveryMinSubtotal,
+  );
   const handlingFee = 0;
   const payable = total + deliveryFee + handlingFee;
+  const amountToFree =
+    lines.length > 0 && total < freeDeliveryMinSubtotal
+      ? Math.max(0, freeDeliveryMinSubtotal - total)
+      : 0;
   const etaMin = lines.length > 0 ? 18 : 0;
 
   useEffect(() => {
@@ -244,6 +263,18 @@ export default function ShopCartPage() {
         <p className="mt-2 text-sm font-semibold text-[#686b78]">
           Fast delivery, transparent pricing, secure COD handoff.
         </p>
+        <div className="mt-4 rounded-xl border border-emerald-200/90 bg-emerald-50 px-3 py-2.5 text-center shadow-sm">
+          <p className="text-xs font-bold text-emerald-900">
+            Free delivery on orders above ₹{freeDeliveryMinSubtotal}
+          </p>
+          {lines.length > 0 && amountToFree > 0 ? (
+            <p className="mt-1 text-[11px] font-semibold text-emerald-800">
+              Add ₹{Math.ceil(amountToFree)} more to unlock free delivery
+            </p>
+          ) : lines.length > 0 && amountToFree === 0 ? (
+            <p className="mt-1 text-[11px] font-bold text-emerald-700">Free delivery applied to this order</p>
+          ) : null}
+        </div>
       </div>
 
       {lines.length > 0 && orderingOpen === false && orderingClosedMsg ? (

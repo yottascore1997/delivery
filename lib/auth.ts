@@ -16,7 +16,7 @@ export type JwtPayload = { sub: string; role: UserRole };
 
 export function signToken(user: Pick<User, "id" | "role">): string {
   return jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, {
-    expiresIn: "30d",
+    expiresIn: "180d",
   });
 }
 
