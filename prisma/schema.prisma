@@ -200,6 +200,11 @@ model Product {
   imageUrl2   String?  @db.VarChar(2048)
   /// Pack / unit shown to customers (e.g. 500 g, 1 kg, 1 L, 1 pc) — copied from master on import
   unitLabel   String?  @db.VarChar(40)
+  /// Same id on all SKUs that appear as one product with pack options (e.g. Atta 3 kg + 5 kg).
+  variantGroupId String? @db.VarChar(36)
+  /// Shown on pack selector, e.g. "3 kg", "5 kg bag".
+  variantLabel   String? @db.VarChar(40)
+  variantSort    Int     @default(0)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
@@ -211,6 +216,7 @@ model Product {
   @@index([storeId])
   @@index([categoryId])
   @@index([masterProductId])
+  @@index([storeId, variantGroupId])
   @@unique([storeId, masterProductId])
 }
 

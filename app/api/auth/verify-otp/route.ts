@@ -4,17 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { verifyOtp } from "@/lib/otp";
 import { signToken } from "@/lib/auth";
 import { jsonError, jsonOk, emptyOptions } from "@/lib/api-response";
+import { normalizePhone10 } from "@/lib/phone";
 
 const bodySchema = z.object({
   phone: z.string().min(8).max(20),
   code: z.string().min(4).max(10),
 });
-
-/** Match login page / Firebase: DB stores last 10 digits. */
-function normalizePhone10(raw: string): string {
-  const d = raw.replace(/\D/g, "");
-  return d.length >= 10 ? d.slice(-10) : raw.trim();
-}
 
 export async function OPTIONS() {
   return emptyOptions();
@@ -24,6 +19,9 @@ export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await request.json());
     const phone = normalizePhone10(body.phone);
+    if (phone.replace(/\D/g, "").length < 10) {
+      return jsonError("Enter a valid 10-digit mobile number");
+    }
     const code = body.code.trim();
 
     const ok = await verifyOtp(phone, code);

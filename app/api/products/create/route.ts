@@ -17,9 +17,16 @@ const bodySchema = z
     imageUrl2: z.string().max(2048).optional().nullable(),
     unitLabel: z.string().max(40).optional().nullable(),
     commissionPercent: z.number().min(0).max(100).nullable().optional(),
+    /** Join an existing pack group (same id on sibling products). */
+    variantGroupId: z.string().uuid().optional(),
+    variantLabel: z.string().min(1).max(40).optional(),
+    variantSort: z.number().int().min(0).max(999).optional(),
   })
   .refine((b) => b.mrp >= b.price, {
     message: "MRP must be greater than or equal to selling price",
+  })
+  .refine((b) => !b.variantGroupId || (b.variantLabel && b.variantLabel.length > 0), {
+    message: "variantLabel is required when variantGroupId is set",
   });
 
 export async function OPTIONS() {
@@ -59,6 +66,8 @@ export async function POST(request: Request) {
     }
 
     const unitTrim = body.unitLabel?.trim();
+    const vg = body.variantGroupId?.trim();
+    const vl = body.variantLabel?.trim();
     const product = await prisma.product.create({
       data: {
         storeId: body.storeId,
@@ -73,6 +82,13 @@ export async function POST(request: Request) {
         ...(unitTrim ? { unitLabel: unitTrim } : {}),
         ...(body.commissionPercent != null
           ? { commissionPercent: body.commissionPercent }
+          : {}),
+        ...(vg && vl
+          ? {
+              variantGroupId: vg,
+              variantLabel: vl,
+              variantSort: body.variantSort ?? 0,
+            }
           : {}),
       },
     });
