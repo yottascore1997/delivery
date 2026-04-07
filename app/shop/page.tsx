@@ -12,6 +12,7 @@ import { ShopNearbyStoreCard } from "@/components/shop/ShopNearbyStoreCard";
 import { ShopTopCategoriesStrip } from "@/components/shop/ShopTopCategoriesStrip";
 import { ShopCategoryMobileBrandBanner } from "@/components/shop/ShopCategoryMobileBrandBanner";
 import { SHOP_VERTICAL_LABELS, isShopVerticalSlug } from "@/lib/shop-verticals";
+import { FREE_DELIVERY_MIN_SUBTOTAL } from "@/lib/free-delivery";
 
 type StoreItem = {
   id: string;
@@ -263,6 +264,9 @@ export default function ShopStoresPage() {
             <h2 className="shop-section-title font-display mt-2 text-2xl sm:text-3xl">Stores near you</h2>
             <p className="mt-2 text-sm font-semibold text-slate-500">
               {stores.length} outlet{stores.length !== 1 ? "s" : ""} · sorted by distance
+            </p>
+            <p className="mt-2 text-sm font-bold text-emerald-700">
+              Free delivery on orders above ₹{FREE_DELIVERY_MIN_SUBTOTAL}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
