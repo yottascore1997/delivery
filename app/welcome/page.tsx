@@ -212,6 +212,11 @@ export default function WelcomePage() {
         <p>
           {appName} · Inspired by modern quick-commerce UX · Not affiliated with Blinkit or Swiggy
         </p>
+        <p className="mt-3">
+          <Link href="/privacy" className="font-semibold text-stone-300 underline-offset-2 hover:text-white hover:underline">
+            Privacy policy
+          </Link>
+        </p>
       </footer>
     </div>
   );

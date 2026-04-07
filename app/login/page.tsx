@@ -544,6 +544,14 @@ function LoginForm() {
                           </>
                         )}
                       </p>
+                      <div className="flex items-center justify-center gap-4 pt-1 text-xs font-bold text-zinc-500">
+                        <Link href="/shop/help" className="hover:text-emerald-700">
+                          {t("loginDesktopHelpLink")}
+                        </Link>
+                        <Link href="/privacy" className="hover:text-emerald-700">
+                          {t("loginDesktopPrivacyLink")}
+                        </Link>
+                      </div>
                     </div>
                   )}
 
@@ -584,6 +592,14 @@ function LoginForm() {
                       >
                         {t("loginChangePhone")}
                       </button>
+                      <div className="flex items-center justify-center gap-4 text-xs font-bold text-zinc-500">
+                        <Link href="/shop/help" className="hover:text-emerald-700">
+                          {t("loginDesktopHelpLink")}
+                        </Link>
+                        <Link href="/privacy" className="hover:text-emerald-700">
+                          {t("loginDesktopPrivacyLink")}
+                        </Link>
+                      </div>
                     </div>
                   )}
 
@@ -845,12 +861,20 @@ function LoginForm() {
                     <Link href="/" className="font-semibold text-zinc-600 transition hover:text-zinc-900">
                       {t("loginDesktopBackHome")}
                     </Link>
-                    <Link
-                      href="/shop/help"
-                      className="font-semibold text-blue-600 transition hover:text-blue-700"
-                    >
-                      {t("loginDesktopHelpLink")}
-                    </Link>
+                    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <Link
+                        href="/shop/help"
+                        className="font-semibold text-blue-600 transition hover:text-blue-700"
+                      >
+                        {t("loginDesktopHelpLink")}
+                      </Link>
+                      <Link
+                        href="/privacy"
+                        className="font-semibold text-blue-600 transition hover:text-blue-700"
+                      >
+                        {t("loginDesktopPrivacyLink")}
+                      </Link>
+                    </span>
                   </div>
                   <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500">
                     <span

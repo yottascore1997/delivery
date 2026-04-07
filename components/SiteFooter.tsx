@@ -19,6 +19,9 @@ export function SiteFooter() {
           <Link href="/welcome" className="text-zinc-300 hover:text-white">
             About
           </Link>
+          <Link href="/privacy" className="text-zinc-300 hover:text-white">
+            Privacy
+          </Link>
           <Link href="/login" className="text-zinc-300 hover:text-white">
             Login
           </Link>
