@@ -233,67 +233,104 @@ export function ShopCategoryProductsClient({
       )}
 
       {storeMode ? (
-        <section className="mb-6 space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {["Filters", "Under ₹300", "Great offers", "Pure Veg"].map((chip) => (
-              <span
-                key={chip}
-                className="inline-flex rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-extrabold text-slate-700"
-              >
-                {chip}
-              </span>
-            ))}
-          </div>
+        <div className="mb-6 grid grid-cols-[76px_minmax(0,1fr)] gap-2.5 md:grid-cols-1">
+          <aside className="rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-sm md:hidden">
+            <div className="max-h-[calc(100vh-var(--shop-header-sticky,0px)-10.5rem)] overflow-y-auto pr-1">
+              <ul className="space-y-2">
+                {subcats.map((c) => {
+                  const active = c.id === masterCategoryId;
+                  return (
+                    <li key={c.id}>
+                      <Link
+                        href={`/shop/category/${encodeURIComponent(routeSlug)}/sub/${c.id}?subname=${encodeURIComponent(c.name)}`}
+                        className={`flex flex-col items-center gap-1 rounded-xl p-2 text-center transition ${
+                          active ? "bg-emerald-50 ring-2 ring-emerald-300" : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="h-12 w-12 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                          <ProductThumb
+                            name={c.name}
+                            imageUrl={c.imageUrl ?? null}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <p
+                          className={`line-clamp-2 text-[10px] font-extrabold leading-tight ${
+                            active ? "text-emerald-900" : "text-slate-700"
+                          }`}
+                        >
+                          {c.name}
+                        </p>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </aside>
 
-          {initialLoad && loading ? (
-            <div className="space-y-3">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                  <div className="aspect-[16/8] animate-pulse bg-slate-200/80" />
-                  <div className="space-y-2 p-3">
-                    <div className="h-5 w-2/3 animate-pulse rounded bg-slate-200/80" />
-                    <div className="h-3 w-1/2 animate-pulse rounded bg-slate-200/70" />
+          <section className="min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {["Filters", "Under ₹300", "Great offers", "Pure Veg"].map((chip) => (
+                <span
+                  key={chip}
+                  className="inline-flex rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-extrabold text-slate-700"
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+
+            {initialLoad && loading ? (
+              <div className="space-y-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                    <div className="aspect-[16/8] animate-pulse bg-slate-200/80" />
+                    <div className="space-y-2 p-3">
+                      <div className="h-5 w-2/3 animate-pulse rounded bg-slate-200/80" />
+                      <div className="h-3 w-1/2 animate-pulse rounded bg-slate-200/70" />
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : foodStores.length === 0 ? (
-            <div className="flex min-h-[14rem] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/90 px-4 py-10 text-center text-sm font-medium text-slate-500">
-              No stores found for this subcategory nearby yet.
-            </div>
-          ) : (
-            <ul className="space-y-3">
-              {foodStores.map((s) => (
-                <li key={s.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <Link href={`/shop/${s.id}`} className="block">
-                    <div className="aspect-[16/8] overflow-hidden bg-slate-100">
-                      <ProductThumb
-                        name={s.name}
-                        imageUrl={s.imageUrl}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div className="space-y-1.5 p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="line-clamp-1 text-xl font-black tracking-tight text-slate-900">{s.name}</h3>
-                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-black text-emerald-700 ring-1 ring-emerald-200">
-                          {s.openingHours?.isOpenNow ? "Open" : "Closed"}
-                        </span>
+                ))}
+              </div>
+            ) : foodStores.length === 0 ? (
+              <div className="flex min-h-[14rem] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/90 px-4 py-10 text-center text-sm font-medium text-slate-500">
+                No stores found for this subcategory nearby yet.
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {foodStores.map((s) => (
+                  <li key={s.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <Link href={`/shop/${s.id}`} className="block">
+                      <div className="aspect-[16/8] overflow-hidden bg-slate-100">
+                        <ProductThumb
+                          name={s.name}
+                          imageUrl={s.imageUrl}
+                          className="h-full w-full object-cover"
+                        />
                       </div>
-                      <p className="line-clamp-1 text-xs font-semibold text-slate-500">
-                        {s.etaMin} mins · {s.distanceKm} km
-                      </p>
-                      <p className="line-clamp-1 text-xs font-semibold text-slate-500">
-                        {s.matchedProducts} items · starts at ₹{s.startsAt}
-                        {s.maxDiscount > 0 ? ` · up to ${s.maxDiscount}% OFF` : ""}
-                      </p>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+                      <div className="space-y-1.5 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="line-clamp-1 text-xl font-black tracking-tight text-slate-900">{s.name}</h3>
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-black text-emerald-700 ring-1 ring-emerald-200">
+                            {s.openingHours?.isOpenNow ? "Open" : "Closed"}
+                          </span>
+                        </div>
+                        <p className="line-clamp-1 text-xs font-semibold text-slate-500">
+                          {s.etaMin} mins · {s.distanceKm} km
+                        </p>
+                        <p className="line-clamp-1 text-xs font-semibold text-slate-500">
+                          {s.matchedProducts} items · starts at ₹{s.startsAt}
+                          {s.maxDiscount > 0 ? ` · up to ${s.maxDiscount}% OFF` : ""}
+                        </p>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       ) : null}
 
       {/* Mobile: left subcategory rail + right products (Blinkit-style) */}

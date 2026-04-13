@@ -28,6 +28,8 @@ function keywordSet(input: string) {
   return out;
 }
 
+const BLOCKED_FOOD_STORE_NAMES = new Set(["gajanan kirana store"]);
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const lat = Number(searchParams.get("lat"));
@@ -71,7 +73,11 @@ export async function GET(request: Request) {
         openingHours: storeOpeningHoursPublic(s),
       };
     })
-    .filter((s) => Number.isFinite(s.distanceKm));
+    .filter(
+      (s) =>
+        Number.isFinite(s.distanceKm) &&
+        !BLOCKED_FOOD_STORE_NAMES.has(normText(s.name)),
+    );
 
   if (withDist.length === 0) return jsonOk({ stores: [] });
 

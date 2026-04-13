@@ -23,6 +23,10 @@ type StoreRow = {
   };
 };
 
+function isBlockedFoodStore(name: string) {
+  return name.trim().toLowerCase() === "gajanan kirana store";
+}
+
 function badgeForStore(shopVertical: string) {
   if (isShopVerticalSlug(shopVertical)) {
     return SHOP_VERTICAL_LABELS[shopVertical];
@@ -54,7 +58,7 @@ export function FoodTopStoresSection({
       });
       const res = await api<{ stores: StoreRow[] }>(`/api/stores/nearby?${q}`);
       setLoading(false);
-      if (res.ok && res.data) setStores(res.data.stores);
+      if (res.ok && res.data) setStores(res.data.stores.filter((s) => !isBlockedFoodStore(s.name)));
       else setStores([]);
     })();
   }, []);

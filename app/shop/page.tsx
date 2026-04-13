@@ -206,7 +206,7 @@ export default function ShopStoresPage() {
               </p>
               <div className="mt-6 flex flex-wrap gap-2.5 sm:mt-8">
                 <Link
-                  href="#stores-near-you"
+                  href="#shop-categories-heading"
                   className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-6 py-3 text-sm font-black text-white shadow-lg transition active:scale-[0.98] sm:px-7 sm:py-3.5"
                 >
                   Explore nearby
@@ -257,7 +257,7 @@ export default function ShopStoresPage() {
         </div>
       )}
 
-      <section id="stores-near-you" className="scroll-mt-36">
+      {false ? <section id="stores-near-you" className="scroll-mt-36">
         <ShopTopCategoriesStrip />
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200/80 pb-4">
           <div>
@@ -306,7 +306,7 @@ export default function ShopStoresPage() {
             ))}
           </ul>
         )}
-      </section>
+      </section> : null}
 
       <section className="rounded-3xl bg-gradient-to-r from-white/70 to-slate-50/70 p-5 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
