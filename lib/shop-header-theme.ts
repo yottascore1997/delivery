@@ -17,8 +17,22 @@ export type ShopHeaderColors = {
 
 const SHOP_HOME = "__shop__";
 
-/** Daily essentials / grocery / shop home — fresh green stack */
-const DAILY_GREEN: ShopHeaderColors = {
+/** `/shop` home (Shop tab) — warm orange, not daily-essentials green */
+const SHOP_HOME_ORANGE: ShopHeaderColors = {
+  topBar: "#9a3412",
+  categoryBar: "#ea580c",
+  searchBand: "#fb923c",
+  deliverGold: "#ffedd5",
+  goBtn: "#c2410c",
+  logoCircle: "#ffffff",
+  logoText: "#7c2d12",
+  chipInactive: "#292524",
+  activeChipShadow: "#7c2d12",
+  headerGradient: ["#ea580c", "#f59e0b", "#fde68a"],
+};
+
+/** Daily essentials / grocery category routes — green */
+const DAILY_ESSENTIALS_GREEN: ShopHeaderColors = {
   topBar: "#14532d",
   categoryBar: "#166534",
   searchBand: "#22c55e",
@@ -141,9 +155,9 @@ function norm(k: string): string {
 }
 
 const KEY_THEMES: Record<string, ShopHeaderColors> = {
-  grocery: DAILY_GREEN,
-  "daily-essentials": DAILY_GREEN,
-  essentials: DAILY_GREEN,
+  grocery: DAILY_ESSENTIALS_GREEN,
+  "daily-essentials": DAILY_ESSENTIALS_GREEN,
+  essentials: DAILY_ESSENTIALS_GREEN,
   food: FOOD_WARM,
   beverages: BEVERAGE_BLUE,
   beverage: BEVERAGE_BLUE,
@@ -165,14 +179,14 @@ const KEY_THEMES: Record<string, ShopHeaderColors> = {
 export function getShopHeaderColors(activeKey: string): ShopHeaderColors {
   const k = norm(activeKey);
   if (k === norm(SHOP_HOME) || k === "") {
-    return DAILY_GREEN;
+    return SHOP_HOME_ORANGE;
   }
   if (KEY_THEMES[k]) {
     return KEY_THEMES[k];
   }
   if (k.includes("food") || k.includes("meal") || k.includes("restaurant")) return FOOD_WARM;
   if (k.includes("daily") || k.includes("essential") || k.includes("grocery") || k.includes("pantry"))
-    return DAILY_GREEN;
+    return DAILY_ESSENTIALS_GREEN;
   if (k.includes("beverage") || k.includes("drink") || k.includes("juice")) return BEVERAGE_BLUE;
   if (k.includes("house") || k.includes("cleaning") || k.includes("laundry")) return HOUSEHOLD_PURPLE;
   if (k.includes("vegetable") || k.includes("fruit") || k.includes("farm")) return PRODUCE_GREEN;
@@ -181,5 +195,5 @@ export function getShopHeaderColors(activeKey: string): ShopHeaderColors {
   if (k.includes("frozen") || k.includes("dairy") || k.includes("cold")) return FROZEN_TEAL;
   if (k.includes("electronic") || k.includes("gadget") || k.includes("mobile") || k.includes("phone"))
     return ELECTRONICS_SLATE;
-  return DAILY_GREEN;
+  return SHOP_HOME_ORANGE;
 }

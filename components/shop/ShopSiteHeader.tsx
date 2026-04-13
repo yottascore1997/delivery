@@ -167,6 +167,22 @@ export function ShopSiteHeader() {
   }, [colors]);
   const badgeRing = colors.headerGradient[2];
 
+  /** iOS/Safari status bar & browser chrome read `theme-color` once; sync on client nav so the top strip matches the header. */
+  useEffect(() => {
+    const DEFAULT_THEME = "#f7f7f7";
+    const topHex = colors.headerGradient[0];
+    const content = pathname.startsWith("/shop") ? topHex : DEFAULT_THEME;
+    const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
+    if (metas.length === 0) {
+      const m = document.createElement("meta");
+      m.setAttribute("name", "theme-color");
+      m.setAttribute("content", content);
+      document.head.appendChild(m);
+      return;
+    }
+    metas.forEach((el) => el.setAttribute("content", content));
+  }, [pathname, colors.headerGradient]);
+
   const mobileServiceTabs = useMemo(() => {
     const shop = {
       id: "tab-shop",
