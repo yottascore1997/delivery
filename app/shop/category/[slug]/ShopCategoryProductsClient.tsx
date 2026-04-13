@@ -92,8 +92,8 @@ export function ShopCategoryProductsClient({
   const isFoodPath =
     pathname?.startsWith("/shop/category/food/") ||
     pathname?.startsWith("/shop/category/food-beverages/");
-  // Restored classic flow: subcategory -> products (including food/biryani).
-  const storeMode = false && (isFoodCategory || Boolean(isFoodPath)) && !isAll;
+  // Food flow: subcategory -> store listing (Zomato/Swiggy style).
+  const storeMode = (isFoodCategory || Boolean(isFoodPath)) && !isAll;
 
   const [quickProducts, setQuickProducts] = useState<QuickProduct[]>([]);
   const [foodStores, setFoodStores] = useState<FoodStore[]>([]);

@@ -166,55 +166,6 @@ export async function GET(request: Request) {
   }
 
   // Fallback: avoid empty UX when master mapping/keywords are missing in store data.
-  const firstKey = Array.from(keys)[0] ?? "";
-  const fallback = new Map<string, { count: number; sampleImageUrl: string | null; minPrice: number }>();
-  if (firstKey) {
-    for (const p of products) {
-      const pn = normText(p.name);
-      const cn = normText(p.category.name);
-      const relaxedMatch = pn.includes(firstKey) || cn.includes(firstKey);
-      if (!relaxedMatch) continue;
-      const prev = fallback.get(p.storeId);
-      if (!prev) {
-        fallback.set(p.storeId, {
-          count: 1,
-          sampleImageUrl: p.imageUrl ?? null,
-          minPrice: dec(p.price),
-        });
-      } else {
-        prev.count += 1;
-        if (!prev.sampleImageUrl && p.imageUrl) prev.sampleImageUrl = p.imageUrl;
-        prev.minPrice = Math.min(prev.minPrice, dec(p.price));
-      }
-    }
-  }
-
-  let relaxedRows = Array.from(fallback.entries())
-    .map(([storeId, stats]) => {
-      const s = byId.get(storeId);
-      if (!s) return null;
-      return {
-        id: s.id,
-        name: s.name,
-        address: s.address,
-        imageUrl: s.imageUrl ?? stats.sampleImageUrl,
-        distanceKm: Math.round(s.distanceKm * 10) / 10,
-        etaMin: s.etaMin,
-        openingHours: s.openingHours,
-        matchedProducts: stats.count,
-        startsAt: Math.round(stats.minPrice),
-        maxDiscount: 0,
-      };
-    })
-    .filter((v): v is NonNullable<typeof v> => Boolean(v))
-    .sort((a, b) => {
-      const aOpen = a.openingHours?.isOpenNow ? 1 : 0;
-      const bOpen = b.openingHours?.isOpenNow ? 1 : 0;
-      if (aOpen !== bOpen) return bOpen - aOpen;
-      return a.distanceKm - b.distanceKm;
-    })
-    .slice(0, limit);
-
-  return jsonOk({ stores: relaxedRows });
+  return jsonOk({ stores: rows });
 }
 

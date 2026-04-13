@@ -108,6 +108,13 @@ export function ShopCategoryHubClient({
         </div>
       )}
 
+      {isFood ? (
+        <div className="mb-8 space-y-8">
+          <FoodHubPromoBanner />
+          <FoodTopStoresSection />
+        </div>
+      ) : null}
+
       <section aria-labelledby="subcat-heading" className="mb-8">
         <h2 id="subcat-heading" className="mb-3 text-sm font-black text-slate-900 sm:text-base">
           {data?.mainCategory?.name ?? title}
@@ -132,13 +139,6 @@ export function ShopCategoryHubClient({
           </p>
         )}
       </section>
-
-      {isFood ? (
-        <div className="mb-8 space-y-8">
-          <FoodHubPromoBanner />
-          <FoodTopStoresSection />
-        </div>
-      ) : null}
 
       <ShopCategoryMobileBrandBanner />
     </div>
