@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, getToken } from "@/lib/client-api";
 import { addToShopCart, getShopCart, updateShopLineQty } from "@/lib/shop-cart";
 import { ProductThumb } from "@/components/shop/shop-visual";
@@ -56,26 +56,17 @@ const DEFAULT_LNG = 77.0266;
 export function ShopCategoryProductsClient({
   routeSlug,
   catalogMainKey,
-  categoryTitle,
   masterCategoryId,
 }: {
   routeSlug: string;
   catalogMainKey: string;
-  categoryTitle: string;
   /** Master subcategory id, or literal `all` */
   masterCategoryId: string;
 }) {
   const searchParams = useSearchParams();
   const subnameQ = (searchParams.get("subname") ?? "").trim();
 
-  const label = categoryTitle;
   const isAll = masterCategoryId === "all";
-
-  const heading = useMemo(() => {
-    if (isAll) return "All items";
-    if (subnameQ) return subnameQ;
-    return "Products";
-  }, [isAll, subnameQ]);
 
   const [quickProducts, setQuickProducts] = useState<QuickProduct[]>([]);
   const [loading, setLoading] = useState(false);
@@ -184,21 +175,6 @@ export function ShopCategoryProductsClient({
 
   return (
     <div>
-      <div className="mb-4 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-sm backdrop-blur">
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/shop/category/${encodeURIComponent(routeSlug)}`}
-            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
-          >
-            ← Categories
-          </Link>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
-            <h1 className="truncate text-sm font-black text-slate-900 sm:text-base">{heading}</h1>
-          </div>
-        </div>
-      </div>
-
       {err && (
         <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-900">
           {err}

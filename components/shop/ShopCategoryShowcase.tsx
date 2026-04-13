@@ -8,12 +8,10 @@ import {
   MoodChipThumb,
   WhatsOnYourMindLayout,
 } from "@/components/shop/WhatsOnYourMindLayout";
+import { resolveShopMainCoverImage } from "@/lib/shop-main-cover-image";
 
 type ShopTreeSub = { id: string; name: string; imageUrl?: string | null };
 type ShopTreeMain = { id: string; key: string; name: string; subcategories: ShopTreeSub[] };
-
-const FALLBACK_MAIN_IMAGE =
-  "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop&q=80";
 
 /** Rotate card styles (from previous static tiles) for visual variety. */
 const CARD_STYLES = [
@@ -124,12 +122,6 @@ const WHATS_ON_MIND = [
 
 function encodeMainKey(key: string) {
   return encodeURIComponent(key.trim());
-}
-
-function mainCoverImage(main: ShopTreeMain): string {
-  const hit = main.subcategories.find((s) => s.imageUrl?.trim());
-  if (hit?.imageUrl?.trim()) return hit.imageUrl.trim();
-  return FALLBACK_MAIN_IMAGE;
 }
 
 function CategoryFeaturedCard({
@@ -299,7 +291,7 @@ export function ShopCategoryShowcase() {
               >
                 <div className="relative aspect-[4/3] w-full">
                   <Image
-                    src={mainCoverImage(m)}
+                    src={resolveShopMainCoverImage(m)}
                     alt={m.name}
                     fill
                     sizes="(max-width: 640px) 50vw, 240px"
@@ -339,7 +331,7 @@ export function ShopCategoryShowcase() {
                   ringClass={st.ringClass}
                   imgTilt={st.imgTilt}
                   glow={st.glow}
-                  image={mainCoverImage(m)}
+                  image={resolveShopMainCoverImage(m)}
                   imageAlt={m.name}
                 />
               );
@@ -397,8 +389,8 @@ export function ShopCategoryShowcase() {
       )}
 
       <WhatsOnYourMindLayout className="mt-12">
-        <div className="mt-6 grid grid-cols-5 gap-2.5 sm:gap-4">
-          {WHATS_ON_MIND.slice(0, 10).map((item) => (
+        <div className="mt-6 grid grid-cols-4 gap-2.5 sm:gap-4">
+          {WHATS_ON_MIND.slice(0, 8).map((item) => (
             <Link
               key={item.id}
               href="#stores-near-you"

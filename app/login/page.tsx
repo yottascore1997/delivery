@@ -419,49 +419,31 @@ function LoginForm() {
             </div>
 
             <div className="relative z-10 shrink-0 bg-[#fff7ed] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-              <div className="mb-3 flex items-center justify-between gap-2 pt-2">
-                <Link
-                  href="/"
-                  className="min-w-0 shrink text-[13px] font-bold text-[#5c6b65] hover:text-[#111827]"
+              <div className="mb-3 flex justify-end pt-2">
+                <div
+                  className="flex gap-0.5 rounded-lg border border-[#c4d2cb] bg-white p-0.5 shadow-sm"
+                  role="group"
+                  aria-label={t("language")}
                 >
-                  {t("loginHomeMobile")}
-                </Link>
-                <div className="flex flex-1 justify-center">
-                  <div
-                    className="flex gap-0.5 rounded-lg border border-[#c4d2cb] bg-white p-0.5 shadow-sm"
-                    role="group"
-                    aria-label={t("language")}
+                  <button
+                    type="button"
+                    onClick={() => setLocale("en")}
+                    className={`rounded-md px-2.5 py-1 text-[10px] font-black transition ${
+                      locale === "en" ? "bg-[#004d3d] text-white shadow-sm" : "text-[#5c6b65]"
+                    }`}
                   >
-                    <button
-                      type="button"
-                      onClick={() => setLocale("en")}
-                      className={`rounded-md px-2.5 py-1 text-[10px] font-black transition ${
-                        locale === "en" ? "bg-[#004d3d] text-white shadow-sm" : "text-[#5c6b65]"
-                      }`}
-                    >
-                      {t("langEnglish")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLocale("hi")}
-                      className={`rounded-md px-2.5 py-1 text-[10px] font-black transition ${
-                        locale === "hi" ? "bg-[#004d3d] text-white shadow-sm" : "text-[#5c6b65]"
-                      }`}
-                    >
-                      {t("langHindi")}
-                    </button>
-                  </div>
+                    {t("langEnglish")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLocale("hi")}
+                    className={`rounded-md px-2.5 py-1 text-[10px] font-black transition ${
+                      locale === "hi" ? "bg-[#004d3d] text-white shadow-sm" : "text-[#5c6b65]"
+                    }`}
+                  >
+                    {t("langHindi")}
+                  </button>
                 </div>
-                {!isStorePartner ? (
-                  <Link
-                    href="/shop"
-                    className="shrink-0 text-[13px] font-black text-[#004d3d] hover:underline"
-                  >
-                    Skip
-                  </Link>
-                ) : (
-                  <span className="w-12 shrink-0" aria-hidden />
-                )}
               </div>
 
               {step === 3 && !isStorePartner ? (
