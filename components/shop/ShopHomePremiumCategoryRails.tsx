@@ -1,40 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, getToken } from "@/lib/client-api";
-import { addToShopCart, getShopCart, updateShopLineQty } from "@/lib/shop-cart";
-import { ProductThumb } from "@/components/shop/shop-visual";
 import { shopCategoryPathKeyFromMainKey } from "@/lib/shop-category-path";
-import { DELIVERY_ADDRESS_UPDATED_EVENT } from "@/lib/shop-delivery-address";
 
-const DEFAULT_LAT = 28.4595;
-const DEFAULT_LNG = 77.0266;
-
-/** Every main from catalog gets a rail (no cap). */
-const PRODUCTS_PER_RAIL = 8;
-
-type MainBrief = { id: string; key: string; name: string };
-
-type RailProduct = {
-  id: string;
-  name: string;
-  price: number;
-  mrp?: number | null;
-  discountPercent?: number | null;
-  stock: number;
-  imageUrl?: string | null;
-  unitLabel?: string | null;
-  store: {
-    id: string;
-    name: string;
-    distanceKm: number;
-    etaMin: number;
-    openingHours?: { enabled: boolean; isOpenNow: boolean };
-  };
-};
-
-type RailRow = { main: MainBrief; products: RailProduct[] };
+type MainSub = { id: string; name: string; imageUrl?: string | null };
+type MainBrief = { id: string; key: string; name: string; subcategories: MainSub[] };
 
 const SUBTITLES = [
   "Handpicked seasonal finds",
@@ -50,10 +21,10 @@ const SUBTITLES = [
 const THEMES = [
   {
     shell:
-      "bg-gradient-to-br from-emerald-50/95 via-teal-50 to-cyan-50/80 [background-size:200%_200%]",
-    border: "border-emerald-200/80 ring-1 ring-white/70",
-    kicker: "text-emerald-800/65",
-    decorBar: "from-emerald-400 via-teal-400 to-cyan-300",
+      "bg-gradient-to-br from-emerald-200 via-teal-200 to-cyan-200 [background-size:200%_200%]",
+    border: "border-emerald-400/80 ring-1 ring-emerald-100/70",
+    kicker: "text-emerald-900",
+    decorBar: "from-emerald-600 via-teal-500 to-cyan-500",
     title: "text-emerald-950",
     sub: "text-emerald-900/70",
     spotlight:
@@ -66,10 +37,10 @@ const THEMES = [
   },
   {
     shell:
-      "bg-gradient-to-br from-amber-50/95 via-orange-50 to-rose-50/70 [background-size:200%_200%]",
-    border: "border-amber-200/80 ring-1 ring-white/70",
-    kicker: "text-amber-900/60",
-    decorBar: "from-amber-400 via-orange-400 to-rose-300",
+      "bg-gradient-to-br from-amber-200 via-orange-200 to-rose-200 [background-size:200%_200%]",
+    border: "border-orange-400/80 ring-1 ring-amber-100/70",
+    kicker: "text-orange-950",
+    decorBar: "from-amber-600 via-orange-500 to-rose-500",
     title: "text-[#7c2d12]",
     sub: "text-amber-900/68",
     spotlight:
@@ -82,10 +53,10 @@ const THEMES = [
   },
   {
     shell:
-      "bg-gradient-to-br from-sky-50/95 via-blue-50 to-indigo-100/75 [background-size:200%_200%]",
-    border: "border-sky-200/80 ring-1 ring-white/70",
-    kicker: "text-indigo-800/60",
-    decorBar: "from-sky-400 via-blue-500 to-indigo-400",
+      "bg-gradient-to-br from-sky-200 via-blue-200 to-indigo-200 [background-size:200%_200%]",
+    border: "border-blue-400/80 ring-1 ring-sky-100/70",
+    kicker: "text-indigo-950",
+    decorBar: "from-sky-600 via-blue-600 to-indigo-500",
     title: "text-indigo-950",
     sub: "text-indigo-900/65",
     spotlight:
@@ -98,10 +69,10 @@ const THEMES = [
   },
   {
     shell:
-      "bg-gradient-to-br from-violet-50/95 via-fuchsia-50 to-purple-100/70 [background-size:200%_200%]",
-    border: "border-violet-200/75 ring-1 ring-white/70",
-    kicker: "text-violet-800/60",
-    decorBar: "from-violet-400 via-fuchsia-500 to-purple-400",
+      "bg-gradient-to-br from-violet-200 via-fuchsia-200 to-purple-200 [background-size:200%_200%]",
+    border: "border-violet-400/80 ring-1 ring-violet-100/70",
+    kicker: "text-violet-950",
+    decorBar: "from-violet-600 via-fuchsia-600 to-purple-500",
     title: "text-violet-950",
     sub: "text-violet-900/65",
     spotlight:
@@ -114,10 +85,10 @@ const THEMES = [
   },
   {
     shell:
-      "bg-gradient-to-br from-rose-50/95 via-pink-50 to-orange-50/75 [background-size:200%_200%]",
-    border: "border-rose-200/75 ring-1 ring-white/70",
-    kicker: "text-rose-800/58",
-    decorBar: "from-rose-400 via-pink-400 to-orange-300",
+      "bg-gradient-to-br from-rose-200 via-pink-200 to-orange-200 [background-size:200%_200%]",
+    border: "border-rose-400/80 ring-1 ring-rose-100/70",
+    kicker: "text-rose-950",
+    decorBar: "from-rose-600 via-pink-600 to-orange-500",
     title: "text-rose-950",
     sub: "text-rose-900/65",
     spotlight:
@@ -130,10 +101,10 @@ const THEMES = [
   },
   {
     shell:
-      "bg-gradient-to-br from-slate-100/95 via-zinc-50 to-slate-200/80 [background-size:200%_200%]",
-    border: "border-slate-200/85 ring-1 ring-white/80",
-    kicker: "text-slate-600",
-    decorBar: "from-slate-400 via-zinc-500 to-slate-600",
+      "bg-gradient-to-br from-slate-300 via-zinc-200 to-slate-400 [background-size:200%_200%]",
+    border: "border-slate-500/60 ring-1 ring-slate-200/70",
+    kicker: "text-slate-900",
+    decorBar: "from-slate-700 via-zinc-700 to-slate-800",
     title: "text-slate-900",
     sub: "text-slate-600",
     spotlight:
@@ -187,140 +158,22 @@ function subtitleForMain(mainKey: string, fallbackIdx: number): string {
 }
 
 export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) {
-  const [rails, setRails] = useState<RailRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [cartQty, setCartQty] = useState<Record<string, number>>({});
-
-  const sliceMains = useMemo(() => mains, [mains]);
-
-  const syncCart = useCallback(() => {
-    const m: Record<string, number> = {};
-    for (const l of getShopCart()) m[l.productId] = l.quantity;
-    setCartQty(m);
-  }, []);
-
-  useEffect(() => {
-    syncCart();
-    window.addEventListener("dlf-cart", syncCart);
-    return () => window.removeEventListener("dlf-cart", syncCart);
-  }, [syncCart]);
-
-  const loadRails = useCallback(
-    async (lat: number, lng: number) => {
-      if (sliceMains.length === 0) {
-        setRails([]);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      const rows = await Promise.all(
-        sliceMains.map(async (main) => {
-          const mk = main.key.trim();
-          const q = new URLSearchParams({
-            lat: String(lat),
-            lng: String(lng),
-            radiusKm: "60",
-            limit: String(PRODUCTS_PER_RAIL + 4),
-            vertical: mk,
-            mainKey: mk,
-          });
-          const r = await api<{ products: RailProduct[] }>(`/api/shop/category-quick?${q}`);
-          const products =
-            r.ok && r.data?.products ? r.data.products.slice(0, PRODUCTS_PER_RAIL) : [];
-          return { main, products };
-        }),
-      );
-      setRails(rows);
-      setLoading(false);
-    },
-    [sliceMains],
-  );
-
-  useEffect(() => {
-    async function boot() {
-      const token = getToken();
-      if (!token) {
-        await loadRails(DEFAULT_LAT, DEFAULT_LNG);
-        return;
-      }
-      const addr = await api<{ address: { latitude: number; longitude: number } | null }>(
-        "/api/user/address",
-      );
-      const la =
-        addr.ok && addr.data?.address ? addr.data.address.latitude : DEFAULT_LAT;
-      const ln =
-        addr.ok && addr.data?.address ? addr.data.address.longitude : DEFAULT_LNG;
-      await loadRails(la, ln);
-    }
-    void boot();
-    function onAddr() {
-      void boot();
-    }
-    window.addEventListener(DELIVERY_ADDRESS_UPDATED_EVENT, onAddr);
-    return () => window.removeEventListener(DELIVERY_ADDRESS_UPDATED_EVENT, onAddr);
-  }, [loadRails]);
-
-  function qty(id: string) {
-    return cartQty[id] ?? 0;
-  }
-
-  function addOne(p: RailProduct) {
-    const closed =
-      Boolean(p.store.openingHours?.enabled) && p.store.openingHours?.isOpenNow === false;
-    if (closed || p.stock < 1) return;
-    addToShopCart({
-      productId: p.id,
-      storeId: p.store.id,
-      name: p.name,
-      imageUrl: p.imageUrl ?? null,
-      price: p.price,
-      quantity: 1,
-      ...(p.unitLabel?.trim() ? { unitLabel: p.unitLabel.trim() } : {}),
-    });
-  }
-
-  if (sliceMains.length === 0) return null;
-
-  if (loading) {
-    return (
-      <div className="mt-10 space-y-7">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="animate-pulse overflow-hidden rounded-[1.85rem] border border-slate-200/70 bg-gradient-to-br from-slate-100 via-white to-slate-50 p-5 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.2)] ring-1 ring-white/80 sm:p-6"
-          >
-            <div className="h-2.5 w-24 rounded-full bg-slate-200/90" />
-            <div className="mt-3 h-7 w-48 max-w-[70%] rounded-lg bg-slate-200/85" />
-            <div className="mt-2 h-3.5 w-40 rounded-md bg-slate-200/70" />
-            <div className="mt-6 flex gap-3">
-              {Array.from({ length: 4 }).map((_, j) => (
-                <div
-                  key={j}
-                  className="h-48 w-[148px] shrink-0 rounded-[1.25rem] bg-gradient-to-b from-slate-200/90 to-slate-100/80 shadow-inner sm:w-[158px]"
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
+  if (mains.length === 0) return null;
 
   return (
     <div className="mt-10 space-y-8 sm:space-y-10">
-      {rails.map((row, idx) => {
-        const ti = themeIndexForMain(row.main.key);
+      {mains.map((row, idx) => {
+        const ti = themeIndexForMain(row.key);
         const th = THEMES[ti];
-        const pathSlug = shopCategoryPathKeyFromMainKey(row.main.key);
+        const pathSlug = shopCategoryPathKeyFromMainKey(row.key);
         const href = `/shop/category/${encodeCategorySlug(pathSlug)}`;
-        const spotlight = row.products[0];
-        const thumbs = row.products.slice(0, 3);
-        const recipeHint = Math.min(Math.max(3, row.products.length + 2), 9);
-        const subtitle = subtitleForMain(row.main.key, idx);
+        const spotlight = row.subcategories[0];
+        const subs = row.subcategories.slice(0, 10);
+        const subtitle = subtitleForMain(row.key, idx);
 
         return (
           <div
-            key={row.main.id}
+            key={row.id}
             className={`relative overflow-hidden rounded-[1.85rem] border p-4 shadow-[0_28px_80px_-32px_rgba(15,23,42,0.28)] transition-[box-shadow] duration-500 hover:shadow-[0_32px_90px_-30px_rgba(15,23,42,0.32)] sm:rounded-[2rem] sm:p-6 ${th.shell} ${th.border}`}
           >
             <div
@@ -334,13 +187,13 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
             <div className="relative flex flex-row items-start justify-between gap-3 sm:gap-6">
               <div className="min-w-0 flex-1 pr-1">
                 <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${th.kicker}`}>
-                  Curated nearby
+                  Premium collection
                 </p>
                 <div className={`mt-2.5 h-1 w-14 rounded-full bg-gradient-to-r ${th.decorBar} shadow-sm`} />
                 <h3
                   className={`font-display mt-3 text-[1.38rem] font-black leading-[1.1] tracking-tight sm:mt-3.5 sm:text-[1.65rem] ${th.title}`}
                 >
-                  {row.main.name}
+                  {row.name}
                 </h3>
                 <p className={`mt-1.5 font-serif text-[13px] font-medium leading-snug sm:text-[0.95rem] ${th.sub}`}>
                   {subtitle}
@@ -348,58 +201,56 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
               </div>
               {spotlight ? (
                 <Link
-                  href={`/shop/product/${spotlight.id}`}
+                  href={`${href}/sub/${encodeCategorySlug(spotlight.id)}`}
                   className={`relative z-[1] flex max-w-[min(46%,11rem)] shrink-0 items-center gap-2 rounded-2xl border p-2 pr-2.5 transition duration-300 hover:brightness-[1.03] sm:max-w-[220px] sm:gap-3 sm:p-2.5 sm:pr-3 ${th.spotlight}`}
                 >
                   <div className="relative -mb-1 -mt-0.5 h-14 w-14 shrink-0 overflow-visible sm:-mb-2 sm:-mt-1 sm:h-[4.5rem] sm:w-[4.5rem]">
                     <div className="relative h-[4.25rem] w-[4.25rem] -translate-y-0.5 overflow-hidden rounded-2xl bg-white shadow-lg ring-2 ring-white/90 sm:h-[4.75rem] sm:w-[4.75rem] sm:-translate-y-1">
-                      <ProductThumb
-                        name={spotlight.name}
-                        imageUrl={spotlight.imageUrl}
-                        className="h-full w-full object-cover"
-                      />
+                      {spotlight.imageUrl ? (
+                        <Image
+                          src={spotlight.imageUrl}
+                          alt={spotlight.name}
+                          fill
+                          sizes="80px"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-slate-100 text-lg font-black text-slate-500">
+                          {spotlight.name.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="min-w-0 flex-1 py-0.5">
                     <p className="line-clamp-2 text-xs font-extrabold leading-snug text-slate-900">
                       {spotlight.name}
                     </p>
-                    <p className="mt-1 text-sm font-black text-slate-900">
-                      ₹{spotlight.price}
-                      {spotlight.unitLabel?.trim() ? (
-                        <span className="text-[11px] font-bold text-slate-500">
-                          {" "}
-                          / {spotlight.unitLabel.trim()}
-                        </span>
-                      ) : null}
+                    <p className="mt-1 text-[11px] font-black uppercase tracking-wide text-slate-700">
+                      Top subcategory
                     </p>
                   </div>
                 </Link>
               ) : null}
             </div>
 
-            {row.products.length === 0 ? (
+            {subs.length === 0 ? (
               <div className="relative z-[1] mt-6 rounded-[1.35rem] border border-dashed border-slate-300/70 bg-gradient-to-br from-white/70 via-white/40 to-white/20 px-4 py-12 text-center shadow-inner backdrop-blur-sm">
-                <p className="text-sm font-semibold text-slate-600">Nothing listed in this aisle near you yet.</p>
-                <p className="mx-auto mt-1 max-w-xs text-xs text-slate-500">Open the full category to explore the catalogue.</p>
+                <p className="text-sm font-semibold text-slate-600">No subcategories added yet.</p>
+                <p className="mx-auto mt-1 max-w-xs text-xs text-slate-500">Open this main category to browse all items.</p>
                 <Link
                   href={href}
                   className={`mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-black underline-offset-2 ring-1 transition hover:underline ${th.pill}`}
                 >
-                  Browse {row.main.name}
+                  Browse {row.name}
                 </Link>
               </div>
             ) : (
-            <div className="scrollbar-hide relative z-[1] mt-6 flex gap-3.5 overflow-x-auto pb-1.5 pt-0.5 [-webkit-overflow-scrolling:touch]">
-              {row.products.map((p, pi) => {
-                const closed =
-                  Boolean(p.store.openingHours?.enabled) &&
-                  p.store.openingHours?.isOpenNow === false;
-                const out = p.stock < 1;
-                const q = qty(p.id);
+              <div className="scrollbar-hide relative z-[1] mt-6 flex gap-3.5 overflow-x-auto pb-1.5 pt-0.5 [-webkit-overflow-scrolling:touch]">
+                {subs.map((sub, pi) => {
+                  const subHref = `${href}/sub/${encodeCategorySlug(sub.id)}`;
                 return (
                   <div
-                    key={p.id}
+                    key={sub.id}
                     className="group/card relative w-[150px] shrink-0 sm:w-[162px]"
                   >
                     <div
@@ -407,114 +258,52 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
                     >
                       <div className="relative aspect-square w-full bg-gradient-to-br from-slate-50 to-slate-100/80">
                         <Link
-                          href={`/shop/product/${p.id}`}
+                          href={subHref}
                           className="block h-full w-full overflow-hidden"
                         >
-                          <ProductThumb
-                            name={p.name}
-                            imageUrl={p.imageUrl}
-                            className="h-full w-full object-cover transition duration-500 ease-out group-hover/card:scale-[1.06]"
-                          />
+                            {sub.imageUrl ? (
+                              <Image
+                                src={sub.imageUrl}
+                                alt={sub.name}
+                                fill
+                                sizes="(max-width: 640px) 150px, 162px"
+                                className="object-cover transition duration-500 ease-out group-hover/card:scale-[1.06]"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white to-slate-100 text-4xl font-black text-slate-400">
+                                {sub.name.slice(0, 1).toUpperCase()}
+                              </div>
+                            )}
                         </Link>
                         {pi < 2 ? (
                           <span className="pointer-events-none absolute left-2 top-2 z-[2] rounded-md bg-white/95 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] text-slate-900 shadow-md ring-1 ring-black/[0.06] sm:text-[9px]">
-                            Season&apos;s Best
+                            Must try
                           </span>
                         ) : null}
-                        <div className="absolute bottom-1.5 right-1.5 z-[4]">
-                          {q > 0 ? (
-                            <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/95 px-1 py-0.5 shadow-md backdrop-blur-sm">
-                              <button
-                                type="button"
-                                className="flex h-7 w-7 items-center justify-center text-base font-black text-slate-700"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  updateShopLineQty(p.id, q - 1);
-                                }}
-                                aria-label="Decrease"
-                              >
-                                −
-                              </button>
-                              <span className="min-w-[1.25rem] text-center text-[11px] font-black text-slate-900">
-                                {q}
-                              </span>
-                              <button
-                                type="button"
-                                disabled={closed || out || q >= p.stock}
-                                className="flex h-7 w-7 items-center justify-center text-base font-black text-slate-700 disabled:opacity-35"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  updateShopLineQty(p.id, q + 1);
-                                }}
-                                aria-label="Increase"
-                              >
-                                +
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={closed || out}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                addOne(p);
-                              }}
-                              className={`rounded-lg px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wide shadow-md transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 ${th.add}`}
-                            >
-                              {closed ? "Closed" : out ? "Out" : "ADD"}
-                            </button>
-                          )}
+                        <div className="absolute bottom-2 right-2 z-[4] rounded-full bg-black/65 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white backdrop-blur">
+                          Open
                         </div>
                       </div>
                       <div className="space-y-1.5 px-2.5 pb-2.5 pt-1.5">
-                        {p.unitLabel?.trim() ? (
-                          <p className={`truncate text-[10px] font-bold ${th.meta}`}>
-                            {p.unitLabel.trim()}
-                          </p>
-                        ) : (
-                          <p className={`text-[10px] font-bold ${th.meta}`}>—</p>
-                        )}
+                        <p className={`truncate text-[10px] font-bold uppercase tracking-wide ${th.meta}`}>
+                          Subcategory
+                        </p>
                         <Link
-                          href={`/shop/product/${p.id}`}
+                          href={subHref}
                           className="line-clamp-2 min-h-[2.25rem] text-[11px] font-extrabold leading-tight text-slate-900"
                         >
-                          {p.name}
+                          {sub.name}
                         </Link>
-                        <p className="flex items-center gap-1 text-[10px] font-bold text-slate-700">
-                          <svg className="h-3.5 w-3.5 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                          <span className="text-sky-800">{p.store.etaMin} MINS</span>
+                        <p className="text-[10px] font-semibold text-slate-500">
+                          Explore products in this lane
                         </p>
-                        {p.discountPercent != null && p.discountPercent > 0 ? (
-                          <p className="text-[11px] font-black text-sky-600">
-                            {Math.round(p.discountPercent)}% OFF
-                          </p>
-                        ) : (
-                          <span className="block h-3.5" />
-                        )}
-                        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
-                          <span className="text-[14px] font-black text-slate-900">₹{Math.round(p.price)}</span>
-                          {p.mrp != null && p.mrp > p.price ? (
-                            <span className="text-[11px] font-semibold text-slate-400 line-through">
-                              MRP ₹{Math.round(p.mrp)}
-                            </span>
-                          ) : null}
-                        </div>
                       </div>
                     </div>
                     <Link
-                      href={href}
+                      href={subHref}
                       className={`mt-2.5 flex w-full items-center justify-between rounded-xl px-2.5 py-2.5 text-left text-[10px] font-extrabold transition hover:opacity-95 ${th.bar}`}
                     >
-                      <span>See {recipeHint} recipes</span>
+                      <span>Browse products</span>
                       <svg className="h-3.5 w-3.5 shrink-0 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                       </svg>
@@ -522,7 +311,7 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
                   </div>
                 );
               })}
-            </div>
+              </div>
             )}
 
             <Link
@@ -530,22 +319,30 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
               className={`relative z-[1] mt-6 flex w-full items-center justify-between gap-3 rounded-full border px-4 py-3.5 transition duration-300 hover:brightness-[1.02] active:scale-[0.99] sm:px-5 ${th.pill}`}
             >
               <div className="flex -space-x-2">
-                {(row.products.length ? thumbs : []).map((t, ti) => (
+                {row.subcategories.slice(0, 3).map((t, ti) => (
                   <div
                     key={t.id}
                     className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-md ring-1 ring-black/[0.07]"
                     style={{ zIndex: 3 - ti }}
                   >
-                    <ProductThumb
-                      name={t.name}
-                      imageUrl={t.imageUrl}
-                      className="h-full w-full object-cover"
-                    />
+                    {t.imageUrl ? (
+                      <Image
+                        src={t.imageUrl}
+                        alt={t.name}
+                        fill
+                        sizes="40px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[13px] font-black text-slate-500">
+                        {t.name.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
               <span className="flex flex-1 items-center justify-end gap-2 text-sm font-black tracking-tight text-slate-800">
-                See all products
+                See all subcategories
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
