@@ -63,7 +63,7 @@ export default function ShopCategoriesPage() {
         return (
           <section key={main.id} className="space-y-3">
             <Link href={`/shop/category/${slug}`} className="block">
-              <h2 className="text-[2rem] font-black tracking-tight text-slate-800 sm:text-4xl">
+              <h2 className="text-[1.6rem] font-black tracking-tight text-slate-800 sm:text-[2rem]">
                 {main.name}
               </h2>
             </Link>
