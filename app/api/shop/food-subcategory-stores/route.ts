@@ -27,7 +27,6 @@ export async function GET(request: Request) {
     select: {
       id: true,
       name: true,
-      shopVertical: true,
       imageUrl: true,
       address: true,
       latitude: true,
@@ -39,10 +38,6 @@ export async function GET(request: Request) {
   });
 
   const withDist = stores
-    .filter((s) => {
-      const v = (s.shopVertical ?? "").trim().toLowerCase();
-      return v === "food" || v === "food-beverages";
-    })
     .map((s) => {
       const d = distanceKm(lat, lng, s.latitude, s.longitude);
       return {
