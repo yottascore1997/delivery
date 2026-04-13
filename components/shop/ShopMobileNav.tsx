@@ -9,6 +9,7 @@ import { getToken } from "@/lib/client-api";
 function matchHome(path: string) {
   if (path === "/shop") return true;
   if (
+    path.startsWith("/shop/categories") ||
     path.startsWith("/shop/cart") ||
     path.startsWith("/shop/orders") ||
     path.startsWith("/shop/profile") ||
