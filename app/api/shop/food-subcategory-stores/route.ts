@@ -36,7 +36,6 @@ export async function GET(request: Request) {
   const lng = Number(searchParams.get("lng"));
   const masterCategoryId = (searchParams.get("masterCategoryId") ?? "").trim();
   const subnameRaw = (searchParams.get("subname") ?? "").trim();
-  const radiusKm = Number(searchParams.get("radiusKm") ?? "60");
   const limit = Math.min(Number(searchParams.get("limit") ?? "40"), 80);
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return jsonError("lat and lng required");
@@ -74,7 +73,7 @@ export async function GET(request: Request) {
         openingHours: storeOpeningHoursPublic(s),
       };
     })
-    .filter((s) => Number.isFinite(s.distanceKm) && s.distanceKm <= radiusKm);
+    .filter((s) => Number.isFinite(s.distanceKm));
 
   if (withDist.length === 0) return jsonOk({ stores: [] });
 
