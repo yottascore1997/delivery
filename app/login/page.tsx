@@ -63,6 +63,8 @@ function LoginForm() {
   const [onboardLng, setOnboardLng] = useState<number | null>(null);
   const [onboardFile, setOnboardFile] = useState<File | null>(null);
   const [savingOnboard, setSavingOnboard] = useState(false);
+  /** Same asset as Speedza app: `public/images/loginbg.jpeg` */
+  const [loginHeroImgFailed, setLoginHeroImgFailed] = useState(false);
 
   useEffect(() => {
     setStep(1);
@@ -395,172 +397,243 @@ function LoginForm() {
             </div>
           </div>
 
-          {/* Mobile: full-viewport green hero + bottom sheet — no page scroll */}
-          <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden lg:hidden">
-            <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-800">
-              <div className="pointer-events-none absolute -right-16 top-24 h-56 w-56 rounded-full bg-lime-300/25 blur-3xl" />
-              <div className="pointer-events-none absolute -left-20 bottom-40 h-48 w-48 rounded-full bg-teal-900/40 blur-3xl" />
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/10 to-transparent" />
+          {/* Mobile: Speedza app — `loginbg` hero + #fff7ed panel + card (matches `speedza/app/login.tsx`) */}
+          <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#fff7ed] lg:hidden">
+            <div className="relative min-h-0 flex-1">
+              {!loginHeroImgFailed ? (
+                <Image
+                  src="/images/loginbg.jpeg"
+                  alt=""
+                  fill
+                  priority
+                  sizes="100vw"
+                  className="object-cover object-center"
+                  onError={() => setLoginHeroImgFailed(true)}
+                />
+              ) : (
+                <div
+                  className="absolute inset-0 bg-gradient-to-b from-[#003d30] via-[#004d3d] to-[#fff4e6]"
+                  aria-hidden
+                />
+              )}
+            </div>
 
-              <div className="relative z-10 flex min-h-0 flex-1 flex-col px-5 pb-2 pt-[max(1.25rem,env(safe-area-inset-top))]">
-                <div className="flex shrink-0 items-center justify-between">
-                  <Link
-                    href="/"
-                    className="rounded-full bg-white/15 px-3.5 py-2 text-xs font-bold text-white shadow-sm ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/25"
+            <div className="relative z-10 shrink-0 bg-[#fff7ed] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <div className="mb-3 flex items-center justify-between gap-2 pt-2">
+                <Link
+                  href="/"
+                  className="min-w-0 shrink text-[13px] font-bold text-[#5c6b65] hover:text-[#111827]"
+                >
+                  {t("loginHomeMobile")}
+                </Link>
+                <div className="flex flex-1 justify-center">
+                  <div
+                    className="flex gap-0.5 rounded-lg border border-[#c4d2cb] bg-white p-0.5 shadow-sm"
+                    role="group"
+                    aria-label={t("language")}
                   >
-                    {t("loginHomeMobile")}
-                  </Link>
-                  {!isStorePartner ? (
-                    <Link
-                      href="/shop"
-                      className="rounded-full bg-white/15 px-4 py-2 text-xs font-black text-white ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/25"
+                    <button
+                      type="button"
+                      onClick={() => setLocale("en")}
+                      className={`rounded-md px-2.5 py-1 text-[10px] font-black transition ${
+                        locale === "en" ? "bg-[#004d3d] text-white shadow-sm" : "text-[#5c6b65]"
+                      }`}
                     >
-                      Skip
-                    </Link>
-                  ) : null}
-                </div>
-
-                <div className="mt-5 flex min-h-0 flex-1 flex-col justify-center">
-                  <div className="mx-auto w-full max-w-sm shrink-0">
-                    <MobileLoginHeroSlider />
-                  </div>
-                  <div className="mx-auto mt-5 w-full max-w-sm">
-                    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 ring-1 ring-white/25 backdrop-blur-sm">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-lime-300 opacity-60" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-lime-200" />
-                      </span>
-                      <span className="text-[11px] font-black uppercase tracking-[0.18em] text-white/95">
-                        {t("loginMobileHeroBrand")}
-                      </span>
-                    </div>
-                    <h1 className="font-display text-4xl font-black leading-[1.08] tracking-tight text-white drop-shadow-sm sm:text-[2.125rem]">
-                      {isStorePartner ? (
-                        <>
-                          {t("loginDesktopWelcomeLead")}{" "}
-                          <span className="text-lime-200">{appName}</span>
-                        </>
-                      ) : (
-                        t("loginTitleCustomer")
-                      )}
-                    </h1>
-                    {!isStorePartner && (
-                      <p className="mt-3 text-[15px] font-semibold leading-snug text-white/90">
-                        {t("loginSubCustomer")}
-                      </p>
-                    )}
-                    <div className="mt-6 flex flex-wrap gap-2">
-                      <span className="rounded-xl bg-white/15 px-3 py-1.5 text-[11px] font-bold text-white ring-1 ring-white/20">
-                        {t("loginStatSubCod")}
-                      </span>
-                      <span className="rounded-xl bg-white/15 px-3 py-1.5 text-[11px] font-bold text-white ring-1 ring-white/20">
-                        {t("loginStatSubMin")}
-                      </span>
-                    </div>
+                      {t("langEnglish")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLocale("hi")}
+                      className={`rounded-md px-2.5 py-1 text-[10px] font-black transition ${
+                        locale === "hi" ? "bg-[#004d3d] text-white shadow-sm" : "text-[#5c6b65]"
+                      }`}
+                    >
+                      {t("langHindi")}
+                    </button>
                   </div>
                 </div>
+                {!isStorePartner ? (
+                  <Link
+                    href="/shop"
+                    className="shrink-0 text-[13px] font-black text-[#004d3d] hover:underline"
+                  >
+                    Skip
+                  </Link>
+                ) : (
+                  <span className="w-12 shrink-0" aria-hidden />
+                )}
               </div>
 
-              {/* Bottom sheet */}
-              <div className="relative z-20 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-                <div className="rounded-t-[28px] border border-white/20 bg-white px-4 pb-5 pt-5 shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.2)]">
-                  {step === 1 ? (
-                    <>
-                      <p className="text-center text-sm font-black text-zinc-900">
-                        {t("loginMobileSheetTitle")}
+              {step === 3 && !isStorePartner ? (
+                <div className="max-h-[min(56dvh,28rem)] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] pr-0.5">
+                  <div className="rounded-[24px] border border-white/65 bg-white/[0.96] p-[22px] shadow-[0_12px_48px_-16px_rgba(2,44,34,0.2)]">
+                    <h2 className="text-[22px] font-extrabold leading-tight text-[#111827]">
+                      {t("loginAppProfileTitle")}
+                    </h2>
+                    <p className="mb-[18px] mt-1.5 text-sm font-semibold leading-5 text-[#5c6b65]">
+                      {t("loginAppProfileSub")}
+                    </p>
+                    <input
+                      className="mb-3.5 w-full rounded-2xl border border-[rgba(196,210,203,0.9)] bg-[#fafcfb] px-4 py-3.5 text-base font-medium text-[#111827] outline-none placeholder:text-[#8a9691]"
+                      value={onboardName}
+                      onChange={(e) => setOnboardName(e.target.value)}
+                      placeholder={t("loginNamePh")}
+                      autoComplete="name"
+                    />
+                    <textarea
+                      className="mb-3.5 min-h-[96px] w-full rounded-2xl border border-[rgba(196,210,203,0.9)] bg-[#fafcfb] px-4 py-3.5 text-base font-medium text-[#111827] outline-none placeholder:text-[#8a9691]"
+                      value={onboardAddr}
+                      onChange={(e) => setOnboardAddr(e.target.value)}
+                      placeholder={t("loginAddrPh")}
+                    />
+                    <button
+                      type="button"
+                      className="mb-3 w-full rounded-[14px] border-[1.5px] border-[#c4d2cb] bg-white py-3.5 text-center text-[15px] font-extrabold text-[#111827] shadow-sm active:bg-[#f4f8f6] disabled:opacity-60"
+                      disabled={savingOnboard}
+                      onClick={() => {
+                        if (!navigator.geolocation) {
+                          setMsg(t("loginErrGeoUnsupported"));
+                          return;
+                        }
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            setOnboardLat(pos.coords.latitude);
+                            setOnboardLng(pos.coords.longitude);
+                            setMsg(t("loginMsgLocCaptured"));
+                          },
+                          () => setMsg(t("loginErrLocDenied")),
+                          { enableHighAccuracy: true, timeout: 12000 },
+                        );
+                      }}
+                    >
+                      {t("loginCaptureLoc")}
+                    </button>
+                    {typeof onboardLat === "number" && typeof onboardLng === "number" ? (
+                      <p className="mb-3 text-[13px] font-bold text-[#5c6b65]">
+                        Lat {Math.round(onboardLat * 10000) / 10000}, Lng{" "}
+                        {Math.round(onboardLng * 10000) / 10000}
                       </p>
-                      <p className="mt-1 text-center text-xs font-semibold text-zinc-500">
-                        {t("loginMobileSheetSub")}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-center text-sm font-black text-zinc-900">
-                        {t("loginMobileSheetTitleOtp")}
-                      </p>
-                      <p className="mt-1 text-center text-xs font-semibold text-zinc-500">
-                        {isStorePartner
-                          ? t("loginMobileHintPartner")
-                          : t("loginMobileHintCustomer")}
-                      </p>
-                    </>
-                  )}
+                    ) : null}
+                    <label className="mb-1.5 block text-[13px] font-bold text-[#5c6b65]">
+                      {t("loginPhotoOpt")}
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="mb-3.5 w-full rounded-2xl border border-[rgba(196,210,203,0.9)] bg-[#fafcfb] px-3 py-3 text-sm font-semibold text-[#111827] file:mr-3 file:rounded-lg file:border-0 file:bg-[#d4ebe4] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[#004d3d]"
+                      onChange={(e) => setOnboardFile(e.target.files?.[0] ?? null)}
+                    />
+                    <button
+                      type="button"
+                      disabled={savingOnboard}
+                      onClick={saveOnboarding}
+                      className="mt-1 w-full rounded-2xl bg-[#004d3d] py-4 text-center text-base font-extrabold text-white shadow-[0_4px_16px_-2px_rgba(0,61,48,0.35)] active:opacity-90 disabled:opacity-65"
+                    >
+                      {savingOnboard ? t("loginSaving") : t("loginContinue")}
+                    </button>
+                    {msg ? (
+                      <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
+                        {msg}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-[24px] border border-white/65 bg-white/[0.96] p-[22px] shadow-[0_12px_48px_-16px_rgba(2,44,34,0.2)]">
+                    {showAdminPanelNote && !isStorePartner && step === 1 ? (
+                      <div className="mb-4 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs font-semibold leading-snug text-violet-950">
+                        <p className="font-bold text-violet-900">{t("loginAdminNoteTitle")}</p>
+                        <p className="mt-1.5 text-violet-800">{t("loginAdminNoteBody")}</p>
+                      </div>
+                    ) : null}
 
-                  {step === 1 && (
-                    <div className="mt-4 space-y-3">
-                      {isStorePartner ? (
-                        <div>
-                          <label className="ui-label">{t("loginOwnerLabel")}</label>
+                    {step === 1 ? (
+                      <>
+                        <h2 className="text-[22px] font-extrabold leading-tight text-[#111827]">
+                          {isStorePartner ? t("loginTitlePartner") : t("loginMobileSheetTitle")}
+                        </h2>
+                        <p className="mb-[18px] mt-1.5 text-sm font-semibold leading-5 text-[#5c6b65]">
+                          {isStorePartner ? t("loginSubPartner") : t("loginMobileSheetSub")}
+                        </p>
+                      </>
+                    ) : null}
+
+                    {step === 2 ? (
+                      <>
+                        <h2 className="text-[22px] font-extrabold leading-tight text-[#111827]">
+                          {t("loginMobileSheetTitleOtp")}
+                        </h2>
+                        <p className="mb-[18px] mt-1.5 text-sm font-semibold leading-5 text-[#5c6b65]">
+                          {isStorePartner ? t("loginMobileHintPartner") : t("loginAppOtpSub")}
+                        </p>
+                      </>
+                    ) : null}
+
+                    {step === 1 && (
+                      <div className="space-y-0">
+                        {isStorePartner ? (
                           <input
-                            className="ui-input !rounded-2xl !py-3.5 !text-[15px] !font-semibold"
+                            className="mb-3.5 w-full rounded-2xl border border-[rgba(196,210,203,0.9)] bg-[#fafcfb] px-4 py-3.5 text-base font-medium text-[#111827] outline-none placeholder:text-[#8a9691]"
                             value={storePartnerName}
                             onChange={(e) => setStorePartnerName(e.target.value)}
                             placeholder={t("loginOwnerPh")}
                           />
-                        </div>
-                      ) : null}
-
-                      <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50/80 px-3 py-3 shadow-inner">
-                        <div className="flex items-center gap-2 rounded-xl border border-emerald-200/80 bg-white px-2.5 py-2 text-sm font-bold text-emerald-900">
-                          +91
-                        </div>
+                        ) : null}
                         <input
-                          className="w-full bg-transparent text-[15px] font-semibold text-zinc-900 outline-none placeholder:text-zinc-400"
+                          className="mb-3.5 w-full rounded-2xl border border-[rgba(196,210,203,0.9)] bg-[#fafcfb] px-4 py-3.5 text-base font-medium text-[#111827] outline-none placeholder:text-[#8a9691]"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder={t("loginMobilePh")}
                           inputMode="tel"
+                          autoComplete="tel-national"
                         />
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={sendOtp}
+                          className="w-full rounded-2xl bg-[#004d3d] py-4 text-center text-base font-extrabold text-white shadow-[0_4px_16px_-2px_rgba(0,61,48,0.35)] active:opacity-90 disabled:opacity-65"
+                        >
+                          {loading ? t("loginSending") : t("loginSendOtp")}
+                        </button>
+                        <p className="mt-4 text-center text-[13px] leading-snug text-[#5c6b65]">
+                          {isStorePartner ? (
+                            <>
+                              <span className="font-semibold">{t("loginCustomerLead")}</span>{" "}
+                              <Link
+                                href={customerToggleHref}
+                                className="font-bold text-[#004d3d] underline-offset-2 hover:underline"
+                              >
+                                {t("loginCustomerLink")}
+                              </Link>
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-semibold">{t("loginPartnerLead")}</span>{" "}
+                              <Link
+                                href={partnerToggleHref}
+                                className="font-bold text-[#004d3d] underline-offset-2 hover:underline"
+                              >
+                                {t("loginPartnerLink")}
+                              </Link>
+                            </>
+                          )}
+                        </p>
+                        <div className="mt-3 flex items-center justify-center gap-4 text-xs font-bold text-[#5c6b65]">
+                          <Link href="/shop/help" className="hover:text-[#004d3d]">
+                            {t("loginDesktopHelpLink")}
+                          </Link>
+                          <Link href="/privacy" className="hover:text-[#004d3d]">
+                            {t("loginDesktopPrivacyLink")}
+                          </Link>
+                        </div>
                       </div>
+                    )}
 
-                      <button
-                        type="button"
-                        disabled={loading}
-                        onClick={sendOtp}
-                        className="w-full rounded-2xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-900 py-4 text-sm font-black text-white shadow-[0_14px_36px_-14px_rgba(146,64,14,0.55)] transition-transform hover:from-orange-600 hover:via-orange-700 hover:to-amber-950 disabled:opacity-50 active:scale-[0.99]"
-                      >
-                        {loading ? t("loginSending") : t("loginSendOtp")}
-                      </button>
-                      <p className="text-center text-[13px] leading-snug text-zinc-600">
-                        {isStorePartner ? (
-                          <>
-                            <span className="font-semibold">{t("loginCustomerLead")}</span>{" "}
-                            <Link
-                              href={customerToggleHref}
-                              className="font-black text-emerald-700 underline-offset-2 hover:text-emerald-800 hover:underline"
-                            >
-                              {t("loginCustomerLink")}
-                            </Link>
-                          </>
-                        ) : (
-                          <>
-                            <span className="font-semibold">{t("loginPartnerLead")}</span>{" "}
-                            <Link
-                              href={partnerToggleHref}
-                              className="font-black text-emerald-700 underline-offset-2 hover:text-emerald-800 hover:underline"
-                            >
-                              {t("loginPartnerLink")}
-                            </Link>
-                          </>
-                        )}
-                      </p>
-                      <div className="flex items-center justify-center gap-4 pt-1 text-xs font-bold text-zinc-500">
-                        <Link href="/shop/help" className="hover:text-emerald-700">
-                          {t("loginDesktopHelpLink")}
-                        </Link>
-                        <Link href="/privacy" className="hover:text-emerald-700">
-                          {t("loginDesktopPrivacyLink")}
-                        </Link>
-                      </div>
-                    </div>
-                  )}
-
-                  {step === 2 && (
-                    <div className="mt-4 space-y-3">
-                      <div>
-                        <label className="ui-label">{t("loginOtpLabel")}</label>
+                    {step === 2 && (
+                      <div className="space-y-0">
                         <input
-                          className="ui-input !rounded-2xl !py-4 text-center font-display text-2xl tracking-[0.45em]"
+                          className="mb-3.5 w-full rounded-2xl border border-[rgba(196,210,203,0.9)] bg-[#fafcfb] py-3.5 text-center font-display text-2xl font-bold tracking-[0.35em] text-[#111827] outline-none placeholder:text-[#8a9691]"
                           value={otp}
                           onChange={(e) =>
                             setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
@@ -570,46 +643,49 @@ function LoginForm() {
                           maxLength={6}
                           autoComplete="one-time-code"
                         />
-                        <p className="mt-2 text-xs font-semibold text-zinc-500">
+                        <p className="mb-3.5 text-xs font-semibold text-[#5c6b65]">
                           {t("loginOtpTo")}{" "}
-                          <span className="font-black text-zinc-800">
+                          <span className="font-extrabold text-[#111827]">
                             {phone || t("loginOtpYourNumber")}
                           </span>
                         </p>
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={verify}
+                          className="w-full rounded-2xl bg-[#111827] py-4 text-center text-base font-extrabold text-white shadow-[0_4px_12px_-2px_rgba(0,0,0,0.2)] active:opacity-90 disabled:opacity-65"
+                        >
+                          {loading ? t("loginVerifying") : t("loginVerify")}
+                        </button>
+                        <button
+                          type="button"
+                          className="mt-3.5 w-full py-2 text-center text-[15px] font-bold text-[#004d3d] hover:underline"
+                          onClick={() => setStep(1)}
+                        >
+                          {t("loginChangePhone")}
+                        </button>
+                        <div className="mt-3 flex items-center justify-center gap-4 text-xs font-bold text-[#5c6b65]">
+                          <Link href="/shop/help" className="hover:text-[#004d3d]">
+                            {t("loginDesktopHelpLink")}
+                          </Link>
+                          <Link href="/privacy" className="hover:text-[#004d3d]">
+                            {t("loginDesktopPrivacyLink")}
+                          </Link>
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        disabled={loading}
-                        onClick={verify}
-                        className="w-full rounded-2xl bg-emerald-600 py-4 text-sm font-black text-white shadow-[0_14px_34px_-18px_rgba(16,185,129,0.65)] disabled:opacity-50"
-                      >
-                        {loading ? t("loginVerifying") : t("loginVerify")}
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full text-center text-sm font-semibold text-stone-500 hover:text-ink"
-                        onClick={() => setStep(1)}
-                      >
-                        {t("loginChangePhone")}
-                      </button>
-                      <div className="flex items-center justify-center gap-4 text-xs font-bold text-zinc-500">
-                        <Link href="/shop/help" className="hover:text-emerald-700">
-                          {t("loginDesktopHelpLink")}
-                        </Link>
-                        <Link href="/privacy" className="hover:text-emerald-700">
-                          {t("loginDesktopPrivacyLink")}
-                        </Link>
-                      </div>
-                    </div>
-                  )}
+                    )}
 
-                  {msg ? (
-                    <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
-                      {msg}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+                    {msg ? (
+                      <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
+                        {msg}
+                      </div>
+                    ) : null}
+                  </div>
+                  <p className="mt-[18px] text-center text-xs font-semibold text-[#5c6b65]">
+                    {t("loginAppSecureFooter")}
+                  </p>
+                </>
+              )}
             </div>
           </div>
 

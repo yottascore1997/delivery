@@ -167,20 +167,32 @@ export function ShopSiteHeader() {
   }, [colors]);
   const badgeRing = colors.headerGradient[2];
 
-  /** iOS/Safari status bar & browser chrome read `theme-color` once; sync on client nav so the top strip matches the header. */
+  /**
+   * Sync browser `theme-color` after client nav. On iOS Safari, touching these metas during the
+   * navigation frame causes jank — defer with rAF and skip writes when unchanged.
+   */
   useEffect(() => {
     const DEFAULT_THEME = "#f7f7f7";
-    const topHex = colors.headerGradient[0];
-    const content = pathname.startsWith("/shop") ? topHex : DEFAULT_THEME;
-    const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
-    if (metas.length === 0) {
+    const content = pathname.startsWith("/shop") ? colors.headerGradient[0] : DEFAULT_THEME;
+
+    const id = requestAnimationFrame(() => {
+      const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
+      if (metas.length > 0) {
+        let same = true;
+        metas.forEach((el) => {
+          if (el.getAttribute("content") !== content) same = false;
+        });
+        if (same) return;
+        metas.forEach((el) => el.setAttribute("content", content));
+        return;
+      }
       const m = document.createElement("meta");
       m.setAttribute("name", "theme-color");
       m.setAttribute("content", content);
       document.head.appendChild(m);
-      return;
-    }
-    metas.forEach((el) => el.setAttribute("content", content));
+    });
+
+    return () => cancelAnimationFrame(id);
   }, [pathname, colors.headerGradient]);
 
   const mobileServiceTabs = useMemo(() => {
@@ -216,7 +228,7 @@ export function ShopSiteHeader() {
 
   return (
     <header
-      className="shop-site-header sticky top-0 z-[100] pt-[env(safe-area-inset-top,0px)] max-md:overflow-hidden max-md:rounded-b-[1.35rem] max-md:shadow-[0_8px_28px_rgba(15,23,42,0.1)]"
+      className="shop-site-header sticky top-0 z-[100] pt-[env(safe-area-inset-top,0px)] max-md:overflow-hidden max-md:rounded-b-[1.35rem]"
       style={{ ["--shop-mobile-header-gradient" as string]: gradientCss } as React.CSSProperties}
     >
       <div className="mx-auto max-w-6xl px-3 sm:px-6">
@@ -224,11 +236,11 @@ export function ShopSiteHeader() {
           <div className="relative -mx-3 overflow-hidden bg-transparent">
             <div
               aria-hidden
-              className="pointer-events-none absolute -right-6 top-[calc(env(safe-area-inset-top,0px)+8px)] h-[120px] w-[120px] rounded-full bg-white/35"
+              className="shop-header-mobile-blob pointer-events-none absolute -right-6 top-[calc(env(safe-area-inset-top,0px)+8px)] h-[120px] w-[120px] rounded-full bg-white/35"
             />
             <div
               aria-hidden
-              className="pointer-events-none absolute -left-10 top-[calc(env(safe-area-inset-top,0px)+52px)] h-[100px] w-[100px] rounded-full bg-white/20"
+              className="shop-header-mobile-blob pointer-events-none absolute -left-10 top-[calc(env(safe-area-inset-top,0px)+52px)] h-[100px] w-[100px] rounded-full bg-white/20"
             />
 
             <div className="relative z-[1] flex items-start justify-between gap-2 px-4 pb-3 pt-2">
