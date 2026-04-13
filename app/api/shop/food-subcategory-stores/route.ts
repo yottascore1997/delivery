@@ -50,6 +50,7 @@ export async function GET(request: Request) {
     select: {
       id: true,
       name: true,
+      shopVertical: true,
       imageUrl: true,
       address: true,
       latitude: true,
@@ -76,6 +77,14 @@ export async function GET(request: Request) {
 
   const byId = new Map(withDist.map((s) => [s.id, s]));
   const storeIds = withDist.map((s) => s.id);
+  const isFoodVerticalStore = new Set(
+    withDist
+      .filter((s) => {
+        const v = (s.shopVertical ?? "").trim().toLowerCase();
+        return v === "food" || v === "food-beverages";
+      })
+      .map((s) => s.id),
+  );
 
   const products = await prisma.product.findMany({
     where: {
@@ -99,6 +108,7 @@ export async function GET(request: Request) {
   for (const p of products) {
     let matched = p.masterProduct?.masterCategoryId === masterCategoryId;
     if (!matched && keys.size > 0) {
+      if (!isFoodVerticalStore.has(p.storeId)) continue;
       const pn = normText(p.name);
       const cn = normText(p.category.name);
       matched = Array.from(keys).some((k) => pn.includes(k) || cn.includes(k));
