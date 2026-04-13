@@ -168,16 +168,16 @@ export default function ShopStoresPage() {
     <div className="space-y-8 sm:space-y-10">
       <section
         className="space-y-3 sm:space-y-4 md:hidden"
-        aria-label="Today's match — mobile only"
+        aria-label="Today's event — mobile only"
       >
         <h2 className="font-display text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
-          Today&apos;s Match
+          Today&apos;s Event
         </h2>
         <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100 shadow-sm sm:rounded-3xl sm:aspect-[21/9]">
           {/* eslint-disable-next-line @next/next/no-img-element -- user may swap to JPG/WebP; avoids SVG restrictions on next/image */}
           <img
             src={matchBannerUrl?.trim() || TODAYS_MATCH_FALLBACK_SRC}
-            alt="Today's match"
+            alt="Today's event"
             className="absolute inset-0 h-full w-full object-cover"
             fetchPriority="high"
           />

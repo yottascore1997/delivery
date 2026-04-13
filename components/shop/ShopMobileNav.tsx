@@ -42,7 +42,7 @@ const tabs = [
     ),
   },
   {
-    href: "/shop/category/grocery",
+    href: "/shop#shop-categories-heading",
     label: "Categories",
     match: (p: string) => p.startsWith("/shop/category"),
     icon: (active: boolean) => (
