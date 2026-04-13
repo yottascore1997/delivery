@@ -8,6 +8,7 @@ import {
   MoodChipThumb,
   WhatsOnYourMindLayout,
 } from "@/components/shop/WhatsOnYourMindLayout";
+import { ShopHomePremiumCategoryRails } from "@/components/shop/ShopHomePremiumCategoryRails";
 import { resolveShopMainCoverImage } from "@/lib/shop-main-cover-image";
 
 type ShopTreeSub = { id: string; name: string; imageUrl?: string | null };
@@ -338,53 +339,7 @@ export function ShopCategoryShowcase() {
             })}
           </div>
 
-          <div className="mt-10 space-y-8">
-            {mains.map((main) => (
-              <div key={main.id} className="rounded-2xl border border-slate-200/90 bg-white/60 p-4 shadow-sm sm:p-5">
-                <div className="flex flex-wrap items-end justify-between gap-2">
-                  <h3 className="font-display text-lg font-black text-slate-900 sm:text-xl">{main.name}</h3>
-                  <Link
-                    href={`/shop/category/${encodeMainKey(main.key)}`}
-                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 sm:text-sm"
-                  >
-                    See all →
-                  </Link>
-                </div>
-                {main.subcategories.length === 0 ? (
-                  <p className="mt-3 text-sm font-medium text-slate-500">No subcategories under this main yet.</p>
-                ) : (
-                  <div className="scrollbar-hide mt-4 flex gap-3 overflow-x-auto pb-1 pt-0.5">
-                    {main.subcategories.map((s) => (
-                      <Link
-                        key={s.id}
-                        href={`/shop/category/${encodeMainKey(main.key)}/sub/${s.id}?subname=${encodeURIComponent(s.name)}`}
-                        className="flex w-[6.75rem] shrink-0 flex-col items-center gap-2 rounded-2xl border border-slate-200/95 bg-gradient-to-b from-white to-slate-100/90 p-2.5 shadow-sm transition hover:border-emerald-400/70 hover:from-emerald-50/90 hover:to-white hover:shadow-md sm:w-[7.75rem] sm:p-3"
-                      >
-                        <div className="relative aspect-square w-full max-w-[5.25rem] overflow-hidden rounded-2xl bg-slate-100 shadow-md ring-2 ring-white ring-offset-1 ring-offset-slate-100/80 sm:max-w-[6.25rem]">
-                          {s.imageUrl?.trim() ? (
-                            <Image
-                              src={s.imageUrl.trim()}
-                              alt=""
-                              fill
-                              className="object-cover"
-                              sizes="(max-width: 640px) 100px, 120px"
-                            />
-                          ) : (
-                            <div className="flex h-full min-h-[5.25rem] w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-2xl sm:min-h-[6.25rem] sm:text-3xl">
-                              🛍️
-                            </div>
-                          )}
-                        </div>
-                        <span className="line-clamp-2 w-full text-center text-[10px] font-extrabold leading-tight text-slate-800 sm:text-[11px]">
-                          {s.name}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          <ShopHomePremiumCategoryRails mains={mains} />
         </>
       )}
 

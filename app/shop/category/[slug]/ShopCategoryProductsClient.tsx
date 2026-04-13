@@ -187,27 +187,6 @@ export function ShopCategoryProductsClient({
           <aside className="rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-sm">
             <div className="max-h-[calc(100vh-var(--shop-header-sticky,0px)-10.5rem)] overflow-y-auto pr-1">
               <ul className="space-y-2">
-                <li>
-                  <Link
-                    href={`/shop/category/${encodeURIComponent(routeSlug)}/sub/all`}
-                    className={`flex flex-col items-center gap-1 rounded-xl p-2 text-center transition ${
-                      isAll
-                        ? "bg-emerald-50 ring-2 ring-emerald-300"
-                        : "hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[10px] font-black text-slate-700">
-                      ALL
-                    </div>
-                    <p
-                      className={`line-clamp-2 text-[10px] font-extrabold leading-tight ${
-                        isAll ? "text-emerald-900" : "text-slate-700"
-                      }`}
-                    >
-                      All
-                    </p>
-                  </Link>
-                </li>
                 {subcats.map((c) => {
                   const active = c.id === masterCategoryId;
                   return (
