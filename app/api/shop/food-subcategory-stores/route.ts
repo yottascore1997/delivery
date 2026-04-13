@@ -12,41 +12,15 @@ function estimateEtaMinutes(distance: number) {
   return Math.max(12, Math.min(45, Math.round(10 + distance * 2.2)));
 }
 
-function normText(s: string) {
-  return s.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-function subnameKeywords(subname: string) {
-  const base = normText(subname);
-  if (!base) return [];
-  const set = new Set<string>();
-  for (const raw of base.split(" ")) {
-    const w = raw.trim();
-    if (w.length < 3) continue;
-    set.add(w);
-    if (w.endsWith("s") && w.length > 4) set.add(w.slice(0, -1));
-    if (!w.endsWith("s")) set.add(`${w}s`);
-  }
-  return Array.from(set);
-}
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const lat = Number(searchParams.get("lat"));
   const lng = Number(searchParams.get("lng"));
   const masterCategoryId = (searchParams.get("masterCategoryId") ?? "").trim();
-  const subnameRaw = (searchParams.get("subname") ?? "").trim();
   const limit = Math.min(Number(searchParams.get("limit") ?? "40"), 80);
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return jsonError("lat and lng required");
   if (!masterCategoryId) return jsonError("masterCategoryId required");
-
-  const masterCategory = await prisma.masterCategory.findUnique({
-    where: { id: masterCategoryId },
-    select: { name: true },
-  });
-  const subname = normText(subnameRaw || masterCategory?.name || "");
-  const keywords = subnameKeywords(subname);
 
   const stores = await prisma.store.findMany({
     where: { status: "APPROVED" },
@@ -101,12 +75,7 @@ export async function GET(request: Request) {
 
   for (const p of products) {
     const byMaster = p.masterProduct?.masterCategoryId === masterCategoryId;
-    const pName = normText(p.name);
-    const catName = normText(p.category.name);
-    const bySubname =
-      subname.length > 1 &&
-      (catName.includes(subname) || pName.includes(subname) || keywords.some((k) => catName.includes(k) || pName.includes(k)));
-    if (!byMaster && !bySubname) continue;
+    if (!byMaster) continue;
     const prev = agg.get(p.storeId);
     const discount =
       p.mrp && dec(p.mrp) > dec(p.price)
