@@ -12,6 +12,22 @@ function estimateEtaMinutes(distance: number) {
   return Math.max(12, Math.min(45, Math.round(10 + distance * 2.2)));
 }
 
+function normText(s: string) {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function keywordSet(input: string) {
+  const out = new Set<string>();
+  for (const token of normText(input).split(" ")) {
+    const t = token.trim();
+    if (t.length < 3) continue;
+    out.add(t);
+    if (!t.endsWith("s")) out.add(`${t}s`);
+    if (t.endsWith("s") && t.length > 4) out.add(t.slice(0, -1));
+  }
+  return out;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const lat = Number(searchParams.get("lat"));
@@ -21,6 +37,13 @@ export async function GET(request: Request) {
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return jsonError("lat and lng required");
   if (!masterCategoryId) return jsonError("masterCategoryId required");
+
+  const mc = await prisma.masterCategory.findUnique({
+    where: { id: masterCategoryId },
+    select: { name: true },
+  });
+  const subnameRaw = (searchParams.get("subname") ?? "").trim();
+  const keys = keywordSet(subnameRaw || mc?.name || "");
 
   const stores = await prisma.store.findMany({
     where: { status: "APPROVED" },
@@ -74,8 +97,13 @@ export async function GET(request: Request) {
   >();
 
   for (const p of products) {
-    const byMaster = p.masterProduct?.masterCategoryId === masterCategoryId;
-    if (!byMaster) continue;
+    let matched = p.masterProduct?.masterCategoryId === masterCategoryId;
+    if (!matched && keys.size > 0) {
+      const pn = normText(p.name);
+      const cn = normText(p.category.name);
+      matched = Array.from(keys).some((k) => pn.includes(k) || cn.includes(k));
+    }
+    if (!matched) continue;
     const prev = agg.get(p.storeId);
     const discount =
       p.mrp && dec(p.mrp) > dec(p.price)
