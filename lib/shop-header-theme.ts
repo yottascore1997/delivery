@@ -17,17 +17,18 @@ export type ShopHeaderColors = {
 
 const SHOP_HOME = "__shop__";
 
+/** Daily essentials / grocery / shop home — fresh green stack */
 const DAILY_GREEN: ShopHeaderColors = {
-  topBar: "#9a3412",
-  categoryBar: "#ea580c",
-  searchBand: "#fb923c",
-  deliverGold: "#ffedd5",
-  goBtn: "#c2410c",
+  topBar: "#14532d",
+  categoryBar: "#166534",
+  searchBand: "#22c55e",
+  deliverGold: "#dcfce7",
+  goBtn: "#15803d",
   logoCircle: "#ffffff",
-  logoText: "#7c2d12",
+  logoText: "#14532d",
   chipInactive: "#292524",
-  activeChipShadow: "#7c2d12",
-  headerGradient: ["#fb923c", "#fdba74", "#fff4e6"],
+  activeChipShadow: "#052e16",
+  headerGradient: ["#166534", "#22c55e", "#bbf7d0"],
 };
 
 const FOOD_WARM: ShopHeaderColors = {
@@ -40,7 +41,7 @@ const FOOD_WARM: ShopHeaderColors = {
   logoText: "#3d2318",
   chipInactive: "#292524",
   activeChipShadow: "#451a03",
-  headerGradient: ["#D9A078", "#FFD4B8", "#FFF0E4"],
+  headerGradient: ["#b4532a", "#d9a078", "#f5e0d4"],
 };
 
 const BEVERAGE_BLUE: ShopHeaderColors = {
@@ -53,7 +54,7 @@ const BEVERAGE_BLUE: ShopHeaderColors = {
   logoText: "#1e3a8a",
   chipInactive: "#292524",
   activeChipShadow: "#172554",
-  headerGradient: ["#6BB8D4", "#A8D8EC", "#D4EEF8"],
+  headerGradient: ["#3d7a9e", "#6bb8d4", "#b8dce8"],
 };
 
 const HOUSEHOLD_PURPLE: ShopHeaderColors = {
@@ -66,7 +67,7 @@ const HOUSEHOLD_PURPLE: ShopHeaderColors = {
   logoText: "#4c1d95",
   chipInactive: "#292524",
   activeChipShadow: "#2e1065",
-  headerGradient: ["#B8A5F5", "#D4C8FC", "#E8E0FD"],
+  headerGradient: ["#7c6bb8", "#a78bfa", "#d8d0f0"],
 };
 
 const PRODUCE_GREEN: ShopHeaderColors = {
@@ -79,7 +80,7 @@ const PRODUCE_GREEN: ShopHeaderColors = {
   logoText: "#14532d",
   chipInactive: "#292524",
   activeChipShadow: "#052e16",
-  headerGradient: ["#7DCE98", "#B8EBC8", "#DCF5E4"],
+  headerGradient: ["#3d8f5c", "#6bbd82", "#b8e6c8"],
 };
 
 const SNACK_AMBER: ShopHeaderColors = {
@@ -92,7 +93,7 @@ const SNACK_AMBER: ShopHeaderColors = {
   logoText: "#78350f",
   chipInactive: "#292524",
   activeChipShadow: "#451a03",
-  headerGradient: ["#E5A814", "#FCD34D", "#FEECC8"],
+  headerGradient: ["#c27803", "#eab308", "#fde68a"],
 };
 
 const PERSONAL_ROSE: ShopHeaderColors = {
@@ -105,7 +106,7 @@ const PERSONAL_ROSE: ShopHeaderColors = {
   logoText: "#881337",
   chipInactive: "#292524",
   activeChipShadow: "#4c0519",
-  headerGradient: ["#E895B0", "#F5C8D8", "#FCE4ED"],
+  headerGradient: ["#c45c7a", "#e895b0", "#f0d0dc"],
 };
 
 const FROZEN_TEAL: ShopHeaderColors = {
@@ -118,7 +119,21 @@ const FROZEN_TEAL: ShopHeaderColors = {
   logoText: "#134e4a",
   chipInactive: "#292524",
   activeChipShadow: "#042f2e",
-  headerGradient: ["#5CC9B8", "#9EE5D8", "#CFF5EF"],
+  headerGradient: ["#2d8a7e", "#4fb8a8", "#9ee5d8"],
+};
+
+/** Electronics / gadgets — avoids falling back to grocery orange */
+const ELECTRONICS_SLATE: ShopHeaderColors = {
+  topBar: "#0f172a",
+  categoryBar: "#334155",
+  searchBand: "#64748b",
+  deliverGold: "#e2e8f0",
+  goBtn: "#0f172a",
+  logoCircle: "#e2e8f0",
+  logoText: "#0f172a",
+  chipInactive: "#292524",
+  activeChipShadow: "#0f172a",
+  headerGradient: ["#475569", "#64748b", "#cbd5e1"],
 };
 
 function norm(k: string): string {
@@ -144,6 +159,7 @@ const KEY_THEMES: Record<string, ShopHeaderColors> = {
   beauty: PERSONAL_ROSE,
   frozen: FROZEN_TEAL,
   dairy: FROZEN_TEAL,
+  electronics: ELECTRONICS_SLATE,
 };
 
 export function getShopHeaderColors(activeKey: string): ShopHeaderColors {
@@ -163,5 +179,7 @@ export function getShopHeaderColors(activeKey: string): ShopHeaderColors {
   if (k.includes("snack") || k.includes("packaged")) return SNACK_AMBER;
   if (k.includes("personal") || k.includes("beauty") || k.includes("care")) return PERSONAL_ROSE;
   if (k.includes("frozen") || k.includes("dairy") || k.includes("cold")) return FROZEN_TEAL;
+  if (k.includes("electronic") || k.includes("gadget") || k.includes("mobile") || k.includes("phone"))
+    return ELECTRONICS_SLATE;
   return DAILY_GREEN;
 }

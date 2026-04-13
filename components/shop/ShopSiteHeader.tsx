@@ -199,13 +199,13 @@ export function ShopSiteHeader() {
   }
 
   return (
-    <header className="shop-site-header sticky top-0 z-[100] pt-[env(safe-area-inset-top,0px)]">
+    <header
+      className="shop-site-header sticky top-0 z-[100] pt-[env(safe-area-inset-top,0px)] max-md:overflow-hidden max-md:rounded-b-[1.35rem] max-md:shadow-[0_8px_28px_rgba(15,23,42,0.1)]"
+      style={{ ["--shop-mobile-header-gradient" as string]: gradientCss } as React.CSSProperties}
+    >
       <div className="mx-auto max-w-6xl px-3 sm:px-6">
         <div className="md:hidden">
-          <div
-            className="relative -mx-3 overflow-hidden rounded-b-[1.35rem] shadow-[0_8px_28px_rgba(15,23,42,0.1)]"
-            style={{ background: gradientCss }}
-          >
+          <div className="relative -mx-3 overflow-hidden bg-transparent">
             <div
               aria-hidden
               className="pointer-events-none absolute -right-6 top-[calc(env(safe-area-inset-top,0px)+8px)] h-[120px] w-[120px] rounded-full bg-white/35"
