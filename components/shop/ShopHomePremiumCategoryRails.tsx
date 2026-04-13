@@ -167,7 +167,6 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
         const th = THEMES[ti];
         const pathSlug = shopCategoryPathKeyFromMainKey(row.key);
         const href = `/shop/category/${encodeCategorySlug(pathSlug)}`;
-        const spotlight = row.subcategories[0];
         const subs = row.subcategories.slice(0, 10);
         const subtitle = subtitleForMain(row.key, idx);
 
@@ -184,7 +183,7 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
               className="pointer-events-none absolute -bottom-16 -left-12 h-44 w-44 rounded-full bg-white/25 blur-3xl"
               aria-hidden
             />
-            <div className="relative flex flex-row items-start justify-between gap-3 sm:gap-6">
+            <div className="relative flex items-start gap-3 sm:gap-6">
               <div className="min-w-0 flex-1 pr-1">
                 <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${th.kicker}`}>
                   Premium collection
@@ -199,38 +198,6 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
                   {subtitle}
                 </p>
               </div>
-              {spotlight ? (
-                <Link
-                  href={`${href}/sub/${encodeCategorySlug(spotlight.id)}`}
-                  className={`relative z-[1] flex max-w-[min(46%,11rem)] shrink-0 items-center gap-2 rounded-2xl border p-2 pr-2.5 transition duration-300 hover:brightness-[1.03] sm:max-w-[220px] sm:gap-3 sm:p-2.5 sm:pr-3 ${th.spotlight}`}
-                >
-                  <div className="relative -mb-1 -mt-0.5 h-14 w-14 shrink-0 overflow-visible sm:-mb-2 sm:-mt-1 sm:h-[4.5rem] sm:w-[4.5rem]">
-                    <div className="relative h-[4.25rem] w-[4.25rem] -translate-y-0.5 overflow-hidden rounded-2xl bg-white shadow-lg ring-2 ring-white/90 sm:h-[4.75rem] sm:w-[4.75rem] sm:-translate-y-1">
-                      {spotlight.imageUrl ? (
-                        <Image
-                          src={spotlight.imageUrl}
-                          alt={spotlight.name}
-                          fill
-                          sizes="80px"
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-slate-100 text-lg font-black text-slate-500">
-                          {spotlight.name.slice(0, 1).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="min-w-0 flex-1 py-0.5">
-                    <p className="line-clamp-2 text-xs font-extrabold leading-snug text-slate-900">
-                      {spotlight.name}
-                    </p>
-                    <p className="mt-1 text-[11px] font-black uppercase tracking-wide text-slate-700">
-                      Top subcategory
-                    </p>
-                  </div>
-                </Link>
-              ) : null}
             </div>
 
             {subs.length === 0 ? (
@@ -245,13 +212,13 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
                 </Link>
               </div>
             ) : (
-              <div className="scrollbar-hide relative z-[1] mt-6 flex gap-3.5 overflow-x-auto pb-1.5 pt-0.5 [-webkit-overflow-scrolling:touch]">
+              <div className="scrollbar-hide relative z-[1] mt-6 flex gap-3 overflow-x-auto pb-1.5 pt-0.5 [-webkit-overflow-scrolling:touch]">
                 {subs.map((sub, pi) => {
                   const subHref = `${href}/sub/${encodeCategorySlug(sub.id)}`;
                 return (
                   <div
                     key={sub.id}
-                    className="group/card relative w-[150px] shrink-0 sm:w-[162px]"
+                    className="group/card relative w-[126px] shrink-0 sm:w-[136px]"
                   >
                     <div
                       className={`relative overflow-hidden rounded-[1.25rem] border border-white/95 bg-white ring-1 transition-shadow duration-300 hover:shadow-xl ${th.cardRing}`}
@@ -266,7 +233,7 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
                                 src={sub.imageUrl}
                                 alt={sub.name}
                                 fill
-                                sizes="(max-width: 640px) 150px, 162px"
+                                sizes="(max-width: 640px) 126px, 136px"
                                 className="object-cover transition duration-500 ease-out group-hover/card:scale-[1.06]"
                               />
                             ) : (
@@ -276,7 +243,7 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
                             )}
                         </Link>
                         {pi < 2 ? (
-                          <span className="pointer-events-none absolute left-2 top-2 z-[2] rounded-md bg-white/95 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] text-slate-900 shadow-md ring-1 ring-black/[0.06] sm:text-[9px]">
+                          <span className="pointer-events-none absolute left-1.5 top-1.5 z-[2] rounded-md bg-white/95 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-slate-900 shadow-md ring-1 ring-black/[0.06] sm:text-[8px]">
                             Must try
                           </span>
                         ) : null}
@@ -301,7 +268,7 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
                     </div>
                     <Link
                       href={subHref}
-                      className={`mt-2.5 flex w-full items-center justify-between rounded-xl px-2.5 py-2.5 text-left text-[10px] font-extrabold transition hover:opacity-95 ${th.bar}`}
+                      className="mt-2.5 flex w-full items-center justify-between rounded-xl bg-red-600 px-2.5 py-2 text-left text-[10px] font-extrabold text-white transition hover:bg-red-700"
                     >
                       <span>Browse products</span>
                       <svg className="h-3.5 w-3.5 shrink-0 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -316,13 +283,13 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
 
             <Link
               href={href}
-              className={`relative z-[1] mt-6 flex w-full items-center justify-between gap-3 rounded-full border px-4 py-3.5 transition duration-300 hover:brightness-[1.02] active:scale-[0.99] sm:px-5 ${th.pill}`}
+              className="relative z-[1] mt-6 flex w-full items-center justify-between gap-2.5 rounded-full border border-emerald-600/80 bg-emerald-500 px-3 py-2.5 text-white shadow-md transition duration-300 hover:bg-emerald-600 active:scale-[0.99] sm:px-4"
             >
               <div className="flex -space-x-2">
                 {row.subcategories.slice(0, 3).map((t, ti) => (
                   <div
                     key={t.id}
-                    className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-md ring-1 ring-black/[0.07]"
+                    className="relative h-8 w-8 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-md ring-1 ring-black/[0.07]"
                     style={{ zIndex: 3 - ti }}
                   >
                     {t.imageUrl ? (
@@ -330,20 +297,20 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
                         src={t.imageUrl}
                         alt={t.name}
                         fill
-                        sizes="40px"
+                        sizes="32px"
                         className="object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[13px] font-black text-slate-500">
+                      <div className="flex h-full w-full items-center justify-center text-[11px] font-black text-slate-500">
                         {t.name.slice(0, 1).toUpperCase()}
                       </div>
                     )}
                   </div>
                 ))}
               </div>
-              <span className="flex flex-1 items-center justify-end gap-2 text-sm font-black tracking-tight text-slate-800">
+              <span className="flex flex-1 items-center justify-end gap-1.5 text-xs font-black tracking-tight text-white sm:text-[13px]">
                 See all subcategories
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </span>
