@@ -49,70 +49,100 @@ const SUBTITLES = [
 
 const THEMES = [
   {
-    shell: "bg-gradient-to-br from-emerald-50 via-teal-50/90 to-[#ecfdf5]",
-    border: "border-emerald-200/70",
+    shell:
+      "bg-gradient-to-br from-emerald-50/95 via-teal-50 to-cyan-50/80 [background-size:200%_200%]",
+    border: "border-emerald-200/80 ring-1 ring-white/70",
+    kicker: "text-emerald-800/65",
+    decorBar: "from-emerald-400 via-teal-400 to-cyan-300",
     title: "text-emerald-950",
-    sub: "text-amber-900/75",
-    spotlight: "border-emerald-100 bg-gradient-to-br from-white to-emerald-50/90 shadow-[0_12px_32px_-12px_rgba(5,80,60,0.18)]",
-    add: "border-2 border-emerald-600 bg-white text-emerald-700 hover:bg-emerald-50",
-    bar: "bg-emerald-100/85 text-emerald-900",
-    meta: "text-sky-700",
-    pill: "border-emerald-100 bg-white shadow-[0_8px_28px_-10px_rgba(15,23,42,0.12)]",
+    sub: "text-emerald-900/70",
+    spotlight:
+      "border-emerald-200/90 bg-gradient-to-br from-white/95 to-emerald-50/95 shadow-[0_16px_40px_-12px_rgba(5,80,60,0.28)] backdrop-blur-sm ring-1 ring-white/80",
+    add: "border-2 border-emerald-600 bg-white text-emerald-700 shadow-sm hover:bg-emerald-50",
+    bar: "bg-emerald-950/[0.06] text-emerald-950 ring-1 ring-emerald-900/10",
+    meta: "text-emerald-800/80",
+    pill: "border-emerald-200/90 bg-white/90 shadow-[0_12px_40px_-16px_rgba(5,80,60,0.22)] ring-1 ring-white/80 backdrop-blur-sm",
+    cardRing: "ring-emerald-900/[0.06] shadow-[0_14px_36px_-18px_rgba(15,23,42,0.2)]",
   },
   {
-    shell: "bg-gradient-to-br from-amber-50 via-orange-50/88 to-[#fff7ed]",
-    border: "border-orange-200/65",
+    shell:
+      "bg-gradient-to-br from-amber-50/95 via-orange-50 to-rose-50/70 [background-size:200%_200%]",
+    border: "border-amber-200/80 ring-1 ring-white/70",
+    kicker: "text-amber-900/60",
+    decorBar: "from-amber-400 via-orange-400 to-rose-300",
     title: "text-[#7c2d12]",
-    sub: "text-amber-900/70",
-    spotlight: "border-orange-100 bg-gradient-to-br from-white to-orange-50/90 shadow-[0_12px_32px_-12px_rgba(180,83,9,0.15)]",
-    add: "border-2 border-orange-600 bg-white text-orange-700 hover:bg-orange-50",
-    bar: "bg-orange-100/85 text-orange-950",
-    meta: "text-sky-700",
-    pill: "border-orange-100 bg-white shadow-[0_8px_28px_-10px_rgba(180,83,9,0.12)]",
+    sub: "text-amber-900/68",
+    spotlight:
+      "border-amber-200/90 bg-gradient-to-br from-white/95 to-amber-50/95 shadow-[0_16px_40px_-12px_rgba(180,83,9,0.28)] backdrop-blur-sm ring-1 ring-white/80",
+    add: "border-2 border-orange-600 bg-white text-orange-700 shadow-sm hover:bg-orange-50",
+    bar: "bg-orange-950/[0.06] text-orange-950 ring-1 ring-orange-900/10",
+    meta: "text-orange-900/75",
+    pill: "border-amber-200/90 bg-white/90 shadow-[0_12px_40px_-16px_rgba(180,83,9,0.2)] ring-1 ring-white/80 backdrop-blur-sm",
+    cardRing: "ring-orange-900/[0.06] shadow-[0_14px_36px_-18px_rgba(124,45,18,0.18)]",
   },
   {
-    shell: "bg-gradient-to-br from-sky-50 via-blue-50/90 to-indigo-50/70",
-    border: "border-sky-200/70",
+    shell:
+      "bg-gradient-to-br from-sky-50/95 via-blue-50 to-indigo-100/75 [background-size:200%_200%]",
+    border: "border-sky-200/80 ring-1 ring-white/70",
+    kicker: "text-indigo-800/60",
+    decorBar: "from-sky-400 via-blue-500 to-indigo-400",
     title: "text-indigo-950",
-    sub: "text-blue-900/65",
-    spotlight: "border-sky-100 bg-gradient-to-br from-white to-sky-50 shadow-[0_12px_32px_-12px_rgba(30,58,138,0.14)]",
-    add: "border-2 border-blue-600 bg-white text-blue-700 hover:bg-blue-50",
-    bar: "bg-sky-100/90 text-indigo-950",
-    meta: "text-sky-700",
-    pill: "border-sky-100 bg-white shadow-[0_8px_28px_-10px_rgba(30,64,175,0.1)]",
+    sub: "text-indigo-900/65",
+    spotlight:
+      "border-sky-200/90 bg-gradient-to-br from-white/95 to-sky-50/95 shadow-[0_16px_40px_-12px_rgba(30,58,138,0.22)] backdrop-blur-sm ring-1 ring-white/80",
+    add: "border-2 border-blue-600 bg-white text-blue-700 shadow-sm hover:bg-blue-50",
+    bar: "bg-indigo-950/[0.06] text-indigo-950 ring-1 ring-indigo-900/10",
+    meta: "text-sky-800/80",
+    pill: "border-sky-200/90 bg-white/90 shadow-[0_12px_40px_-16px_rgba(30,64,175,0.18)] ring-1 ring-white/80 backdrop-blur-sm",
+    cardRing: "ring-indigo-900/[0.06] shadow-[0_14px_36px_-18px_rgba(30,27,75,0.2)]",
   },
   {
-    shell: "bg-gradient-to-br from-violet-50 via-fuchsia-50/85 to-purple-50/70",
-    border: "border-violet-200/65",
+    shell:
+      "bg-gradient-to-br from-violet-50/95 via-fuchsia-50 to-purple-100/70 [background-size:200%_200%]",
+    border: "border-violet-200/75 ring-1 ring-white/70",
+    kicker: "text-violet-800/60",
+    decorBar: "from-violet-400 via-fuchsia-500 to-purple-400",
     title: "text-violet-950",
-    sub: "text-fuchsia-900/65",
-    spotlight: "border-violet-100 bg-gradient-to-br from-white to-violet-50 shadow-[0_12px_32px_-12px_rgba(91,33,182,0.14)]",
-    add: "border-2 border-violet-600 bg-white text-violet-700 hover:bg-violet-50",
-    bar: "bg-violet-100/85 text-violet-950",
-    meta: "text-sky-700",
-    pill: "border-violet-100 bg-white shadow-[0_8px_28px_-10px_rgba(91,33,182,0.1)]",
+    sub: "text-violet-900/65",
+    spotlight:
+      "border-violet-200/90 bg-gradient-to-br from-white/95 to-violet-50/95 shadow-[0_16px_40px_-12px_rgba(91,33,182,0.22)] backdrop-blur-sm ring-1 ring-white/80",
+    add: "border-2 border-violet-600 bg-white text-violet-700 shadow-sm hover:bg-violet-50",
+    bar: "bg-violet-950/[0.06] text-violet-950 ring-1 ring-violet-900/10",
+    meta: "text-violet-800/75",
+    pill: "border-violet-200/90 bg-white/90 shadow-[0_12px_40px_-16px_rgba(91,33,182,0.18)] ring-1 ring-white/80 backdrop-blur-sm",
+    cardRing: "ring-violet-900/[0.06] shadow-[0_14px_36px_-18px_rgba(76,29,149,0.2)]",
   },
   {
-    shell: "bg-gradient-to-br from-rose-50 via-pink-50/88 to-orange-50/50",
-    border: "border-rose-200/60",
+    shell:
+      "bg-gradient-to-br from-rose-50/95 via-pink-50 to-orange-50/75 [background-size:200%_200%]",
+    border: "border-rose-200/75 ring-1 ring-white/70",
+    kicker: "text-rose-800/58",
+    decorBar: "from-rose-400 via-pink-400 to-orange-300",
     title: "text-rose-950",
-    sub: "text-rose-800/70",
-    spotlight: "border-rose-100 bg-gradient-to-br from-white to-rose-50 shadow-[0_12px_32px_-12px_rgba(190,18,60,0.12)]",
-    add: "border-2 border-rose-600 bg-white text-rose-700 hover:bg-rose-50",
-    bar: "bg-rose-100/85 text-rose-950",
-    meta: "text-sky-700",
-    pill: "border-rose-100 bg-white shadow-[0_8px_28px_-10px_rgba(190,18,60,0.1)]",
+    sub: "text-rose-900/65",
+    spotlight:
+      "border-rose-200/90 bg-gradient-to-br from-white/95 to-rose-50/95 shadow-[0_16px_40px_-12px_rgba(190,18,60,0.18)] backdrop-blur-sm ring-1 ring-white/80",
+    add: "border-2 border-rose-600 bg-white text-rose-700 shadow-sm hover:bg-rose-50",
+    bar: "bg-rose-950/[0.06] text-rose-950 ring-1 ring-rose-900/10",
+    meta: "text-rose-900/72",
+    pill: "border-rose-200/90 bg-white/90 shadow-[0_12px_40px_-16px_rgba(190,18,60,0.15)] ring-1 ring-white/80 backdrop-blur-sm",
+    cardRing: "ring-rose-900/[0.06] shadow-[0_14px_36px_-18px_rgba(136,19,55,0.16)]",
   },
   {
-    shell: "bg-gradient-to-br from-slate-100 via-zinc-50 to-slate-100/90",
-    border: "border-slate-200/80",
+    shell:
+      "bg-gradient-to-br from-slate-100/95 via-zinc-50 to-slate-200/80 [background-size:200%_200%]",
+    border: "border-slate-200/85 ring-1 ring-white/80",
+    kicker: "text-slate-600",
+    decorBar: "from-slate-400 via-zinc-500 to-slate-600",
     title: "text-slate-900",
     sub: "text-slate-600",
-    spotlight: "border-slate-200 bg-gradient-to-br from-white to-slate-50 shadow-[0_12px_32px_-12px_rgba(15,23,42,0.12)]",
-    add: "border-2 border-slate-800 bg-white text-slate-900 hover:bg-slate-50",
-    bar: "bg-slate-200/80 text-slate-900",
-    meta: "text-sky-700",
-    pill: "border-slate-200 bg-white shadow-[0_8px_28px_-10px_rgba(15,23,42,0.1)]",
+    spotlight:
+      "border-slate-200/90 bg-gradient-to-br from-white/95 to-slate-50/95 shadow-[0_16px_40px_-12px_rgba(15,23,42,0.18)] backdrop-blur-sm ring-1 ring-white/80",
+    add: "border-2 border-slate-800 bg-white text-slate-900 shadow-sm hover:bg-slate-50",
+    bar: "bg-slate-900/[0.06] text-slate-900 ring-1 ring-slate-900/10",
+    meta: "text-slate-600",
+    pill: "border-slate-200/90 bg-white/90 shadow-[0_12px_40px_-16px_rgba(15,23,42,0.14)] ring-1 ring-white/80 backdrop-blur-sm",
+    cardRing: "ring-slate-900/[0.08] shadow-[0_14px_36px_-18px_rgba(15,23,42,0.18)]",
   },
 ] as const;
 
@@ -122,13 +152,6 @@ function encodeCategorySlug(key: string) {
 
 function normMainKey(key: string) {
   return key.toLowerCase().replace(/\s+/g, "-").trim();
-}
-
-/** `category-quick` treats `food` as food + food-beverages mains — avoid empty rails. */
-function verticalForQuickApi(mainKey: string): string {
-  const k = normMainKey(mainKey);
-  if (k === "food-beverages" || k === "food_beverages") return "food";
-  return mainKey.trim();
 }
 
 /** Theme + subtitle by catalog key so Beverages / Food / … each feel distinct (not random by index). */
@@ -192,12 +215,14 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
       setLoading(true);
       const rows = await Promise.all(
         sliceMains.map(async (main) => {
+          const mk = main.key.trim();
           const q = new URLSearchParams({
             lat: String(lat),
             lng: String(lng),
             radiusKm: "60",
             limit: String(PRODUCTS_PER_RAIL + 4),
-            vertical: verticalForQuickApi(main.key),
+            vertical: mk,
+            mainKey: mk,
           });
           const r = await api<{ products: RailProduct[] }>(`/api/shop/category-quick?${q}`);
           const products =
@@ -258,17 +283,21 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
 
   if (loading) {
     return (
-      <div className="mt-10 space-y-6">
+      <div className="mt-10 space-y-7">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="animate-pulse rounded-[1.75rem] border border-slate-200/80 bg-slate-100/80 p-5 sm:p-6"
+            className="animate-pulse overflow-hidden rounded-[1.85rem] border border-slate-200/70 bg-gradient-to-br from-slate-100 via-white to-slate-50 p-5 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.2)] ring-1 ring-white/80 sm:p-6"
           >
-            <div className="h-6 w-40 rounded-lg bg-slate-200/90" />
-            <div className="mt-2 h-4 w-56 rounded bg-slate-200/70" />
-            <div className="mt-5 flex gap-3">
+            <div className="h-2.5 w-24 rounded-full bg-slate-200/90" />
+            <div className="mt-3 h-7 w-48 max-w-[70%] rounded-lg bg-slate-200/85" />
+            <div className="mt-2 h-3.5 w-40 rounded-md bg-slate-200/70" />
+            <div className="mt-6 flex gap-3">
               {Array.from({ length: 4 }).map((_, j) => (
-                <div key={j} className="h-44 w-36 shrink-0 rounded-2xl bg-slate-200/80" />
+                <div
+                  key={j}
+                  className="h-48 w-[148px] shrink-0 rounded-[1.25rem] bg-gradient-to-b from-slate-200/90 to-slate-100/80 shadow-inner sm:w-[158px]"
+                />
               ))}
             </div>
           </div>
@@ -292,25 +321,35 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
         return (
           <div
             key={row.main.id}
-            className={`relative overflow-hidden rounded-[1.75rem] border p-4 shadow-[0_20px_50px_-28px_rgba(15,23,42,0.18)] sm:rounded-[2rem] sm:p-6 ${th.shell} ${th.border}`}
+            className={`relative overflow-hidden rounded-[1.85rem] border p-4 shadow-[0_28px_80px_-32px_rgba(15,23,42,0.28)] transition-[box-shadow] duration-500 hover:shadow-[0_32px_90px_-30px_rgba(15,23,42,0.32)] sm:rounded-[2rem] sm:p-6 ${th.shell} ${th.border}`}
           >
             <div
-              className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/35 blur-3xl"
+              className="pointer-events-none absolute -right-20 -top-24 h-52 w-52 rounded-full bg-white/40 blur-3xl"
+              aria-hidden
+            />
+            <div
+              className="pointer-events-none absolute -bottom-16 -left-12 h-44 w-44 rounded-full bg-white/25 blur-3xl"
               aria-hidden
             />
             <div className="relative flex flex-row items-start justify-between gap-3 sm:gap-6">
               <div className="min-w-0 flex-1 pr-1">
-                <h3 className={`font-display text-[1.35rem] font-black leading-tight tracking-tight sm:text-2xl ${th.title}`}>
+                <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${th.kicker}`}>
+                  Curated nearby
+                </p>
+                <div className={`mt-2.5 h-1 w-14 rounded-full bg-gradient-to-r ${th.decorBar} shadow-sm`} />
+                <h3
+                  className={`font-display mt-3 text-[1.38rem] font-black leading-[1.1] tracking-tight sm:mt-3.5 sm:text-[1.65rem] ${th.title}`}
+                >
                   {row.main.name}
                 </h3>
-                <p className={`mt-1 font-serif text-[13px] font-medium leading-snug sm:text-sm ${th.sub}`}>
+                <p className={`mt-1.5 font-serif text-[13px] font-medium leading-snug sm:text-[0.95rem] ${th.sub}`}>
                   {subtitle}
                 </p>
               </div>
               {spotlight ? (
                 <Link
                   href={`/shop/product/${spotlight.id}`}
-                  className={`relative z-[1] flex max-w-[min(46%,11rem)] shrink-0 items-center gap-2 rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50 to-amber-100/95 p-2 pr-2.5 shadow-[0_10px_28px_-8px_rgba(180,83,9,0.35)] transition hover:brightness-[1.02] sm:max-w-[220px] sm:gap-3 sm:p-2.5 sm:pr-3`}
+                  className={`relative z-[1] flex max-w-[min(46%,11rem)] shrink-0 items-center gap-2 rounded-2xl border p-2 pr-2.5 transition duration-300 hover:brightness-[1.03] sm:max-w-[220px] sm:gap-3 sm:p-2.5 sm:pr-3 ${th.spotlight}`}
                 >
                   <div className="relative -mb-1 -mt-0.5 h-14 w-14 shrink-0 overflow-visible sm:-mb-2 sm:-mt-1 sm:h-[4.5rem] sm:w-[4.5rem]">
                     <div className="relative h-[4.25rem] w-[4.25rem] -translate-y-0.5 overflow-hidden rounded-2xl bg-white shadow-lg ring-2 ring-white/90 sm:h-[4.75rem] sm:w-[4.75rem] sm:-translate-y-1">
@@ -340,17 +379,18 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
             </div>
 
             {row.products.length === 0 ? (
-              <div className="relative z-[1] mt-5 rounded-2xl border border-dashed border-slate-300/80 bg-white/50 px-4 py-10 text-center">
-                <p className="text-sm font-semibold text-slate-600">No products in this aisle nearby yet.</p>
+              <div className="relative z-[1] mt-6 rounded-[1.35rem] border border-dashed border-slate-300/70 bg-gradient-to-br from-white/70 via-white/40 to-white/20 px-4 py-12 text-center shadow-inner backdrop-blur-sm">
+                <p className="text-sm font-semibold text-slate-600">Nothing listed in this aisle near you yet.</p>
+                <p className="mx-auto mt-1 max-w-xs text-xs text-slate-500">Open the full category to explore the catalogue.</p>
                 <Link
                   href={href}
-                  className="mt-3 inline-flex text-sm font-black text-emerald-700 underline-offset-2 hover:underline"
+                  className={`mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-black underline-offset-2 ring-1 transition hover:underline ${th.pill}`}
                 >
                   Browse {row.main.name}
                 </Link>
               </div>
             ) : (
-            <div className="scrollbar-hide relative z-[1] mt-5 flex gap-3 overflow-x-auto pb-1 pt-0.5 [-webkit-overflow-scrolling:touch]">
+            <div className="scrollbar-hide relative z-[1] mt-6 flex gap-3.5 overflow-x-auto pb-1.5 pt-0.5 [-webkit-overflow-scrolling:touch]">
               {row.products.map((p, pi) => {
                 const closed =
                   Boolean(p.store.openingHours?.enabled) &&
@@ -360,19 +400,24 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
                 return (
                   <div
                     key={p.id}
-                    className="relative w-[148px] shrink-0 sm:w-[158px]"
+                    className="group/card relative w-[150px] shrink-0 sm:w-[162px]"
                   >
-                    <div className="relative overflow-hidden rounded-2xl border border-white/90 bg-white shadow-md ring-1 ring-black/[0.06]">
-                      <div className="relative aspect-square w-full bg-slate-50">
-                        <Link href={`/shop/product/${p.id}`} className="block h-full w-full">
+                    <div
+                      className={`relative overflow-hidden rounded-[1.25rem] border border-white/95 bg-white ring-1 transition-shadow duration-300 hover:shadow-xl ${th.cardRing}`}
+                    >
+                      <div className="relative aspect-square w-full bg-gradient-to-br from-slate-50 to-slate-100/80">
+                        <Link
+                          href={`/shop/product/${p.id}`}
+                          className="block h-full w-full overflow-hidden"
+                        >
                           <ProductThumb
                             name={p.name}
                             imageUrl={p.imageUrl}
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-cover transition duration-500 ease-out group-hover/card:scale-[1.06]"
                           />
                         </Link>
                         {pi < 2 ? (
-                          <span className="pointer-events-none absolute left-2 top-2 z-[2] rounded-lg bg-[#fffbeb] px-2 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-900 ring-1 ring-amber-200/90 sm:text-[9px]">
+                          <span className="pointer-events-none absolute left-2 top-2 z-[2] rounded-md bg-white/95 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] text-slate-900 shadow-md ring-1 ring-black/[0.06] sm:text-[9px]">
                             Season&apos;s Best
                           </span>
                         ) : null}
@@ -424,7 +469,7 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
                           )}
                         </div>
                       </div>
-                      <div className="space-y-1 px-2 pb-2 pt-1">
+                      <div className="space-y-1.5 px-2.5 pb-2.5 pt-1.5">
                         {p.unitLabel?.trim() ? (
                           <p className={`truncate text-[10px] font-bold ${th.meta}`}>
                             {p.unitLabel.trim()}
@@ -467,7 +512,7 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
                     </div>
                     <Link
                       href={href}
-                      className={`mt-2 flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-[10px] font-extrabold transition hover:opacity-95 ${th.bar}`}
+                      className={`mt-2.5 flex w-full items-center justify-between rounded-xl px-2.5 py-2.5 text-left text-[10px] font-extrabold transition hover:opacity-95 ${th.bar}`}
                     >
                       <span>See {recipeHint} recipes</span>
                       <svg className="h-3.5 w-3.5 shrink-0 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -482,13 +527,13 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
 
             <Link
               href={href}
-              className={`relative z-[1] mt-5 flex w-full items-center justify-between gap-3 rounded-full border px-4 py-3 transition hover:brightness-[1.01] sm:px-5 ${th.pill}`}
+              className={`relative z-[1] mt-6 flex w-full items-center justify-between gap-3 rounded-full border px-4 py-3.5 transition duration-300 hover:brightness-[1.02] active:scale-[0.99] sm:px-5 ${th.pill}`}
             >
               <div className="flex -space-x-2">
                 {(row.products.length ? thumbs : []).map((t, ti) => (
                   <div
                     key={t.id}
-                    className="relative h-9 w-9 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-sm ring-1 ring-black/5"
+                    className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-md ring-1 ring-black/[0.07]"
                     style={{ zIndex: 3 - ti }}
                   >
                     <ProductThumb
@@ -499,7 +544,7 @@ export function ShopHomePremiumCategoryRails({ mains }: { mains: MainBrief[] }) 
                   </div>
                 ))}
               </div>
-              <span className="flex flex-1 items-center justify-end gap-2 text-sm font-black text-sky-700">
+              <span className="flex flex-1 items-center justify-end gap-2 text-sm font-black tracking-tight text-slate-800">
                 See all products
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />

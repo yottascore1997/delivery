@@ -14,9 +14,27 @@ function estimateEtaMinutes(distance: number) {
   return Math.max(12, Math.min(45, Math.round(10 + distance * 2.2)));
 }
 
+/** Normalize master main keys from URLs / admin (e.g. food_beverages → food-beverages). */
+function normalizeCatalogMainKey(mainKey: string) {
+  return mainKey
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, "-")
+    .replace(/\s+/g, "-");
+}
+
 function verticalMainKeys(vertical: string): string[] {
-  if (vertical === "food") return ["food", "food-beverages"];
-  return [vertical];
+  const v = normalizeCatalogMainKey(vertical);
+  if (v === "food") return ["food", "food-beverages"];
+  return [v];
+}
+
+/**
+ * Home rails pass `mainKey` so each aisle only shows products linked to that master main.
+ * (The old `vertical=food` merge + `localMatch` let un-mastered items leak across aisles.)
+ */
+function catalogMainKeysForHomeRail(mainKey: string): string[] {
+  return [normalizeCatalogMainKey(mainKey)];
 }
 
 function localCategoryKeywords(vertical: string): string[] {
@@ -46,6 +64,7 @@ function categoryMatchesMasterSub(storeCategoryName: string, masterSubName: stri
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const vertical = (searchParams.get("vertical") ?? "").trim();
+  const mainKeyRaw = (searchParams.get("mainKey") ?? "").trim();
   const lat = Number(searchParams.get("lat"));
   const lng = Number(searchParams.get("lng"));
   const radiusKm = Number(searchParams.get("radiusKm") ?? "25");
@@ -55,7 +74,10 @@ export async function GET(request: Request) {
   if (!vertical || vertical.length > 48) return jsonError("vertical required");
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return jsonError("lat and lng required");
 
-  const allowedMainKeys = new Set(verticalMainKeys(vertical));
+  const strictHomeRail = Boolean(mainKeyRaw);
+  const allowedMainKeys = strictHomeRail
+    ? new Set(catalogMainKeysForHomeRail(mainKeyRaw))
+    : new Set(verticalMainKeys(vertical));
 
   let subMc: { id: string; name: string } | null = null;
   if (masterCategoryIdRaw && masterCategoryIdRaw !== "all") {
@@ -143,8 +165,9 @@ export async function GET(request: Request) {
   for (const p of products) {
     const store = storeMap.get(p.storeId);
     if (!store) continue;
-    const mainKey = p.masterProduct?.masterCategory.mainCategory.key;
-    const masterMatch = mainKey ? allowedMainKeys.has(mainKey) : false;
+    const productMainRaw = p.masterProduct?.masterCategory?.mainCategory?.key;
+    const productMain = productMainRaw ? normalizeCatalogMainKey(productMainRaw) : "";
+    const masterMatch = productMain ? allowedMainKeys.has(productMain) : false;
     const categoryName = p.category.name.toLowerCase();
     let localMatch =
       !p.masterProductId &&
@@ -169,6 +192,9 @@ export async function GET(request: Request) {
       const byMaster = mcId === subMc.id;
       const byName = categoryMatchesMasterSub(p.category.name, subMc.name);
       if (!byMaster && !byName) continue;
+    } else if (strictHomeRail) {
+      // Shop home: one rail per master main — only products tied to that main (no keyword bleed).
+      if (!masterMatch) continue;
     } else {
       if (!masterMatch && !localMatch) continue;
     }
