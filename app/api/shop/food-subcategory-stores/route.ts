@@ -16,17 +16,38 @@ function normText(s: string) {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function subnameKeywords(subname: string) {
+  const base = normText(subname);
+  if (!base) return [];
+  const set = new Set<string>();
+  for (const raw of base.split(" ")) {
+    const w = raw.trim();
+    if (w.length < 3) continue;
+    set.add(w);
+    if (w.endsWith("s") && w.length > 4) set.add(w.slice(0, -1));
+    if (!w.endsWith("s")) set.add(`${w}s`);
+  }
+  return Array.from(set);
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const lat = Number(searchParams.get("lat"));
   const lng = Number(searchParams.get("lng"));
   const masterCategoryId = (searchParams.get("masterCategoryId") ?? "").trim();
-  const subname = normText(searchParams.get("subname") ?? "");
+  const subnameRaw = (searchParams.get("subname") ?? "").trim();
   const radiusKm = Number(searchParams.get("radiusKm") ?? "60");
   const limit = Math.min(Number(searchParams.get("limit") ?? "40"), 80);
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return jsonError("lat and lng required");
   if (!masterCategoryId) return jsonError("masterCategoryId required");
+
+  const masterCategory = await prisma.masterCategory.findUnique({
+    where: { id: masterCategoryId },
+    select: { name: true },
+  });
+  const subname = normText(subnameRaw || masterCategory?.name || "");
+  const keywords = subnameKeywords(subname);
 
   const stores = await prisma.store.findMany({
     where: { status: "APPROVED" },
@@ -81,8 +102,12 @@ export async function GET(request: Request) {
 
   for (const p of products) {
     const byMaster = p.masterProduct?.masterCategoryId === masterCategoryId;
-    const byName = subname.length > 1 && normText(p.category.name).includes(subname);
-    if (!byMaster && !byName) continue;
+    const pName = normText(p.name);
+    const catName = normText(p.category.name);
+    const bySubname =
+      subname.length > 1 &&
+      (catName.includes(subname) || pName.includes(subname) || keywords.some((k) => catName.includes(k) || pName.includes(k)));
+    if (!byMaster && !bySubname) continue;
     const prev = agg.get(p.storeId);
     const discount =
       p.mrp && dec(p.mrp) > dec(p.price)

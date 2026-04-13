@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api, getToken } from "@/lib/client-api";
 import { addToShopCart, getShopCart, updateShopLineQty } from "@/lib/shop-cart";
@@ -79,12 +79,20 @@ export function ShopCategoryProductsClient({
   /** Master subcategory id, or literal `all` */
   masterCategoryId: string;
 }) {
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const subnameQ = (searchParams.get("subname") ?? "").trim();
 
   const isAll = masterCategoryId === "all";
-  const isFoodCategory = routeSlug === "food" || catalogMainKey === "food-beverages";
-  const storeMode = isFoodCategory && !isAll;
+  const isFoodCategory =
+    routeSlug === "food" ||
+    routeSlug === "food-beverages" ||
+    catalogMainKey === "food-beverages" ||
+    catalogMainKey === "food";
+  const isFoodPath =
+    pathname?.startsWith("/shop/category/food/") ||
+    pathname?.startsWith("/shop/category/food-beverages/");
+  const storeMode = (isFoodCategory || Boolean(isFoodPath)) && !isAll;
 
   const [quickProducts, setQuickProducts] = useState<QuickProduct[]>([]);
   const [foodStores, setFoodStores] = useState<FoodStore[]>([]);
