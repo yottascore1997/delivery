@@ -9,8 +9,8 @@
   --shop-ink: #1e293b;
   --shop-muted: #64748b;
   --shop-line: rgba(15, 23, 42, 0.08);
-  /* Mobile shop header — Swiggy-style layers (location + tabs + search); sync with ShopSiteHeader */
-  --shop-header-sticky: 8.75rem;
+  /* Mobile shop header — Speedza app–style (gradient + tabs + pill search); sync with ShopSiteHeader */
+  --shop-header-sticky: 15.5rem;
   position: relative;
   isolation: isolate;
   color: var(--shop-ink);

@@ -170,7 +170,7 @@ function ShopSearchInner() {
                         <span className="text-xs font-black text-violet-800">{cartQty[p.id] ?? 0}</span>
                         <button
                           type="button"
-                          disabled={closed}
+                          disabled={closed || (cartQty[p.id] ?? 0) >= p.stock}
                           className="h-7 w-7 text-lg font-black text-violet-700 disabled:cursor-not-allowed disabled:opacity-35"
                           onClick={() => updateShopLineQty(p.id, (cartQty[p.id] ?? 0) + 1)}
                         >

@@ -22,9 +22,11 @@ export async function GET(request: Request) {
       take: limit,
       skip: offset,
       include: {
-        store: { select: { id: true, name: true, address: true } },
+        store: { select: { id: true, name: true, address: true, shopVertical: true } },
         items: {
-          include: { product: { select: { id: true, name: true, imageUrl: true, imageUrl2: true } } },
+          include: {
+            product: { select: { id: true, name: true, imageUrl: true, imageUrl2: true, mrp: true } },
+          },
         },
         delivery: true,
       },
@@ -43,7 +45,13 @@ export async function GET(request: Request) {
       items: o.items.map((i) => ({
         quantity: i.quantity,
         price: dec(i.price),
-        product: i.product,
+        product: {
+          id: i.product.id,
+          name: i.product.name,
+          imageUrl: i.product.imageUrl,
+          imageUrl2: i.product.imageUrl2,
+          mrp: i.product.mrp != null ? dec(i.product.mrp) : null,
+        },
       })),
       delivery: o.delivery
         ? { id: o.delivery.id, status: o.delivery.status }

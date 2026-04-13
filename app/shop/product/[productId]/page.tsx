@@ -311,7 +311,7 @@ export default function ShopProductPage() {
                 </div>
                 <button
                   type="button"
-                  disabled={storeClosed}
+                  disabled={storeClosed || qty >= activeLine.stock}
                   onClick={() => updateShopLineQty(activeLine.id, qty + 1)}
                   className="h-10 w-10 rounded-lg text-2xl font-black text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-35"
                 >
@@ -405,7 +405,7 @@ export default function ShopProductPage() {
                           </span>
                           <button
                             type="button"
-                            disabled={storeClosed}
+                            disabled={storeClosed || qtyFor(s.id) >= s.stock}
                             onClick={() => updateShopLineQty(s.id, qtyFor(s.id) + 1)}
                             className="h-8 w-8 rounded-lg text-xl font-black text-violet-700 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-35"
                           >

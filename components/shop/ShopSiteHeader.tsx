@@ -14,6 +14,7 @@ import { getShopCart } from "@/lib/shop-cart";
 import { api, clearSession, getToken, getUser } from "@/lib/client-api";
 import { DELIVERY_ADDRESS_UPDATED_EVENT } from "@/lib/shop-delivery-address";
 import { shopCategoryPathKeyFromMainKey } from "@/lib/shop-category-path";
+import { getShopHeaderColors } from "@/lib/shop-header-theme";
 
 function mobileCategoryPathSegment(pathname: string): string | null {
   const m = /^\/shop\/category\/([^/]+)/.exec(pathname);
@@ -40,88 +41,6 @@ function iconForMainTab(key: string, pathKey: string, index: number): string {
     ICON_BY_PATH[k] ??
     ["🛍️", "🏬", "⭐", "🏷️", "📦"][index % 5]
   );
-}
-
-/** Mobile header 3-band colors by category (Shop / other pages = default green). Inline styles so Tailwind JIT always applies. */
-const MOBILE_HEADER_THEMES: Record<
-  "default" | "grocery" | "fruits-vegetables" | "food" | "electronics",
-  {
-    row1Bg: string;
-    row2Bg: string;
-    row3Bg: string;
-    deliverMuted: string;
-    cartRing: string;
-    outerShadow: string;
-    activeTabFg: string;
-    searchGoBg: string;
-  }
-> = {
-  default: {
-    row1Bg: "#0c3d2e",
-    row2Bg: "#14805e",
-    row3Bg: "#1fa774",
-    deliverMuted: "rgba(167, 243, 208, 0.92)",
-    cartRing: "#0c3d2e",
-    outerShadow: "0 12px 40px rgba(6, 78, 59, 0.35)",
-    activeTabFg: "#064e3b",
-    searchGoBg: "#059669",
-  },
-  grocery: {
-    row1Bg: "#3b0764",
-    row2Bg: "#5b21b6",
-    row3Bg: "#7c3aed",
-    deliverMuted: "rgba(221, 214, 254, 0.92)",
-    cartRing: "#3b0764",
-    outerShadow: "0 12px 40px rgba(91, 33, 182, 0.4)",
-    activeTabFg: "#2e1064",
-    searchGoBg: "#7c3aed",
-  },
-  "fruits-vegetables": {
-    row1Bg: "#14532d",
-    row2Bg: "#166534",
-    row3Bg: "#22c55e",
-    deliverMuted: "rgba(187, 247, 208, 0.92)",
-    cartRing: "#14532d",
-    outerShadow: "0 12px 40px rgba(20, 83, 45, 0.38)",
-    activeTabFg: "#14532d",
-    searchGoBg: "#16a34a",
-  },
-  food: {
-    row1Bg: "#422006",
-    row2Bg: "#7c2d12",
-    row3Bg: "#b45309",
-    deliverMuted: "rgba(253, 230, 138, 0.92)",
-    cartRing: "#422006",
-    outerShadow: "0 12px 40px rgba(66, 32, 6, 0.42)",
-    activeTabFg: "#422006",
-    searchGoBg: "#92400e",
-  },
-  electronics: {
-    row1Bg: "#172554",
-    row2Bg: "#1e40af",
-    row3Bg: "#2563eb",
-    deliverMuted: "rgba(191, 219, 254, 0.92)",
-    cartRing: "#172554",
-    outerShadow: "0 12px 40px rgba(23, 37, 84, 0.4)",
-    activeTabFg: "#172554",
-    searchGoBg: "#2563eb",
-  },
-};
-
-function mobileHeaderThemeKey(pathSegment: string | null): keyof typeof MOBILE_HEADER_THEMES {
-  if (!pathSegment) return "default";
-  const s = pathSegment.toLowerCase();
-  if (s === "grocery") return "grocery";
-  if (s === "fruits-vegetables") return "fruits-vegetables";
-  if (s === "food") return "food";
-  if (s === "electronics") return "electronics";
-  if (s.includes("groc") || s.includes("kirana") || s.includes("supermarket")) return "grocery";
-  if (s.includes("fruit") || s.includes("vegetable") || s.includes("veg")) return "fruits-vegetables";
-  if (s.includes("food") || s.includes("meal") || s.includes("restaurant") || s.includes("beverage")) {
-    return "food";
-  }
-  if (s.includes("electron") || s.includes("tech") || s.includes("mobile")) return "electronics";
-  return "default";
 }
 
 export function ShopSiteHeader() {
@@ -240,10 +159,13 @@ export function ShopSiteHeader() {
   }, [label]);
 
   const mobileCategorySeg = mobileCategoryPathSegment(pathname);
-  const mh = useMemo(
-    () => MOBILE_HEADER_THEMES[mobileHeaderThemeKey(mobileCategorySeg)],
-    [mobileCategorySeg],
-  );
+  const headerActiveKey = mobileCategorySeg ?? "__shop__";
+  const colors = useMemo(() => getShopHeaderColors(headerActiveKey), [headerActiveKey]);
+  const gradientCss = useMemo(() => {
+    const [a, b, c] = colors.headerGradient;
+    return `linear-gradient(180deg, ${a} 0%, ${b} 42%, ${c} 100%)`;
+  }, [colors]);
+  const badgeRing = colors.headerGradient[2];
 
   const mobileServiceTabs = useMemo(() => {
     const shop = {
@@ -281,17 +203,25 @@ export function ShopSiteHeader() {
       <div className="mx-auto max-w-6xl px-3 sm:px-6">
         <div className="md:hidden">
           <div
-            className="-mx-3 overflow-hidden rounded-b-[1.35rem]"
-            style={{ boxShadow: mh.outerShadow }}
+            className="relative -mx-3 overflow-hidden rounded-b-[1.35rem] shadow-[0_8px_28px_rgba(15,23,42,0.1)]"
+            style={{ background: gradientCss }}
           >
-            {/* Row 1 — compact location (Swiggy-style) */}
-            <div className="flex items-center gap-2 px-3 pb-2 pt-1.5" style={{ backgroundColor: mh.row1Bg }}>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-6 top-[calc(env(safe-area-inset-top,0px)+8px)] h-[120px] w-[120px] rounded-full bg-white/35"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -left-10 top-[calc(env(safe-area-inset-top,0px)+52px)] h-[100px] w-[100px] rounded-full bg-white/20"
+            />
+
+            <div className="relative z-[1] flex items-start justify-between gap-2 px-4 pb-3 pt-2">
               <Link
                 href={mobileDeliverHref}
-                className="flex min-w-0 flex-1 items-start gap-2 rounded-lg py-0.5 transition active:bg-white/5"
+                className="flex min-w-0 flex-1 items-start gap-2.5 rounded-lg py-0.5 active:bg-black/[0.03]"
               >
-                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-white">
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
+                  <svg className="h-[22px] w-[22px] text-[#44403c]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -301,27 +231,37 @@ export function ShopSiteHeader() {
                   </svg>
                 </span>
                 <span className="min-w-0 text-left">
-                  <span
-                    className="block text-[9px] font-bold uppercase tracking-[0.12em]"
-                    style={{ color: mh.deliverMuted }}
-                  >
-                    Deliver to
+                  <span className="block text-[11px] font-extrabold tracking-wide text-[#57534e]">{appName} in</span>
+                  <span className="mt-0.5 flex flex-wrap items-center gap-2">
+                    <span className="text-[22px] font-black leading-tight tracking-tight text-[#0c0a09]">Quick delivery</span>
+                    <span className="inline-flex items-center gap-1 rounded-lg border border-teal-700/15 bg-teal-50/95 px-2 py-1 text-[11px] font-black text-teal-700">
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                        />
+                      </svg>
+                      Nearby
+                    </span>
                   </span>
-                  <span
-                    className="mt-0.5 line-clamp-1 text-[12px] font-bold leading-tight text-white"
-                    suppressHydrationWarning
-                  >
-                    {mobileDeliverSubtitle}
+                  <span className="mt-1.5 flex items-center gap-1">
+                    <span className="line-clamp-1 flex-1 text-[13px] font-bold text-[#44403c]" suppressHydrationWarning>
+                      {mobileDeliverSubtitle}
+                    </span>
+                    <svg className="h-5 w-5 shrink-0 text-[#78716c]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
                   </span>
                 </span>
               </Link>
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="flex shrink-0 items-center gap-2">
                 <Link
                   href="/shop/cart"
-                  className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/15 transition active:scale-95"
+                  className="relative flex h-[42px] w-[42px] items-center justify-center rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] active:scale-95"
                   aria-label="Cart"
                 >
-                  <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="h-[22px] w-[22px] text-[#1c1917]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -330,58 +270,43 @@ export function ShopSiteHeader() {
                   </svg>
                   {count > 0 ? (
                     <span
-                      className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#ff5200] px-1 text-[9px] font-black text-white"
-                      style={{ boxShadow: `0 0 0 2px ${mh.cartRing}` }}
+                      className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#dc2626] px-1 text-[10px] font-black text-white"
+                      style={{ boxShadow: `0 0 0 2px ${badgeRing}` }}
                     >
                       {count > 99 ? "99+" : count}
                     </span>
                   ) : null}
                 </Link>
+                <div
+                  className="flex h-[42px] w-[42px] items-center justify-center rounded-full border border-white/85 text-[17px] font-black shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
+                  style={{ backgroundColor: colors.logoCircle, color: colors.logoText }}
+                >
+                  {mark}
+                </div>
                 {label ? (
-                  <div className="flex items-center gap-1">
-                    <Link
-                      href="/shop/profile"
-                      className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-200 to-amber-400 text-[11px] font-black text-amber-950 shadow-md ring-2 ring-white/20 transition active:scale-95"
-                      aria-label="Profile"
-                    >
-                      {avatarUrl ? (
-                        <Image src={avatarUrl} alt="" width={36} height={36} className="h-full w-full object-cover" unoptimized />
-                      ) : (
-                        initials
-                      )}
-                    </Link>
-                    <button
-                      type="button"
-                      className="rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-[9px] font-bold uppercase tracking-wide text-white"
-                      onClick={() => {
-                        clearSession();
-                        router.push("/login?next=/shop");
-                      }}
-                    >
-                      Out
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="rounded-full border border-[rgba(28,25,23,0.12)] bg-white/65 px-2 py-2 text-[10px] font-black uppercase tracking-wide text-[#44403c] active:scale-95"
+                    onClick={() => {
+                      clearSession();
+                      router.push("/login?next=/shop");
+                    }}
+                  >
+                    OUT
+                  </button>
                 ) : (
                   <Link
                     href="/login?next=/shop"
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/15 transition active:scale-95"
-                    aria-label="Account"
+                    className="rounded-full border border-[rgba(28,25,23,0.12)] bg-white/65 px-2 py-2 text-[10px] font-black uppercase tracking-wide text-[#44403c] active:scale-95"
                   >
-                    <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                      />
-                    </svg>
+                    Login
                   </Link>
                 )}
               </div>
             </div>
 
-            {/* Row 2 — service tabs */}
-            <div className="relative px-2 pt-2" style={{ backgroundColor: mh.row2Bg }}>
-              <div className="scrollbar-hide flex gap-1 overflow-x-auto pb-0">
+            <div className="relative z-[1] pb-2.5 pl-3 pr-2 pt-1">
+              <div className="scrollbar-hide flex gap-1.5 overflow-x-auto pb-0.5">
                 {mobileServiceTabs.map((tab) => {
                   const isActive =
                     tab.pathKey === null
@@ -392,50 +317,53 @@ export function ShopSiteHeader() {
                     <Link
                       key={tab.id}
                       href={tab.href}
-                      className={`relative flex min-w-[4.25rem] shrink-0 flex-col items-center rounded-t-2xl px-2 pb-2 pt-1.5 transition ${
-                        isActive
-                          ? "bg-white shadow-[0_-6px_24px_rgba(0,0,0,0.12)]"
-                          : "text-white/95 hover:bg-white/10"
-                      }`}
-                      style={isActive ? { color: mh.activeTabFg } : undefined}
+                      className="flex w-[4.25rem] shrink-0 flex-col items-center pb-0.5 pt-1 active:opacity-90"
                     >
-                      <span className="text-[22px] leading-none drop-shadow-sm" aria-hidden>
+                      <span className="text-[22px] leading-none" style={{ color: isActive ? "#0c0a09" : colors.chipInactive }}>
                         {tab.icon}
                       </span>
-                      <span className="mt-1 max-w-[4.5rem] truncate text-center text-[10px] font-black leading-none">
+                      <span
+                        className="mt-1 max-w-[4.5rem] truncate text-center text-[10px] leading-none"
+                        style={{
+                          color: isActive ? "#0c0a09" : colors.chipInactive,
+                          fontWeight: isActive ? 900 : 800,
+                        }}
+                      >
                         {tab.label}
                       </span>
+                      <span
+                        className="mt-1 h-[3px] rounded-sm transition-[width]"
+                        style={{
+                          width: isActive ? "1.75rem" : 0,
+                          backgroundColor: isActive ? "#0c0a09" : "transparent",
+                        }}
+                      />
                     </Link>
                   );
                 })}
               </div>
             </div>
 
-            {/* Row 3 — white search pill */}
-            <div className="px-3 pb-2.5 pt-2" style={{ backgroundColor: mh.row3Bg }}>
+            <div className="relative z-[1] px-4 pb-4 pt-1">
               <form
                 onSubmit={submitSearch}
-                className="flex h-11 items-center gap-2 rounded-2xl bg-white px-3 shadow-[0_4px_20px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.04]"
+                className="flex min-h-[50px] items-center gap-2 rounded-full border border-[rgba(15,23,42,0.08)] bg-white/[0.92] pl-4 pr-1.5 shadow-[0_4px_14px_rgba(15,23,42,0.07)]"
               >
-                <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
+                <svg className="h-5 w-5 shrink-0 text-[#57534e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search milk, snacks, stores…"
-                  className="min-w-0 flex-1 bg-transparent text-[14px] font-medium text-slate-800 placeholder:text-slate-400 outline-none"
+                  className="min-w-0 flex-1 bg-transparent py-3 text-[15px] font-semibold text-[#1f2937] placeholder:text-[#a8a29e] outline-none"
                 />
                 <button
                   type="submit"
-                  className="shrink-0 rounded-xl px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-white shadow-sm transition active:scale-[0.97]"
-                  style={{ backgroundColor: mh.searchGoBg }}
+                  className="shrink-0 rounded-full px-[18px] py-3 text-[13px] font-black uppercase tracking-wide text-white shadow-sm active:scale-[0.98]"
+                  style={{ backgroundColor: colors.goBtn }}
                 >
-                  Go
+                  GO
                 </button>
               </form>
             </div>

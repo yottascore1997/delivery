@@ -338,7 +338,7 @@ export function ShopCategoryProductsClient({
                               <span className="text-xs font-black text-violet-800">{qtyInCart(p.id)}</span>
                               <button
                                 type="button"
-                                disabled={closed || outOfStock}
+                                disabled={closed || outOfStock || qtyInCart(p.id) >= p.stock}
                                 className="h-7 w-7 text-lg font-black text-violet-700 disabled:cursor-not-allowed disabled:opacity-35"
                                 onClick={() => updateShopLineQty(p.id, qtyInCart(p.id) + 1)}
                               >
@@ -434,7 +434,7 @@ export function ShopCategoryProductsClient({
                         <span className="text-xs font-black text-violet-800">{qtyInCart(p.id)}</span>
                         <button
                           type="button"
-                          disabled={closed || outOfStock}
+                          disabled={closed || outOfStock || qtyInCart(p.id) >= p.stock}
                           className="h-7 w-7 text-lg font-black text-violet-700 disabled:cursor-not-allowed disabled:opacity-35"
                           onClick={() => updateShopLineQty(p.id, qtyInCart(p.id) + 1)}
                         >
