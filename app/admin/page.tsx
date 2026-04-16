@@ -43,7 +43,37 @@ type AdminListRequestRow = {
   updatedAt: string;
 };
 
-type AdminTab = "overview" | "stores" | "riders" | "finance" | "catalog";
+type UserRoleValue = "CUSTOMER" | "STORE_OWNER" | "DELIVERY" | "ADMIN";
+type StoreStatusValue = "PENDING" | "APPROVED" | "REJECTED";
+
+type AdminUserRow = {
+  id: string;
+  name: string;
+  phone: string;
+  role: UserRoleValue;
+  createdAt: string;
+};
+
+type AdminStoreRow = {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  shopVertical: string;
+  status: StoreStatusValue;
+  commissionPercent?: number | null;
+  owner: { id: string; name: string; phone: string };
+  createdAt: string;
+};
+
+type AdminTab =
+  | "overview"
+  | "stores"
+  | "users"
+  | "riders"
+  | "finance"
+  | "catalog";
 
 type CatalogNotice = { text: string; tone: "success" | "error" };
 
@@ -244,15 +274,26 @@ export default function AdminPage() {
   const [pendingStores, setPendingStores] = useState<
     { id: string; name: string; owner: { phone: string } }[]
   >([]);
-  const [approvedStores, setApprovedStores] = useState<
-    {
-      id: string;
-      name: string;
-      commissionPercent?: number | null;
-      owner: { id: string; name: string; phone: string };
-    }[]
-  >([]);
+  const [approvedStores, setApprovedStores] = useState<AdminStoreRow[]>([]);
+  const [allStores, setAllStores] = useState<AdminStoreRow[]>([]);
+  const [storeDraft, setStoreDraft] = useState<
+    Record<string, { name: string; status: StoreStatusValue; shopVertical: string }>
+  >({});
   const [storeCommissionDraft, setStoreCommissionDraft] = useState<Record<string, string>>({});
+  const [adminUsers, setAdminUsers] = useState<AdminUserRow[]>([]);
+  const [userRoleFilter, setUserRoleFilter] = useState<"ALL" | UserRoleValue>("ALL");
+  const [newUserPhone, setNewUserPhone] = useState("");
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserRole, setNewUserRole] = useState<UserRoleValue>("CUSTOMER");
+  const [userNameDraft, setUserNameDraft] = useState<Record<string, string>>({});
+  const [userRoleDraft, setUserRoleDraft] = useState<Record<string, UserRoleValue>>({});
+  const [newStoreOwnerId, setNewStoreOwnerId] = useState("");
+  const [newStoreName, setNewStoreName] = useState("");
+  const [newStoreAddress, setNewStoreAddress] = useState("");
+  const [newStoreLat, setNewStoreLat] = useState("");
+  const [newStoreLng, setNewStoreLng] = useState("");
+  const [newStoreVertical, setNewStoreVertical] = useState("food");
+  const [newStoreStatus, setNewStoreStatus] = useState<StoreStatusValue>("PENDING");
   const [readyOrders, setReadyOrders] = useState<AdminOrderRow[]>([]);
   const [recentOrders, setRecentOrders] = useState<AdminOrderRow[]>([]);
   const [listRequests, setListRequests] = useState<AdminListRequestRow[]>([]);
@@ -330,6 +371,23 @@ export default function AdminPage() {
         return next;
       });
     }
+    const stAll = await api<{ stores: AdminStoreRow[] }>("/api/admin/stores?limit=300");
+    if (stAll.ok && stAll.data) {
+      setAllStores(stAll.data.stores);
+      setStoreDraft((prev) => {
+        const next = { ...prev };
+        for (const sRow of stAll.data!.stores) {
+          if (!next[sRow.id]) {
+            next[sRow.id] = {
+              name: sRow.name,
+              status: sRow.status,
+              shopVertical: sRow.shopVertical || "food",
+            };
+          }
+        }
+        return next;
+      });
+    }
 
     const orReady = await api<{ orders: AdminOrderRow[] }>(
       "/api/admin/orders?status=READY&limit=80",
@@ -353,6 +411,29 @@ export default function AdminPage() {
 
     const c = await api<{ commissionPercent: number }>("/api/admin/commission");
     if (c.ok && c.data) setCommission(String(c.data.commissionPercent));
+
+    const usersPath =
+      userRoleFilter === "ALL"
+        ? "/api/admin/users?limit=200"
+        : `/api/admin/users?role=${userRoleFilter}&limit=200`;
+    const usersRes = await api<{ users: AdminUserRow[] }>(usersPath);
+    if (usersRes.ok && usersRes.data) {
+      setAdminUsers(usersRes.data.users);
+      setUserNameDraft((prev) => {
+        const next = { ...prev };
+        for (const u of usersRes.data!.users) {
+          if (next[u.id] === undefined) next[u.id] = u.name;
+        }
+        return next;
+      });
+      setUserRoleDraft((prev) => {
+        const next = { ...prev };
+        for (const u of usersRes.data!.users) {
+          if (next[u.id] === undefined) next[u.id] = u.role;
+        }
+        return next;
+      });
+    }
 
     const tm = await api<{ imageUrl: string | null }>(
       "/api/shop/todays-match-banner",
@@ -475,6 +556,11 @@ export default function AdminPage() {
   }, [tab]);
 
   useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userRoleFilter]);
+
+  useEffect(() => {
     if (!catalogNotice) return;
     const t = window.setTimeout(() => setCatalogNotice(null), 8000);
     return () => window.clearTimeout(t);
@@ -531,6 +617,128 @@ export default function AdminPage() {
     setNewBoyPhone("");
     setNewBoyName("");
     await refresh();
+  }
+
+  async function createAdminUser() {
+    setMsg(null);
+    const res = await api("/api/admin/users", {
+      method: "POST",
+      body: JSON.stringify({
+        phone: newUserPhone,
+        name: newUserName,
+        role: newUserRole,
+      }),
+    });
+    setMsg(res.ok ? "User saved successfully." : res.error || t("adminMsgError"));
+    if (res.ok) {
+      setNewUserPhone("");
+      setNewUserName("");
+      setNewUserRole("CUSTOMER");
+      await refresh();
+    }
+  }
+
+  async function saveUser(userId: string) {
+    setMsg(null);
+    const name = (userNameDraft[userId] ?? "").trim();
+    const role = userRoleDraft[userId];
+    if (!name || !role) {
+      setMsg("Name and role are required.");
+      return;
+    }
+    const res = await api("/api/admin/users", {
+      method: "PATCH",
+      body: JSON.stringify({ id: userId, name, role }),
+    });
+    setMsg(res.ok ? "User updated." : res.error || t("adminMsgError"));
+    if (res.ok) await refresh();
+  }
+
+  async function deleteUser(userId: string) {
+    if (!window.confirm("Delete this user? This action cannot be undone.")) return;
+    setMsg(null);
+    const res = await api("/api/admin/users", {
+      method: "DELETE",
+      body: JSON.stringify({ id: userId }),
+    });
+    setMsg(res.ok ? "User deleted." : res.error || t("adminMsgError"));
+    if (res.ok) await refresh();
+  }
+
+  async function createStoreByAdmin() {
+    setMsg(null);
+    const latitude = Number(newStoreLat);
+    const longitude = Number(newStoreLng);
+    if (!newStoreOwnerId.trim() || !newStoreName.trim() || !newStoreAddress.trim()) {
+      setMsg("Owner, name and address are required.");
+      return;
+    }
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setMsg("Valid latitude and longitude are required.");
+      return;
+    }
+    const res = await api("/api/admin/stores", {
+      method: "POST",
+      body: JSON.stringify({
+        ownerId: newStoreOwnerId.trim(),
+        name: newStoreName.trim(),
+        address: newStoreAddress.trim(),
+        latitude,
+        longitude,
+        shopVertical: newStoreVertical.trim() || "food",
+        status: newStoreStatus,
+      }),
+    });
+    setMsg(res.ok ? "Store created." : res.error || t("adminMsgError"));
+    if (res.ok) {
+      setNewStoreOwnerId("");
+      setNewStoreName("");
+      setNewStoreAddress("");
+      setNewStoreLat("");
+      setNewStoreLng("");
+      setNewStoreVertical("food");
+      setNewStoreStatus("PENDING");
+      await refresh();
+    }
+  }
+
+  async function saveStore(storeId: string) {
+    setMsg(null);
+    const draft = storeDraft[storeId];
+    const commissionRaw = (storeCommissionDraft[storeId] ?? "").trim();
+    const commission =
+      commissionRaw === "" ? null : Number.isFinite(Number(commissionRaw)) ? Number(commissionRaw) : NaN;
+    if (!draft?.name?.trim()) {
+      setMsg("Store name is required.");
+      return;
+    }
+    if (Number.isNaN(commission) || (commission !== null && (commission < 0 || commission > 100))) {
+      setMsg("Commission must be between 0 and 100.");
+      return;
+    }
+    const res = await api("/api/admin/stores", {
+      method: "PATCH",
+      body: JSON.stringify({
+        id: storeId,
+        name: draft.name.trim(),
+        status: draft.status,
+        shopVertical: draft.shopVertical.trim() || "food",
+        commissionPercent: commission,
+      }),
+    });
+    setMsg(res.ok ? "Store updated." : res.error || t("adminMsgError"));
+    if (res.ok) await refresh();
+  }
+
+  async function deleteStore(storeId: string) {
+    if (!window.confirm("Delete this store? Products, categories and orders may be affected.")) return;
+    setMsg(null);
+    const res = await api("/api/admin/stores", {
+      method: "DELETE",
+      body: JSON.stringify({ id: storeId }),
+    });
+    setMsg(res.ok ? "Store deleted." : res.error || t("adminMsgError"));
+    if (res.ok) await refresh();
   }
 
   async function assign() {
@@ -974,6 +1182,8 @@ export default function AdminPage() {
       ? t("adminBreadcrumbOverview")
       : tab === "stores"
         ? t("adminBreadcrumbStores")
+        : tab === "users"
+          ? "Users"
         : tab === "riders"
           ? t("adminBreadcrumbRiders")
           : tab === "finance"
@@ -1008,6 +1218,11 @@ export default function AdminPage() {
           id: "stores",
           label: t("adminNavStores"),
           icon: <IconAdminStore />,
+        },
+        {
+          id: "users",
+          label: "Users",
+          icon: <IconAdminUsers />,
         },
         {
           id: "riders",
@@ -1299,50 +1514,357 @@ export default function AdminPage() {
       )}
 
       {tab === "stores" && (
-        <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-display text-lg font-bold text-zinc-900">
-              {t("adminPending")}
-            </h2>
-            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
-              {pendingStores.length} {t("adminWaiting")}
-            </span>
-          </div>
-          <ul className="mt-5 space-y-3">
-            {pendingStores.map((s) => (
-              <li
-                key={s.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/80 p-4"
+        <div className="space-y-8">
+          <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-lg font-bold text-zinc-900">
+                {t("adminPending")}
+              </h2>
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+                {pendingStores.length} {t("adminWaiting")}
+              </span>
+            </div>
+            <ul className="mt-5 space-y-3">
+              {pendingStores.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/80 p-4"
+                >
+                  <div>
+                    <p className="font-semibold text-zinc-900">{s.name}</p>
+                    <p className="text-sm text-zinc-500">{s.owner.phone}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="ui-btn-primary !py-2 !px-4 !text-xs"
+                      onClick={() => void setStoreStatus(s.id, "APPROVED")}
+                    >
+                      {t("adminApprove")}
+                    </button>
+                    <button
+                      type="button"
+                      className="ui-btn-danger !rounded-xl !px-4"
+                      onClick={() => void setStoreStatus(s.id, "REJECTED")}
+                    >
+                      {t("adminReject")}
+                    </button>
+                  </div>
+                </li>
+              ))}
+              {!pendingStores.length && (
+                <li className="py-8 text-center text-sm text-zinc-500">
+                  {t("adminNoPending")}
+                </li>
+              )}
+            </ul>
+          </section>
+
+          <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
+            <h2 className="font-display text-lg font-bold text-zinc-900">Create Store</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Owner user id must belong to a STORE_OWNER account.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <input
+                className="ui-input"
+                placeholder="Owner User ID"
+                value={newStoreOwnerId}
+                onChange={(e) => setNewStoreOwnerId(e.target.value)}
+              />
+              <input
+                className="ui-input"
+                placeholder="Store name"
+                value={newStoreName}
+                onChange={(e) => setNewStoreName(e.target.value)}
+              />
+              <input
+                className="ui-input sm:col-span-2"
+                placeholder="Address"
+                value={newStoreAddress}
+                onChange={(e) => setNewStoreAddress(e.target.value)}
+              />
+              <input
+                className="ui-input"
+                placeholder="Latitude"
+                value={newStoreLat}
+                onChange={(e) => setNewStoreLat(e.target.value)}
+              />
+              <input
+                className="ui-input"
+                placeholder="Longitude"
+                value={newStoreLng}
+                onChange={(e) => setNewStoreLng(e.target.value)}
+              />
+              <input
+                className="ui-input"
+                placeholder="Vertical (food/grocery)"
+                value={newStoreVertical}
+                onChange={(e) => setNewStoreVertical(e.target.value)}
+              />
+              <select
+                className="ui-input"
+                value={newStoreStatus}
+                onChange={(e) => setNewStoreStatus(e.target.value as StoreStatusValue)}
               >
-                <div>
-                  <p className="font-semibold text-zinc-900">{s.name}</p>
-                  <p className="text-sm text-zinc-500">{s.owner.phone}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="ui-btn-primary !py-2 !px-4 !text-xs"
-                    onClick={() => void setStoreStatus(s.id, "APPROVED")}
-                  >
-                    {t("adminApprove")}
-                  </button>
-                  <button
-                    type="button"
-                    className="ui-btn-danger !rounded-xl !px-4"
-                    onClick={() => void setStoreStatus(s.id, "REJECTED")}
-                  >
-                    {t("adminReject")}
-                  </button>
-                </div>
-              </li>
-            ))}
-            {!pendingStores.length && (
-              <li className="py-8 text-center text-sm text-zinc-500">
-                {t("adminNoPending")}
-              </li>
-            )}
-          </ul>
-        </section>
+                <option value="PENDING">PENDING</option>
+                <option value="APPROVED">APPROVED</option>
+                <option value="REJECTED">REJECTED</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              className="ui-btn-dark mt-4 !rounded-2xl !px-6 !py-3"
+              onClick={() => void createStoreByAdmin()}
+            >
+              Create Store
+            </button>
+          </section>
+
+          <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-display text-lg font-bold text-zinc-900">Stores CRUD</h2>
+              <span className="text-xs font-semibold text-zinc-500">{allStores.length} total</span>
+            </div>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[1050px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-400">
+                    <th className="pb-3 pr-3">Store</th>
+                    <th className="pb-3 pr-3">Owner</th>
+                    <th className="pb-3 pr-3">Vertical</th>
+                    <th className="pb-3 pr-3">Status</th>
+                    <th className="pb-3 pr-3">Commission %</th>
+                    <th className="pb-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {allStores.map((s) => (
+                    <tr key={s.id} className="bg-white">
+                      <td className="py-3 pr-3">
+                        <input
+                          className="ui-input !py-2 min-w-[190px]"
+                          value={storeDraft[s.id]?.name ?? s.name}
+                          onChange={(e) =>
+                            setStoreDraft((m) => ({
+                              ...m,
+                              [s.id]: {
+                                name: e.target.value,
+                                status: m[s.id]?.status ?? s.status,
+                                shopVertical: m[s.id]?.shopVertical ?? s.shopVertical,
+                              },
+                            }))
+                          }
+                        />
+                        <p className="mt-1 text-[10px] font-mono text-zinc-500">{s.id.slice(0, 12)}…</p>
+                      </td>
+                      <td className="py-3 pr-3 text-zinc-700">
+                        <p className="font-semibold text-zinc-900">{s.owner?.name ?? "—"}</p>
+                        <p className="text-xs text-zinc-500">{s.owner?.phone ?? ""}</p>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <input
+                          className="ui-input !py-2 w-32"
+                          value={storeDraft[s.id]?.shopVertical ?? s.shopVertical}
+                          onChange={(e) =>
+                            setStoreDraft((m) => ({
+                              ...m,
+                              [s.id]: {
+                                name: m[s.id]?.name ?? s.name,
+                                status: m[s.id]?.status ?? s.status,
+                                shopVertical: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </td>
+                      <td className="py-3 pr-3">
+                        <select
+                          className="ui-input !py-2 w-36"
+                          value={storeDraft[s.id]?.status ?? s.status}
+                          onChange={(e) =>
+                            setStoreDraft((m) => ({
+                              ...m,
+                              [s.id]: {
+                                name: m[s.id]?.name ?? s.name,
+                                status: e.target.value as StoreStatusValue,
+                                shopVertical: m[s.id]?.shopVertical ?? s.shopVertical,
+                              },
+                            }))
+                          }
+                        >
+                          <option value="PENDING">PENDING</option>
+                          <option value="APPROVED">APPROVED</option>
+                          <option value="REJECTED">REJECTED</option>
+                        </select>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <input
+                          className="ui-input !py-2 w-24"
+                          placeholder={commission}
+                          value={storeCommissionDraft[s.id] ?? ""}
+                          onChange={(e) =>
+                            setStoreCommissionDraft((m) => ({ ...m, [s.id]: e.target.value }))
+                          }
+                        />
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="inline-flex gap-2">
+                          <button
+                            type="button"
+                            className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-black text-white hover:bg-zinc-800"
+                            onClick={() => void saveStore(s.id)}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-xl border border-red-200 px-4 py-2 text-xs font-black text-red-600 hover:bg-red-50"
+                            onClick={() => void deleteStore(s.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {tab === "users" && (
+        <div className="space-y-8">
+          <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-lg font-bold text-zinc-900">Create User</h2>
+              <span className="text-xs font-semibold text-zinc-500">
+                Use this for CUSTOMER / STORE_OWNER / DELIVERY accounts
+              </span>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <input
+                className="ui-input"
+                placeholder="Name"
+                value={newUserName}
+                onChange={(e) => setNewUserName(e.target.value)}
+              />
+              <input
+                className="ui-input"
+                placeholder="Phone"
+                value={newUserPhone}
+                onChange={(e) => setNewUserPhone(e.target.value)}
+              />
+              <select
+                className="ui-input"
+                value={newUserRole}
+                onChange={(e) => setNewUserRole(e.target.value as UserRoleValue)}
+              >
+                <option value="CUSTOMER">CUSTOMER</option>
+                <option value="STORE_OWNER">STORE_OWNER</option>
+                <option value="DELIVERY">DELIVERY</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              className="ui-btn-dark mt-4 !rounded-2xl !px-6 !py-3"
+              onClick={() => void createAdminUser()}
+            >
+              Create / Upsert User
+            </button>
+          </section>
+
+          <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-display text-lg font-bold text-zinc-900">Users CRUD</h2>
+              <select
+                className="ui-input !w-52"
+                value={userRoleFilter}
+                onChange={(e) => setUserRoleFilter(e.target.value as "ALL" | UserRoleValue)}
+              >
+                <option value="ALL">All roles</option>
+                <option value="CUSTOMER">CUSTOMER</option>
+                <option value="STORE_OWNER">STORE_OWNER</option>
+                <option value="DELIVERY">DELIVERY</option>
+                <option value="ADMIN">ADMIN</option>
+              </select>
+            </div>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-400">
+                    <th className="pb-3 pr-3">Name</th>
+                    <th className="pb-3 pr-3">Phone</th>
+                    <th className="pb-3 pr-3">Role</th>
+                    <th className="pb-3 pr-3">Joined</th>
+                    <th className="pb-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {adminUsers.map((u) => (
+                    <tr key={u.id} className="bg-white">
+                      <td className="py-3 pr-3">
+                        <input
+                          className="ui-input !py-2 min-w-[180px]"
+                          value={userNameDraft[u.id] ?? u.name}
+                          onChange={(e) => setUserNameDraft((m) => ({ ...m, [u.id]: e.target.value }))}
+                        />
+                        <p className="mt-1 text-[10px] font-mono text-zinc-500">{u.id.slice(0, 12)}…</p>
+                      </td>
+                      <td className="py-3 pr-3 text-zinc-700">{u.phone}</td>
+                      <td className="py-3 pr-3">
+                        <select
+                          className="ui-input !py-2 w-44"
+                          value={userRoleDraft[u.id] ?? u.role}
+                          onChange={(e) =>
+                            setUserRoleDraft((m) => ({ ...m, [u.id]: e.target.value as UserRoleValue }))
+                          }
+                          disabled={u.role === "ADMIN"}
+                        >
+                          <option value="CUSTOMER">CUSTOMER</option>
+                          <option value="STORE_OWNER">STORE_OWNER</option>
+                          <option value="DELIVERY">DELIVERY</option>
+                          <option value="ADMIN">ADMIN</option>
+                        </select>
+                      </td>
+                      <td className="py-3 pr-3 text-zinc-600">
+                        {new Date(u.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="inline-flex gap-2">
+                          <button
+                            type="button"
+                            className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-black text-white hover:bg-zinc-800"
+                            onClick={() => void saveUser(u.id)}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-xl border border-red-200 px-4 py-2 text-xs font-black text-red-600 hover:bg-red-50 disabled:opacity-50"
+                            disabled={u.role === "ADMIN"}
+                            onClick={() => void deleteUser(u.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {adminUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-sm text-zinc-500">
+                        No users found for selected filter.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
       )}
 
       {tab === "riders" && (
@@ -2097,6 +2619,19 @@ function IconAdminStore() {
   return (
     <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+    </svg>
+  );
+}
+
+function IconAdminUsers() {
+  return (
+    <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="M17 20h5V18a4 4 0 00-5-3.87M17 20H7m10 0v-2c0-.653-.126-1.276-.356-1.846M7 20H2V18a4 4 0 015-3.87m0 5v-2c0-.653.126-1.276.356-1.846m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+      />
     </svg>
   );
 }

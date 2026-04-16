@@ -45,6 +45,16 @@ const createSchema = z.object({
   role: z.nativeEnum(UserRole),
 });
 
+const updateSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(120).optional(),
+  role: z.nativeEnum(UserRole).optional(),
+});
+
+const deleteSchema = z.object({
+  id: z.string().min(1),
+});
+
 /** Admin creates delivery (or other) accounts — no OTP in MVP; user logs in via dev OTP after first register flow or we create and they use register+verify */
 export async function POST(request: Request) {
   const auth = await requireAuth(request, [UserRole.ADMIN]);
@@ -74,6 +84,61 @@ export async function POST(request: Request) {
         role: user.role,
       },
     });
+  } catch (e) {
+    if (e instanceof z.ZodError) return jsonError(e.issues[0]?.message ?? "Invalid input");
+    return jsonError("Invalid request");
+  }
+}
+
+export async function PATCH(request: Request) {
+  const auth = await requireAuth(request, [UserRole.ADMIN]);
+  if ("error" in auth) return auth.error;
+
+  try {
+    const body = updateSchema.parse(await request.json());
+    if (!body.name && !body.role) return jsonError("Nothing to update");
+
+    const existing = await prisma.user.findUnique({
+      where: { id: body.id },
+      select: { id: true, role: true },
+    });
+    if (!existing) return jsonError("User not found", 404);
+    if (existing.role === UserRole.ADMIN && body.role && body.role !== UserRole.ADMIN) {
+      return jsonError("Admin role cannot be changed via API", 403);
+    }
+
+    const user = await prisma.user.update({
+      where: { id: body.id },
+      data: {
+        ...(body.name ? { name: body.name.trim() } : {}),
+        ...(body.role ? { role: body.role } : {}),
+      },
+      select: { id: true, name: true, phone: true, role: true, createdAt: true },
+    });
+    return jsonOk({ user });
+  } catch (e) {
+    if (e instanceof z.ZodError) return jsonError(e.issues[0]?.message ?? "Invalid input");
+    return jsonError("Invalid request");
+  }
+}
+
+export async function DELETE(request: Request) {
+  const auth = await requireAuth(request, [UserRole.ADMIN]);
+  if ("error" in auth) return auth.error;
+
+  try {
+    const body = deleteSchema.parse(await request.json());
+    if (body.id === auth.user.id) return jsonError("You cannot delete your own account", 403);
+
+    const existing = await prisma.user.findUnique({
+      where: { id: body.id },
+      select: { id: true, role: true },
+    });
+    if (!existing) return jsonError("User not found", 404);
+    if (existing.role === UserRole.ADMIN) return jsonError("Admin user cannot be deleted", 403);
+
+    await prisma.user.delete({ where: { id: body.id } });
+    return jsonOk({ ok: true });
   } catch (e) {
     if (e instanceof z.ZodError) return jsonError(e.issues[0]?.message ?? "Invalid input");
     return jsonError("Invalid request");
