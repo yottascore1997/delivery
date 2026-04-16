@@ -32,7 +32,6 @@ export default async function ShopCategorySubProductsPage({
       <ShopCategoryProductsClient
         routeSlug={ctx.routeSlug}
         catalogMainKey={ctx.catalogMainKey}
-        categoryTitle={ctx.title}
         masterCategoryId={subId}
       />
     </Suspense>

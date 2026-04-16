@@ -168,16 +168,16 @@ export default function ShopStoresPage() {
     <div className="space-y-8 sm:space-y-10">
       <section
         className="space-y-3 sm:space-y-4 md:hidden"
-        aria-label="Today's match — mobile only"
+        aria-label="Today's event — mobile only"
       >
         <h2 className="font-display text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
-          Today&apos;s Match
+          Today&apos;s Event
         </h2>
         <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100 shadow-sm sm:rounded-3xl sm:aspect-[21/9]">
           {/* eslint-disable-next-line @next/next/no-img-element -- user may swap to JPG/WebP; avoids SVG restrictions on next/image */}
           <img
             src={matchBannerUrl?.trim() || TODAYS_MATCH_FALLBACK_SRC}
-            alt="Today's match"
+            alt="Today's event"
             className="absolute inset-0 h-full w-full object-cover"
             fetchPriority="high"
           />
@@ -206,7 +206,7 @@ export default function ShopStoresPage() {
               </p>
               <div className="mt-6 flex flex-wrap gap-2.5 sm:mt-8">
                 <Link
-                  href="#stores-near-you"
+                  href="#shop-categories-heading"
                   className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-6 py-3 text-sm font-black text-white shadow-lg transition active:scale-[0.98] sm:px-7 sm:py-3.5"
                 >
                   Explore nearby
@@ -257,7 +257,7 @@ export default function ShopStoresPage() {
         </div>
       )}
 
-      <section id="stores-near-you" className="scroll-mt-36">
+      {false ? <section id="stores-near-you" className="scroll-mt-36">
         <ShopTopCategoriesStrip />
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200/80 pb-4">
           <div>
@@ -306,7 +306,7 @@ export default function ShopStoresPage() {
             ))}
           </ul>
         )}
-      </section>
+      </section> : null}
 
       <section className="rounded-3xl bg-gradient-to-r from-white/70 to-slate-50/70 p-5 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">

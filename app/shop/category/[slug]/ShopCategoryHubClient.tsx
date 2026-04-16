@@ -100,23 +100,6 @@ export function ShopCategoryHubClient({
 
   return (
     <div>
-      <div className="mb-3 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-sm backdrop-blur">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Link
-              href="/shop"
-              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
-            >
-              ← Back
-            </Link>
-            <h1 className="truncate text-base font-black text-slate-900 sm:text-lg">{title}</h1>
-          </div>
-        </div>
-        <p className="mt-1 px-0.5 text-[11px] font-semibold text-slate-500">
-          Choose a category, then browse products nearby.
-        </p>
-      </div>
-
       <ShopCategoryPromoCarousel slug={routeSlug} />
 
       {err && (
@@ -124,6 +107,13 @@ export function ShopCategoryHubClient({
           {err}
         </div>
       )}
+
+      {isFood ? (
+        <div className="mb-8 space-y-8">
+          <FoodHubPromoBanner />
+          <FoodTopStoresSection />
+        </div>
+      ) : null}
 
       <section aria-labelledby="subcat-heading" className="mb-8">
         <h2 id="subcat-heading" className="mb-3 text-sm font-black text-slate-900 sm:text-base">
@@ -149,13 +139,6 @@ export function ShopCategoryHubClient({
           </p>
         )}
       </section>
-
-      {isFood ? (
-        <div className="mb-8 space-y-8">
-          <FoodHubPromoBanner />
-          <FoodTopStoresSection />
-        </div>
-      ) : null}
 
       <ShopCategoryMobileBrandBanner />
     </div>

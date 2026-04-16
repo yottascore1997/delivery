@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client-api";
-import { addToShopCart } from "@/lib/shop-cart";
+import { addToShopCart, getShopCart, updateShopLineQty } from "@/lib/shop-cart";
 import { ProductThumb, StoreCover } from "@/components/shop/shop-visual";
 import { ShopPriceDisplay } from "@/components/shop/ShopPriceDisplay";
 
@@ -45,6 +45,7 @@ export default function ShopStorePage() {
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [openingHours, setOpeningHours] = useState<OpeningHoursPayload | null>(null);
+  const [cartQtyByProduct, setCartQtyByProduct] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
     if (!storeId) return;
@@ -73,6 +74,19 @@ export default function ShopStorePage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    function syncCart() {
+      const map: Record<string, number> = {};
+      for (const l of getShopCart()) {
+        map[l.productId] = l.quantity;
+      }
+      setCartQtyByProduct(map);
+    }
+    syncCart();
+    window.addEventListener("dlf-cart", syncCart);
+    return () => window.removeEventListener("dlf-cart", syncCart);
+  }, []);
+
   const storeClosed =
     Boolean(openingHours?.enabled) && openingHours?.isOpenNow === false;
 
@@ -90,6 +104,10 @@ export default function ShopStorePage() {
     setToast(`${p.name} added to cart`);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2800);
+  }
+
+  function qtyFor(productId: string) {
+    return cartQtyByProduct[productId] ?? 0;
   }
 
   function scrollToCat(id: string) {
@@ -380,6 +398,27 @@ export default function ShopStorePage() {
                                 ? "Out of stock"
                                 : "Choose pack"}
                           </Link>
+                        ) : qtyFor(p.id) > 0 ? (
+                          <div className="flex items-center justify-between rounded-lg border border-violet-200 bg-violet-50 px-1.5 py-1">
+                            <button
+                              type="button"
+                              onClick={() => updateShopLineQty(p.id, qtyFor(p.id) - 1)}
+                              className="flex h-8 w-8 items-center justify-center rounded-md text-lg font-black text-violet-700 hover:bg-violet-100"
+                            >
+                              −
+                            </button>
+                            <span className="min-w-[1.25rem] text-center text-[11px] font-black text-violet-800">
+                              {qtyFor(p.id)}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={storeClosed || qtyFor(p.id) >= p.stock}
+                              onClick={() => updateShopLineQty(p.id, qtyFor(p.id) + 1)}
+                              className="flex h-8 w-8 items-center justify-center rounded-md text-lg font-black text-violet-700 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-35"
+                            >
+                              +
+                            </button>
+                          </div>
                         ) : (
                           <button
                             type="button"

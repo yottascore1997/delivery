@@ -9,6 +9,7 @@ import { getToken } from "@/lib/client-api";
 function matchHome(path: string) {
   if (path === "/shop") return true;
   if (
+    path.startsWith("/shop/categories") ||
     path.startsWith("/shop/cart") ||
     path.startsWith("/shop/orders") ||
     path.startsWith("/shop/profile") ||
@@ -42,9 +43,9 @@ const tabs = [
     ),
   },
   {
-    href: "/shop/category/grocery",
+    href: "/shop/categories",
     label: "Categories",
-    match: (p: string) => p.startsWith("/shop/category"),
+    match: (p: string) => p === "/shop/categories" || p.startsWith("/shop/category"),
     icon: (active: boolean) => (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={active ? 2.5 : 2}>
         <path

@@ -5,31 +5,20 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/client-api";
 import { shopCategoryPathKeyFromMainKey } from "@/lib/shop-category-path";
+import { resolveShopMainCoverImage } from "@/lib/shop-main-cover-image";
 
-type MainCat = { id: string; key: string; name: string };
-
-const FALLBACK_IMAGES: Record<string, string> = {
-  grocery:
-    "https://images.unsplash.com/photo-1542838132-92c53300491e?w=240&h=240&fit=crop&q=80",
-  "fruits-vegetables":
-    "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=240&h=240&fit=crop&q=80",
-  food:
-    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=240&h=240&fit=crop&q=80",
-  "food-beverages":
-    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=240&h=240&fit=crop&q=80",
-  electronics:
-    "/images/electro.PNG",
-};
+type ShopTreeSub = { id: string; name: string; imageUrl?: string | null };
+type ShopTreeMain = { id: string; key: string; name: string; subcategories: ShopTreeSub[] };
 
 export function ShopTopCategoriesStrip() {
-  const [mains, setMains] = useState<MainCat[]>([]);
+  const [mains, setMains] = useState<ShopTreeMain[]>([]);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [imgBroken, setImgBroken] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     void (async () => {
-      const res = await api<{ mains: MainCat[] }>("/api/master/mains");
-      if (res.ok && res.data) setMains(res.data.mains);
+      const res = await api<{ mains: ShopTreeMain[] }>("/api/master/shop-tree");
+      if (res.ok && res.data?.mains) setMains(res.data.mains);
     })();
   }, []);
 
@@ -60,10 +49,7 @@ export function ShopTopCategoriesStrip() {
         className="scrollbar-hide mt-4 flex snap-x snap-mandatory gap-6 overflow-x-auto pb-1"
       >
         {items.map((c) => {
-          const img =
-            FALLBACK_IMAGES[c.pathKey] ??
-            FALLBACK_IMAGES[c.key.toLowerCase()] ??
-            FALLBACK_IMAGES.grocery;
+          const img = resolveShopMainCoverImage(c);
           const broken = imgBroken[c.id] ?? false;
           return (
             <Link
@@ -71,7 +57,7 @@ export function ShopTopCategoriesStrip() {
               href={`/shop/category/${encodeURIComponent(c.pathKey)}`}
               className="group flex shrink-0 snap-center flex-col items-center"
             >
-              <div className="relative h-[92px] w-[92px] overflow-hidden rounded-full bg-[#f2efe6] ring-1 ring-black/5 transition group-hover:ring-black/10">
+              <div className="relative h-[92px] w-[92px] overflow-hidden rounded-full bg-slate-100 ring-1 ring-black/5 transition group-hover:ring-black/10">
                 {broken ? (
                   <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100 font-display text-2xl font-black text-orange-900/70">
                     {c.name.charAt(0).toUpperCase()}
@@ -81,7 +67,7 @@ export function ShopTopCategoriesStrip() {
                     src={img}
                     alt={c.name}
                     fill
-                    sizes="92px"
+                    sizes="96px"
                     className="object-cover transition-transform duration-300 group-hover:scale-105"
                     onError={() => setImgBroken((m) => ({ ...m, [c.id]: true }))}
                   />
@@ -97,4 +83,3 @@ export function ShopTopCategoriesStrip() {
     </section>
   );
 }
-
