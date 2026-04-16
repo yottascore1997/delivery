@@ -29,6 +29,19 @@ type AdminOrderRow = {
   user: { phone: string; name?: string | null };
   delivery: unknown;
 };
+type AdminListRequestRow = {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhone: string;
+  imageUrl: string;
+  note: string;
+  address: string;
+  status: string;
+  adminNote: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
 type AdminTab = "overview" | "stores" | "riders" | "finance" | "catalog";
 
@@ -242,6 +255,7 @@ export default function AdminPage() {
   const [storeCommissionDraft, setStoreCommissionDraft] = useState<Record<string, string>>({});
   const [readyOrders, setReadyOrders] = useState<AdminOrderRow[]>([]);
   const [recentOrders, setRecentOrders] = useState<AdminOrderRow[]>([]);
+  const [listRequests, setListRequests] = useState<AdminListRequestRow[]>([]);
   const [deliveryUsers, setDeliveryUsers] = useState<
     { id: string; name: string; phone: string }[]
   >([]);
@@ -326,6 +340,11 @@ export default function AdminPage() {
       "/api/admin/orders?limit=50",
     );
     if (orRecent.ok && orRecent.data) setRecentOrders(orRecent.data.orders);
+
+    const lr = await api<{ requests: AdminListRequestRow[] }>(
+      "/api/admin/list-requests?limit=60",
+    );
+    if (lr.ok && lr.data?.requests) setListRequests(lr.data.requests);
 
     const du = await api<{ users: typeof deliveryUsers }>(
       "/api/admin/users?role=DELIVERY",
@@ -534,6 +553,16 @@ export default function AdminPage() {
       body: JSON.stringify({ orderId, status }),
     });
     setMsg(res.ok ? "Order status updated" : res.error || t("adminMsgError"));
+    await refresh();
+  }
+
+  async function updateListRequestStatus(id: string, status: string) {
+    setMsg(null);
+    const res = await api("/api/admin/list-requests", {
+      method: "PATCH",
+      body: JSON.stringify({ id, status }),
+    });
+    setMsg(res.ok ? "List request updated" : res.error || t("adminMsgError"));
     await refresh();
   }
 
@@ -1087,6 +1116,93 @@ export default function AdminPage() {
             ) : (
               <p className="mt-2 text-sm text-zinc-500">{t("adminTodaysMatchNone")}</p>
             )}
+          </section>
+
+          <section className="rounded-3xl border border-emerald-200/80 bg-white p-6 shadow-xl shadow-emerald-100/40">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-display text-lg font-bold text-zinc-900">
+                Photo list requests
+              </h3>
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                {listRequests.filter((r) => r.status !== "DELIVERED" && r.status !== "REJECTED").length} active
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-zinc-600">
+              Customer uploaded grocery lists. Review and mark delivery status.
+            </p>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-xs font-bold uppercase tracking-wide text-zinc-400">
+                    <th className="pb-3 pr-3">Photo</th>
+                    <th className="pb-3 pr-3">Customer</th>
+                    <th className="pb-3 pr-3">Address / note</th>
+                    <th className="pb-3 pr-3">Created</th>
+                    <th className="pb-3 pr-3">Status</th>
+                    <th className="pb-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listRequests.slice(0, 15).map((r) => (
+                    <tr key={r.id} className="border-b border-zinc-100 align-top last:border-0">
+                      <td className="py-3 pr-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={r.imageUrl}
+                          alt=""
+                          className="h-16 w-16 rounded-xl border border-zinc-200 object-cover"
+                        />
+                      </td>
+                      <td className="py-3 pr-3">
+                        <p className="font-semibold text-zinc-900">{r.userName || "Customer"}</p>
+                        <p className="text-xs text-zinc-500">{r.userPhone}</p>
+                        <p className="mt-1 font-mono text-[10px] text-zinc-400">#{r.id.slice(0, 8)}</p>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <p className="max-w-xs text-xs text-zinc-700">{r.address || "No address"}</p>
+                        {r.note ? <p className="mt-1 max-w-xs text-xs text-zinc-500">Note: {r.note}</p> : null}
+                      </td>
+                      <td className="py-3 pr-3 text-xs text-zinc-600">
+                        {new Date(r.createdAt).toLocaleString()}
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ${listRequestStatusStyle(r.status)}`}>
+                          {r.status.replace(/_/g, " ")}
+                        </span>
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void updateListRequestStatus(r.id, "IN_REVIEW")}
+                            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-700"
+                          >
+                            Review
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void updateListRequestStatus(r.id, "OUT_FOR_DELIVERY")}
+                            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700"
+                          >
+                            Out
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void updateListRequestStatus(r.id, "DELIVERED")}
+                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700"
+                          >
+                            Delivered
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {listRequests.length === 0 ? (
+                <p className="py-6 text-center text-sm text-zinc-500">No photo list requests yet.</p>
+              ) : null}
+            </div>
           </section>
 
           <AdminCharts
@@ -1953,6 +2069,18 @@ function adminOrderStatusStyle(s: string) {
     OUT_FOR_DELIVERY: "bg-orange-100 text-orange-900",
     DELIVERED: "bg-emerald-100 text-emerald-900",
     CANCELLED: "bg-zinc-200 text-zinc-700",
+  };
+  return m[s] ?? "bg-zinc-100 text-zinc-800";
+}
+
+function listRequestStatusStyle(s: string) {
+  const m: Record<string, string> = {
+    NEW: "bg-amber-100 text-amber-900",
+    IN_REVIEW: "bg-sky-100 text-sky-900",
+    CONFIRMED: "bg-violet-100 text-violet-900",
+    OUT_FOR_DELIVERY: "bg-orange-100 text-orange-900",
+    DELIVERED: "bg-emerald-100 text-emerald-900",
+    REJECTED: "bg-rose-100 text-rose-900",
   };
   return m[s] ?? "bg-zinc-100 text-zinc-800";
 }
