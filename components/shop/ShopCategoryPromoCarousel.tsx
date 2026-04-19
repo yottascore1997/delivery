@@ -128,6 +128,59 @@ const PROMOS_BY_VERTICAL: Record<ShopVerticalSlug, CategoryPromoSlide[]> = {
       href: "#category-products",
     },
   ],
+  fashion: [
+    {
+      id: "fa1",
+      headline: "Style that fits",
+      subline: "Trending apparel from nearby stores",
+      cta: "Shop now",
+      gradient: "linear-gradient(105deg, #fce7f3 0%, #f472b6 48%, #9d174d 48.5%, #4c0519 100%)",
+      href: "#category-products",
+    },
+    {
+      id: "fa2",
+      headline: "New season drops",
+      subline: "Dresses, tops & everyday wear",
+      cta: "Browse",
+      gradient: "linear-gradient(135deg, #faf5ff 0%, #c084fc 50%, #6b21a8 100%)",
+      href: "#category-products",
+    },
+    {
+      id: "fa3",
+      headline: "Wardrobe refresh",
+      subline: "Curated looks · quick delivery",
+      cta: "Explore",
+      gradient: "linear-gradient(120deg, #fff1f2 0%, #fb7185 45%, #9f1239 100%)",
+      accent: "#fff1f2",
+      href: "#category-products",
+    },
+  ],
+  footwear: [
+    {
+      id: "fw1",
+      headline: "Step in style",
+      subline: "Sneakers, sandals & more near you",
+      cta: "Shop now",
+      gradient: "linear-gradient(105deg, #e0e7ff 0%, #6366f1 48%, #312e81 48.5%, #1e1b4b 100%)",
+      href: "#category-products",
+    },
+    {
+      id: "fw2",
+      headline: "Comfort first",
+      subline: "Daily pairs for work & weekend",
+      cta: "Browse",
+      gradient: "linear-gradient(135deg, #fef3c7 0%, #d97706 50%, #78350f 100%)",
+      href: "#category-products",
+    },
+    {
+      id: "fw3",
+      headline: "Fresh soles",
+      subline: "Sports & casual footwear deals",
+      cta: "View all",
+      gradient: "linear-gradient(120deg, #ecfdf5 0%, #14b8a6 45%, #134e4a 100%)",
+      href: "#category-products",
+    },
+  ],
 };
 
 function PromoCard({ slide }: { slide: CategoryPromoSlide }) {

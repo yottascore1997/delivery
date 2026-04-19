@@ -13,7 +13,14 @@ const bodySchema = z.object({
   imageUrl: z.string().min(1).max(2048),
   imageUrl2: z.string().min(1).max(2048),
   shopVertical: z
-    .enum(["grocery", "fruits-vegetables", "food", "electronics"])
+    .enum([
+      "grocery",
+      "fruits-vegetables",
+      "food",
+      "electronics",
+      "fashion",
+      "footwear",
+    ])
     .optional(),
 });
 
