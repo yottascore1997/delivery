@@ -67,6 +67,29 @@ type AdminStoreRow = {
   createdAt: string;
 };
 
+type AdminSettlementRow = {
+  id: string;
+  storeId: string;
+  storeName: string;
+  periodStart: string;
+  periodEnd: string;
+  status: "DRAFT" | "APPROVED" | "PAID" | "FAILED";
+  grossAmount: number;
+  platformCommission: number;
+  refundAdjustment: number;
+  bonusAdjustment: number;
+  manualAdjustment: number;
+  netPayable: number;
+  ordersCount: number;
+  blendedCommissionPct?: number | null;
+  paymentMode?: string | null;
+  referenceNo?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  approvedAt?: string | null;
+  paidAt?: string | null;
+};
+
 type AdminTab =
   | "overview"
   | "stores"
@@ -84,6 +107,10 @@ function scrollToEl(el: HTMLElement | null) {
       el.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   });
+}
+
+function toDateInput(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
 
 type MasterCatalog = {
@@ -301,6 +328,14 @@ export default function AdminPage() {
     { id: string; name: string; phone: string }[]
   >([]);
   const [commission, setCommission] = useState("10");
+  const [settlements, setSettlements] = useState<AdminSettlementRow[]>([]);
+  const [settlementStoreId, setSettlementStoreId] = useState("");
+  const [settlementPeriodStart, setSettlementPeriodStart] = useState("");
+  const [settlementPeriodEnd, setSettlementPeriodEnd] = useState("");
+  const [settlementRefundAdj, setSettlementRefundAdj] = useState("0");
+  const [settlementBonusAdj, setSettlementBonusAdj] = useState("0");
+  const [settlementManualAdj, setSettlementManualAdj] = useState("0");
+  const [settlementNotes, setSettlementNotes] = useState("");
   const [todaysMatchBannerUrl, setTodaysMatchBannerUrl] = useState<string | null>(
     null,
   );
@@ -360,6 +395,7 @@ export default function AdminPage() {
     );
     if (stApproved.ok && stApproved.data) {
       setApprovedStores(stApproved.data.stores);
+      setSettlementStoreId((prev) => prev || stApproved.data!.stores[0]?.id || "");
       setStoreCommissionDraft((prev) => {
         const next = { ...prev };
         for (const sRow of stApproved.data!.stores) {
@@ -411,6 +447,13 @@ export default function AdminPage() {
 
     const c = await api<{ commissionPercent: number }>("/api/admin/commission");
     if (c.ok && c.data) setCommission(String(c.data.commissionPercent));
+
+    const setRes = await api<{ settlements: AdminSettlementRow[] }>(
+      "/api/admin/settlements?limit=120",
+    );
+    if (setRes.ok && setRes.data?.settlements) {
+      setSettlements(setRes.data.settlements);
+    }
 
     const usersPath =
       userRoleFilter === "ALL"
@@ -543,6 +586,16 @@ export default function AdminPage() {
   }, [router]);
 
   useEffect(() => {
+    if (settlementPeriodStart && settlementPeriodEnd) return;
+    const now = new Date();
+    const periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const periodStart = new Date(periodEnd);
+    periodStart.setDate(periodStart.getDate() - 7);
+    setSettlementPeriodStart(toDateInput(periodStart));
+    setSettlementPeriodEnd(toDateInput(periodEnd));
+  }, [settlementPeriodStart, settlementPeriodEnd]);
+
+  useEffect(() => {
     if (tab !== "catalog") setCatalogNotice(null);
   }, [tab]);
 
@@ -601,6 +654,69 @@ export default function AdminPage() {
     });
     setMsg(res.ok ? "Store commission saved ✓" : res.error || t("adminMsgError"));
     await refresh();
+  }
+
+  async function generateSettlement() {
+    setMsg(null);
+    if (!settlementStoreId) {
+      setMsg("Pick a store first.");
+      return;
+    }
+    if (!settlementPeriodStart || !settlementPeriodEnd) {
+      setMsg("Select settlement period start and end.");
+      return;
+    }
+    const res = await api<{ settlement: AdminSettlementRow }>("/api/admin/settlements", {
+      method: "POST",
+      body: JSON.stringify({
+        storeId: settlementStoreId,
+        periodStart: new Date(settlementPeriodStart).toISOString(),
+        periodEnd: new Date(settlementPeriodEnd).toISOString(),
+        refundAdjustment: Number(settlementRefundAdj || "0"),
+        bonusAdjustment: Number(settlementBonusAdj || "0"),
+        manualAdjustment: Number(settlementManualAdj || "0"),
+        notes: settlementNotes.trim(),
+      }),
+    });
+    setMsg(res.ok ? "Settlement draft generated ✓" : res.error || "Could not generate settlement");
+    if (res.ok) {
+      setSettlementRefundAdj("0");
+      setSettlementBonusAdj("0");
+      setSettlementManualAdj("0");
+      setSettlementNotes("");
+      await refresh();
+    }
+  }
+
+  async function updateSettlementStatus(
+    settlementId: string,
+    status: "APPROVED" | "PAID" | "FAILED",
+  ) {
+    setMsg(null);
+    const payload: {
+      status: "APPROVED" | "PAID" | "FAILED";
+      referenceNo?: string;
+      paymentMode?: string;
+      notes?: string;
+    } = { status };
+    if (status === "PAID") {
+      const ref = window.prompt("Enter transfer reference / UTR");
+      if (!ref?.trim()) {
+        setMsg("Reference is required to mark settlement as paid.");
+        return;
+      }
+      payload.referenceNo = ref.trim();
+      payload.paymentMode = "BANK_TRANSFER";
+    }
+    const res = await api<{ settlement: AdminSettlementRow }>(
+      `/api/admin/settlements/${encodeURIComponent(settlementId)}/status`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+    setMsg(res.ok ? `Settlement moved to ${status}.` : res.error || "Could not update settlement");
+    if (res.ok) await refresh();
   }
 
   async function createDelivery() {
@@ -2053,6 +2169,197 @@ export default function AdminPage() {
               </button>
             </section>
           </div>
+
+          <section className="rounded-3xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50/40 to-white p-6 shadow-xl">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-lg font-bold text-zinc-900">
+                Store settlements (admin-controlled)
+              </h2>
+              <p className="text-xs font-semibold text-zinc-600">
+                Flow: DRAFT → APPROVED → PAID
+              </p>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div>
+                <label className="ui-label">Store</label>
+                <select
+                  className="ui-input"
+                  value={settlementStoreId}
+                  onChange={(e) => setSettlementStoreId(e.target.value)}
+                >
+                  <option value="">Select store</option>
+                  {approvedStores.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="ui-label">Period start</label>
+                <input
+                  type="date"
+                  className="ui-input"
+                  value={settlementPeriodStart}
+                  onChange={(e) => setSettlementPeriodStart(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="ui-label">Period end (exclusive)</label>
+                <input
+                  type="date"
+                  className="ui-input"
+                  value={settlementPeriodEnd}
+                  onChange={(e) => setSettlementPeriodEnd(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="ui-label">Refund adjustment (−)</label>
+                <input
+                  className="ui-input"
+                  inputMode="decimal"
+                  value={settlementRefundAdj}
+                  onChange={(e) => setSettlementRefundAdj(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="ui-label">Bonus (+)</label>
+                <input
+                  className="ui-input"
+                  inputMode="decimal"
+                  value={settlementBonusAdj}
+                  onChange={(e) => setSettlementBonusAdj(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="ui-label">Manual (+/−)</label>
+                <input
+                  className="ui-input"
+                  inputMode="decimal"
+                  value={settlementManualAdj}
+                  onChange={(e) => setSettlementManualAdj(e.target.value)}
+                />
+              </div>
+              <div className="md:col-span-3">
+                <label className="ui-label">Notes (optional)</label>
+                <input
+                  className="ui-input"
+                  value={settlementNotes}
+                  onChange={(e) => setSettlementNotes(e.target.value)}
+                  placeholder="Reason, references, payout notes"
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void generateSettlement()}
+              className="ui-btn-primary mt-4 !rounded-2xl"
+            >
+              Generate draft settlement
+            </button>
+
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full min-w-[1040px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-400">
+                    <th className="pb-3 pr-3">Store / Period</th>
+                    <th className="pb-3 pr-3">Orders</th>
+                    <th className="pb-3 pr-3">Gross</th>
+                    <th className="pb-3 pr-3">Platform</th>
+                    <th className="pb-3 pr-3">Adjustments</th>
+                    <th className="pb-3 pr-3">Net</th>
+                    <th className="pb-3 pr-3">Status</th>
+                    <th className="pb-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {settlements.map((s) => (
+                    <tr key={s.id} className="bg-white">
+                      <td className="py-3 pr-3">
+                        <p className="font-semibold text-zinc-900">{s.storeName}</p>
+                        <p className="text-xs text-zinc-500">
+                          {new Date(s.periodStart).toLocaleDateString()} →{" "}
+                          {new Date(s.periodEnd).toLocaleDateString()}
+                        </p>
+                        {s.referenceNo ? (
+                          <p className="text-[11px] font-semibold text-emerald-700">
+                            Ref: {s.referenceNo}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="py-3 pr-3 font-semibold text-zinc-800">{s.ordersCount}</td>
+                      <td className="py-3 pr-3 font-semibold text-zinc-900">₹{s.grossAmount}</td>
+                      <td className="py-3 pr-3 text-rose-700">
+                        ₹{s.platformCommission}
+                        {typeof s.blendedCommissionPct === "number" ? (
+                          <p className="text-[11px] text-zinc-500">~{s.blendedCommissionPct}%</p>
+                        ) : null}
+                      </td>
+                      <td className="py-3 pr-3 text-xs text-zinc-600">
+                        <p>-₹{s.refundAdjustment}</p>
+                        <p>+₹{s.bonusAdjustment}</p>
+                        <p>{s.manualAdjustment >= 0 ? "+" : ""}₹{s.manualAdjustment}</p>
+                      </td>
+                      <td className="py-3 pr-3 font-black text-emerald-700">₹{s.netPayable}</td>
+                      <td className="py-3 pr-3">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-black ${
+                            s.status === "PAID"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : s.status === "APPROVED"
+                                ? "bg-sky-100 text-sky-800"
+                                : s.status === "FAILED"
+                                  ? "bg-rose-100 text-rose-800"
+                                  : "bg-amber-100 text-amber-900"
+                          }`}
+                        >
+                          {s.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          {s.status === "DRAFT" || s.status === "FAILED" ? (
+                            <button
+                              type="button"
+                              className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-black text-white hover:bg-zinc-800"
+                              onClick={() => void updateSettlementStatus(s.id, "APPROVED")}
+                            >
+                              Approve
+                            </button>
+                          ) : null}
+                          {s.status === "APPROVED" ? (
+                            <button
+                              type="button"
+                              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700"
+                              onClick={() => void updateSettlementStatus(s.id, "PAID")}
+                            >
+                              Mark paid
+                            </button>
+                          ) : null}
+                          {s.status !== "PAID" && s.status !== "FAILED" ? (
+                            <button
+                              type="button"
+                              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-100"
+                              onClick={() => void updateSettlementStatus(s.id, "FAILED")}
+                            >
+                              Fail
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {settlements.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-sm text-zinc-500">
+                        No settlements yet.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
           <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
             <div className="flex flex-wrap items-center justify-between gap-2">
