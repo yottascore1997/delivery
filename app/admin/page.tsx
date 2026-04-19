@@ -67,6 +67,28 @@ type AdminStoreRow = {
   createdAt: string;
 };
 
+type AdminStoreProductRow = {
+  id: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  mrp: number | null;
+  price: number;
+  stock: number;
+  isActive: boolean;
+  unitLabel?: string | null;
+  commissionPercent?: number | null;
+  effectiveCommissionPercent: number;
+  createdAt: string;
+};
+
+type AdminStoreProductSummary = {
+  platformDefault: number;
+  deliveredGross: number;
+  deliveredPlatformCommission: number;
+  deliveredEstimatedStoreNet: number;
+};
+
 type AdminSettlementRow = {
   id: string;
   storeId: string;
@@ -94,6 +116,7 @@ type AdminSettlementRow = {
 type AdminTab =
   | "overview"
   | "stores"
+  | "productAudit"
   | "users"
   | "riders"
   | "finance"
@@ -304,6 +327,15 @@ export default function AdminPage() {
   >([]);
   const [approvedStores, setApprovedStores] = useState<AdminStoreRow[]>([]);
   const [allStores, setAllStores] = useState<AdminStoreRow[]>([]);
+  const [auditStoreId, setAuditStoreId] = useState("");
+  const [auditProducts, setAuditProducts] = useState<AdminStoreProductRow[]>([]);
+  const [auditSummary, setAuditSummary] = useState<AdminStoreProductSummary | null>(null);
+  const [auditPriceDraft, setAuditPriceDraft] = useState<Record<string, string>>({});
+  const [auditMrpDraft, setAuditMrpDraft] = useState<Record<string, string>>({});
+  const [auditStockDraft, setAuditStockDraft] = useState<Record<string, string>>({});
+  const [auditCommissionDraft, setAuditCommissionDraft] = useState<Record<string, string>>({});
+  const [auditActiveDraft, setAuditActiveDraft] = useState<Record<string, boolean>>({});
+  const [auditQuery, setAuditQuery] = useState("");
   const [storeDraft, setStoreDraft] = useState<
     Record<string, { name: string; status: StoreStatusValue; shopVertical: string }>
   >({});
@@ -404,6 +436,7 @@ export default function AdminPage() {
     if (stApproved.ok && stApproved.data) {
       setApprovedStores(stApproved.data.stores);
       setSettlementStoreId((prev) => prev || stApproved.data!.stores[0]?.id || "");
+      setAuditStoreId((prev) => prev || stApproved.data!.stores[0]?.id || "");
       setStoreCommissionDraft((prev) => {
         const next = { ...prev };
         for (const sRow of stApproved.data!.stores) {
@@ -648,6 +681,13 @@ export default function AdminPage() {
     const t = window.setTimeout(() => setCatalogNotice(null), 8000);
     return () => window.clearTimeout(t);
   }, [catalogNotice]);
+
+  useEffect(() => {
+    if (tab !== "stores") return;
+    if (!auditStoreId) return;
+    void loadAuditProducts(auditStoreId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, auditStoreId]);
 
   useEffect(() => {
     if (!msg?.trim()) return;
@@ -938,6 +978,88 @@ export default function AdminPage() {
     });
     setMsg(res.ok ? "Store deleted." : res.error || t("adminMsgError"));
     if (res.ok) await refresh();
+  }
+
+  async function loadAuditProducts(storeId: string) {
+    if (!storeId) {
+      setAuditProducts([]);
+      setAuditSummary(null);
+      return;
+    }
+    const res = await api<{
+      products: AdminStoreProductRow[];
+      commissionSummary: AdminStoreProductSummary;
+    }>(`/api/admin/store-products?storeId=${encodeURIComponent(storeId)}`);
+    if (!res.ok || !res.data) {
+      setAuditProducts([]);
+      setAuditSummary(null);
+      return;
+    }
+    setAuditProducts(res.data.products ?? []);
+    setAuditSummary(res.data.commissionSummary ?? null);
+    setAuditPriceDraft((prev) => {
+      const next = { ...prev };
+      for (const p of res.data!.products ?? []) if (next[p.id] === undefined) next[p.id] = String(p.price);
+      return next;
+    });
+    setAuditMrpDraft((prev) => {
+      const next = { ...prev };
+      for (const p of res.data!.products ?? []) if (next[p.id] === undefined) next[p.id] = p.mrp != null ? String(p.mrp) : "";
+      return next;
+    });
+    setAuditStockDraft((prev) => {
+      const next = { ...prev };
+      for (const p of res.data!.products ?? []) if (next[p.id] === undefined) next[p.id] = String(p.stock);
+      return next;
+    });
+    setAuditCommissionDraft((prev) => {
+      const next = { ...prev };
+      for (const p of res.data!.products ?? []) if (next[p.id] === undefined) next[p.id] = typeof p.commissionPercent === "number" ? String(p.commissionPercent) : "";
+      return next;
+    });
+    setAuditActiveDraft((prev) => {
+      const next = { ...prev };
+      for (const p of res.data!.products ?? []) if (next[p.id] === undefined) next[p.id] = p.isActive;
+      return next;
+    });
+  }
+
+  async function saveAuditProduct(productId: string) {
+    const price = Number(auditPriceDraft[productId] ?? "");
+    const stock = Number(auditStockDraft[productId] ?? "");
+    const mrpRaw = (auditMrpDraft[productId] ?? "").trim();
+    const commRaw = (auditCommissionDraft[productId] ?? "").trim();
+    if (!Number.isFinite(price) || price <= 0) {
+      setMsg("Valid selling price required.");
+      return;
+    }
+    if (!Number.isFinite(stock) || stock < 0) {
+      setMsg("Valid stock required.");
+      return;
+    }
+    const mrp = mrpRaw === "" ? null : Number(mrpRaw);
+    if (mrp != null && (!Number.isFinite(mrp) || mrp <= 0)) {
+      setMsg("MRP must be positive or empty.");
+      return;
+    }
+    const commissionPercent = commRaw === "" ? null : Number(commRaw);
+    if (commissionPercent != null && (!Number.isFinite(commissionPercent) || commissionPercent < 0 || commissionPercent > 100)) {
+      setMsg("Commission must be 0-100 or empty.");
+      return;
+    }
+    const res = await api("/api/products/update", {
+      method: "PATCH",
+      body: JSON.stringify({
+        productId,
+        price,
+        stock: Math.round(stock),
+        ...(mrp != null ? { mrp } : {}),
+        commissionPercent,
+        isActive: auditActiveDraft[productId] ?? true,
+      }),
+    });
+    setMsg(res.ok ? "Product saved ✓" : res.error || "Could not save product");
+    if (res.ok && auditStoreId) await loadAuditProducts(auditStoreId);
   }
 
   async function assign() {
@@ -1381,6 +1503,8 @@ export default function AdminPage() {
       ? t("adminBreadcrumbOverview")
       : tab === "stores"
         ? t("adminBreadcrumbStores")
+        : tab === "productAudit"
+          ? "Product Audit"
         : tab === "users"
           ? "Users"
         : tab === "riders"
@@ -1399,6 +1523,11 @@ export default function AdminPage() {
     : null;
   const selectedMain = masterCatalog?.mains.find((m) => m.id === pickMainId);
   const selectedSub = selectedMain?.subcategories.find((s) => s.id === pickSubId);
+  const filteredAuditProducts = auditProducts.filter((p) => {
+    const q = auditQuery.trim().toLowerCase();
+    if (!q) return true;
+    return p.name.toLowerCase().includes(q) || p.categoryName.toLowerCase().includes(q);
+  });
 
   return (
     <DashboardShell
@@ -1417,6 +1546,11 @@ export default function AdminPage() {
           id: "stores",
           label: t("adminNavStores"),
           icon: <IconAdminStore />,
+        },
+        {
+          id: "productAudit",
+          label: "Product Audit",
+          icon: <IconAdminCatalog />,
         },
         {
           id: "users",
@@ -1936,7 +2070,146 @@ export default function AdminPage() {
               </table>
             </div>
           </section>
+
         </div>
+      )}
+
+      {tab === "productAudit" && (
+        <section className="rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/50 to-white p-6 shadow-xl">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="font-display text-lg font-bold text-zinc-900">Store product audit & manage</h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Admin can view all products, effective commission, stock, price and active state.
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <select
+                className="ui-input min-w-[240px]"
+                value={auditStoreId}
+                onChange={(e) => setAuditStoreId(e.target.value)}
+              >
+                <option value="">Select store</option>
+                {approvedStores.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="ui-input min-w-[220px]"
+                placeholder="Search product/category"
+                value={auditQuery}
+                onChange={(e) => setAuditQuery(e.target.value)}
+              />
+            </div>
+          </div>
+          {auditSummary ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-zinc-200 bg-white p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">Delivered gross</p>
+                <p className="mt-1 text-xl font-black text-zinc-900">₹{auditSummary.deliveredGross}</p>
+              </div>
+              <div className="rounded-2xl border border-rose-200 bg-white p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">Platform commission</p>
+                <p className="mt-1 text-xl font-black text-rose-700">₹{auditSummary.deliveredPlatformCommission}</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-200 bg-white p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">Store estimated net</p>
+                <p className="mt-1 text-xl font-black text-emerald-700">₹{auditSummary.deliveredEstimatedStoreNet}</p>
+              </div>
+            </div>
+          ) : null}
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[1220px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-400">
+                  <th className="pb-3 pr-3">Product</th>
+                  <th className="pb-3 pr-3">Category</th>
+                  <th className="pb-3 pr-3">MRP</th>
+                  <th className="pb-3 pr-3">Price</th>
+                  <th className="pb-3 pr-3">Stock</th>
+                  <th className="pb-3 pr-3">Product %</th>
+                  <th className="pb-3 pr-3">Effective %</th>
+                  <th className="pb-3 pr-3">Active</th>
+                  <th className="pb-3 text-right">Manage</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {filteredAuditProducts.map((p) => (
+                  <tr key={p.id} className="bg-white">
+                    <td className="py-3 pr-3">
+                      <p className="font-semibold text-zinc-900">{p.name}</p>
+                      <p className="text-[10px] font-mono text-zinc-500">{p.id.slice(0, 10)}…</p>
+                    </td>
+                    <td className="py-3 pr-3 text-zinc-700">{p.categoryName}</td>
+                    <td className="py-3 pr-3">
+                      <input
+                        className="ui-input !py-2 w-24"
+                        value={auditMrpDraft[p.id] ?? ""}
+                        onChange={(e) => setAuditMrpDraft((m) => ({ ...m, [p.id]: e.target.value }))}
+                        placeholder="MRP"
+                      />
+                    </td>
+                    <td className="py-3 pr-3">
+                      <input
+                        className="ui-input !py-2 w-24"
+                        value={auditPriceDraft[p.id] ?? String(p.price)}
+                        onChange={(e) => setAuditPriceDraft((m) => ({ ...m, [p.id]: e.target.value }))}
+                      />
+                    </td>
+                    <td className="py-3 pr-3">
+                      <input
+                        className="ui-input !py-2 w-20"
+                        value={auditStockDraft[p.id] ?? String(p.stock)}
+                        onChange={(e) => setAuditStockDraft((m) => ({ ...m, [p.id]: e.target.value }))}
+                      />
+                    </td>
+                    <td className="py-3 pr-3">
+                      <input
+                        className="ui-input !py-2 w-20"
+                        value={auditCommissionDraft[p.id] ?? ""}
+                        onChange={(e) => setAuditCommissionDraft((m) => ({ ...m, [p.id]: e.target.value }))}
+                        placeholder="default"
+                      />
+                    </td>
+                    <td className="py-3 pr-3 font-semibold text-zinc-700">
+                      {p.effectiveCommissionPercent}%
+                    </td>
+                    <td className="py-3 pr-3">
+                      <label className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-700">
+                        <input
+                          type="checkbox"
+                          checked={auditActiveDraft[p.id] ?? p.isActive}
+                          onChange={(e) =>
+                            setAuditActiveDraft((m) => ({ ...m, [p.id]: e.target.checked }))
+                          }
+                        />
+                        {auditActiveDraft[p.id] ?? p.isActive ? "Active" : "Inactive"}
+                      </label>
+                    </td>
+                    <td className="py-3 text-right">
+                      <button
+                        type="button"
+                        className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-black text-white hover:bg-zinc-800"
+                        onClick={() => void saveAuditProduct(p.id)}
+                      >
+                        Save
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filteredAuditProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-sm text-zinc-500">
+                      {auditStoreId ? "No products found for this store." : "Select a store to audit products."}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
 
       {tab === "users" && (
