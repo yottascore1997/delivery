@@ -76,6 +76,7 @@ export async function GET(request: Request) {
       blendedCommissionPct: s.blendedCommissionPct,
       paymentMode: s.paymentMode ?? null,
       referenceNo: s.referenceNo ?? null,
+      paymentProofUrl: s.paymentProofUrl ?? null,
       notes: s.notes ?? null,
       createdAt: s.createdAt,
       approvedAt: s.approvedAt ?? null,
@@ -125,7 +126,9 @@ export async function POST(request: Request) {
     });
 
     if (!deliveredOrders.length) {
-      return jsonError("No delivered orders in selected period");
+      return jsonError(
+        "Selected period me koi delivered order nahi mila. Date range ya store check karein.",
+      );
     }
 
     const settledMapRows = await (prisma as any).storeSettlementOrder.findMany({
@@ -135,7 +138,9 @@ export async function POST(request: Request) {
     const settledIds = new Set((settledMapRows as Array<{ orderId: string }>).map((r) => r.orderId));
     const eligibleOrders = deliveredOrders.filter((o) => !settledIds.has(o.id));
     if (!eligibleOrders.length) {
-      return jsonError("All delivered orders in this period are already settled");
+      return jsonError(
+        "Is period ke delivered orders pehle hi settle ho chuke hain. Naya date range select karein.",
+      );
     }
 
     const platformDefault = await getCommissionPercent();

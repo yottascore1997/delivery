@@ -54,6 +54,7 @@ export async function GET(request: Request) {
       blendedCommissionPct: s.blendedCommissionPct,
       paymentMode: s.paymentMode ?? null,
       referenceNo: s.referenceNo ?? null,
+      paymentProofUrl: s.paymentProofUrl ?? null,
       notes: s.notes ?? null,
       createdAt: s.createdAt,
       approvedAt: s.approvedAt ?? null,

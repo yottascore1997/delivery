@@ -84,6 +84,7 @@ type AdminSettlementRow = {
   blendedCommissionPct?: number | null;
   paymentMode?: string | null;
   referenceNo?: string | null;
+  paymentProofUrl?: string | null;
   notes?: string | null;
   createdAt: string;
   approvedAt?: string | null;
@@ -336,6 +337,12 @@ export default function AdminPage() {
   const [settlementBonusAdj, setSettlementBonusAdj] = useState("0");
   const [settlementManualAdj, setSettlementManualAdj] = useState("0");
   const [settlementNotes, setSettlementNotes] = useState("");
+  const [settlementReferenceDraft, setSettlementReferenceDraft] = useState<Record<string, string>>({});
+  const [settlementPaymentModeDraft, setSettlementPaymentModeDraft] = useState<Record<string, "CASH" | "CHEQUE" | "ONLINE">>({});
+  const [settlementProofDraft, setSettlementProofDraft] = useState<Record<string, string>>({});
+  const [uploadingSettlementProofId, setUploadingSettlementProofId] = useState<string | null>(null);
+  const settlementProofInputRef = useRef<HTMLInputElement>(null);
+  const settlementProofTargetIdRef = useRef<string | null>(null);
   const [todaysMatchBannerUrl, setTodaysMatchBannerUrl] = useState<string | null>(
     null,
   );
@@ -367,6 +374,7 @@ export default function AdminPage() {
   const [newProdFile2, setNewProdFile2] = useState<File | null>(null);
   const [uploadingImage2, setUploadingImage2] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [catalogNotice, setCatalogNotice] = useState<CatalogNotice | null>(null);
   const [catalogImgStorage, setCatalogImgStorage] = useState<{
     cloudinary: boolean;
@@ -453,6 +461,28 @@ export default function AdminPage() {
     );
     if (setRes.ok && setRes.data?.settlements) {
       setSettlements(setRes.data.settlements);
+      setSettlementReferenceDraft((prev) => {
+        const next = { ...prev };
+        for (const s of setRes.data!.settlements) {
+          if (next[s.id] === undefined) next[s.id] = s.referenceNo ?? "";
+        }
+        return next;
+      });
+      setSettlementPaymentModeDraft((prev) => {
+        const next = { ...prev };
+        for (const s of setRes.data!.settlements) {
+          const mode = (s.paymentMode ?? "ONLINE") as "CASH" | "CHEQUE" | "ONLINE";
+          if (next[s.id] === undefined) next[s.id] = mode;
+        }
+        return next;
+      });
+      setSettlementProofDraft((prev) => {
+        const next = { ...prev };
+        for (const s of setRes.data!.settlements) {
+          if (next[s.id] === undefined) next[s.id] = s.paymentProofUrl ?? "";
+        }
+        return next;
+      });
     }
 
     const usersPath =
@@ -619,6 +649,13 @@ export default function AdminPage() {
     return () => window.clearTimeout(t);
   }, [catalogNotice]);
 
+  useEffect(() => {
+    if (!msg?.trim()) return;
+    setToastMsg(msg.trim());
+    const t = window.setTimeout(() => setToastMsg(null), 4200);
+    return () => window.clearTimeout(t);
+  }, [msg]);
+
   async function setStoreStatus(id: string, status: "APPROVED" | "REJECTED") {
     setMsg(null);
     const res = await api("/api/admin/store-status", {
@@ -696,17 +733,25 @@ export default function AdminPage() {
     const payload: {
       status: "APPROVED" | "PAID" | "FAILED";
       referenceNo?: string;
-      paymentMode?: string;
+      paymentMode?: "CASH" | "CHEQUE" | "ONLINE";
+      paymentProofUrl?: string;
       notes?: string;
     } = { status };
     if (status === "PAID") {
-      const ref = window.prompt("Enter transfer reference / UTR");
-      if (!ref?.trim()) {
+      const ref = (settlementReferenceDraft[settlementId] ?? "").trim();
+      const mode = settlementPaymentModeDraft[settlementId] ?? "ONLINE";
+      const proof = (settlementProofDraft[settlementId] ?? "").trim();
+      if (!ref) {
         setMsg("Reference is required to mark settlement as paid.");
         return;
       }
-      payload.referenceNo = ref.trim();
-      payload.paymentMode = "BANK_TRANSFER";
+      if (!proof) {
+        setMsg("Payment screenshot/proof upload required before marking paid.");
+        return;
+      }
+      payload.referenceNo = ref;
+      payload.paymentMode = mode;
+      payload.paymentProofUrl = proof;
     }
     const res = await api<{ settlement: AdminSettlementRow }>(
       `/api/admin/settlements/${encodeURIComponent(settlementId)}/status`,
@@ -717,6 +762,44 @@ export default function AdminPage() {
     );
     setMsg(res.ok ? `Settlement moved to ${status}.` : res.error || "Could not update settlement");
     if (res.ok) await refresh();
+  }
+
+  async function uploadSettlementProof(settlementId: string, file: File) {
+    const token = getToken();
+    if (!token) {
+      setMsg("Please log in again.");
+      return;
+    }
+    setUploadingSettlementProofId(settlementId);
+    setMsg(null);
+    const form = new FormData();
+    form.append("file", file);
+    const up = await fetch("/api/admin/upload-image", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const raw = (await up.json().catch(() => null)) as { imageUrl?: string; error?: string } | null;
+    setUploadingSettlementProofId(null);
+    if (!up.ok) {
+      setMsg(raw?.error || "Payment proof upload failed");
+      return;
+    }
+    const imageUrl = raw?.imageUrl?.trim();
+    if (!imageUrl) {
+      setMsg("Upload did not return image URL");
+      return;
+    }
+    setSettlementProofDraft((m) => ({ ...m, [settlementId]: imageUrl }));
+    setMsg("Payment proof uploaded ✓");
+  }
+
+  function onSettlementProofFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    const id = settlementProofTargetIdRef.current;
+    if (!file || !id) return;
+    void uploadSettlementProof(id, file);
   }
 
   async function createDelivery() {
@@ -1367,6 +1450,11 @@ export default function AdminPage() {
           {msg}
         </div>
       )}
+      {toastMsg ? (
+        <div className="pointer-events-none fixed bottom-5 right-5 z-[200] max-w-sm rounded-2xl border border-zinc-200 bg-zinc-900/95 px-4 py-3 text-sm font-semibold text-white shadow-2xl">
+          {toastMsg}
+        </div>
+      ) : null}
 
       {tab === "overview" && (
         <div className="space-y-8">
@@ -2259,6 +2347,13 @@ export default function AdminPage() {
             </button>
 
             <div className="mt-5 overflow-x-auto">
+              <input
+                ref={settlementProofInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={onSettlementProofFileChange}
+              />
               <table className="w-full min-w-[1040px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-400">
@@ -2269,6 +2364,7 @@ export default function AdminPage() {
                     <th className="pb-3 pr-3">Adjustments</th>
                     <th className="pb-3 pr-3">Net</th>
                     <th className="pb-3 pr-3">Status</th>
+                    <th className="pb-3 pr-3">Payment details</th>
                     <th className="pb-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -2316,6 +2412,57 @@ export default function AdminPage() {
                           {s.status}
                         </span>
                       </td>
+                      <td className="py-3 pr-3">
+                        <div className="space-y-1.5">
+                          <select
+                            className="ui-input !py-1.5 text-xs"
+                            value={settlementPaymentModeDraft[s.id] ?? "ONLINE"}
+                            onChange={(e) =>
+                              setSettlementPaymentModeDraft((m) => ({
+                                ...m,
+                                [s.id]: e.target.value as "CASH" | "CHEQUE" | "ONLINE",
+                              }))
+                            }
+                            disabled={s.status === "PAID"}
+                          >
+                            <option value="ONLINE">Online transfer</option>
+                            <option value="CHEQUE">Cheque</option>
+                            <option value="CASH">Cash</option>
+                          </select>
+                          <input
+                            className="ui-input !py-1.5 text-xs"
+                            placeholder="Reference / cheque no / UTR"
+                            value={settlementReferenceDraft[s.id] ?? ""}
+                            onChange={(e) =>
+                              setSettlementReferenceDraft((m) => ({ ...m, [s.id]: e.target.value }))
+                            }
+                            disabled={s.status === "PAID"}
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-bold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
+                              disabled={uploadingSettlementProofId === s.id || s.status === "PAID"}
+                              onClick={() => {
+                                settlementProofTargetIdRef.current = s.id;
+                                settlementProofInputRef.current?.click();
+                              }}
+                            >
+                              {uploadingSettlementProofId === s.id ? "Uploading…" : "Upload proof"}
+                            </button>
+                            {settlementProofDraft[s.id] ? (
+                              <a
+                                href={settlementProofDraft[s.id]}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] font-bold text-violet-700 underline"
+                              >
+                                View proof
+                              </a>
+                            ) : null}
+                          </div>
+                        </div>
+                      </td>
                       <td className="py-3 text-right">
                         <div className="flex justify-end gap-2">
                           {s.status === "DRAFT" || s.status === "FAILED" ? (
@@ -2351,7 +2498,7 @@ export default function AdminPage() {
                   ))}
                   {settlements.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-sm text-zinc-500">
+                      <td colSpan={9} className="py-8 text-center text-sm text-zinc-500">
                         No settlements yet.
                       </td>
                     </tr>

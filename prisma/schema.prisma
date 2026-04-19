@@ -298,6 +298,7 @@ model StoreSettlement {
   currency             String           @default("INR") @db.VarChar(8)
   paymentMode          String?          @db.VarChar(32)
   referenceNo          String?          @db.VarChar(128)
+  paymentProofUrl      String?          @db.VarChar(2048)
   notes                String?          @db.Text
   createdByAdminId     String?
   approvedByAdminId    String?

@@ -8,7 +8,8 @@ import { emptyOptions, jsonError, jsonOk } from "@/lib/api-response";
 const bodySchema = z.object({
   status: z.enum(["APPROVED", "PAID", "FAILED"]),
   referenceNo: z.string().max(128).optional(),
-  paymentMode: z.string().max(32).optional(),
+  paymentMode: z.enum(["CASH", "CHEQUE", "ONLINE"]).optional(),
+  paymentProofUrl: z.string().max(2048).optional(),
   notes: z.string().max(2000).optional(),
 });
 
@@ -46,6 +47,12 @@ export async function POST(
     if (to === "PAID" && !(body.referenceNo ?? "").trim()) {
       return jsonError("referenceNo is required when marking PAID");
     }
+    if (to === "PAID" && !(body.paymentProofUrl ?? "").trim()) {
+      return jsonError("Payment screenshot / proof is required when marking PAID");
+    }
+    if (to === "PAID" && !body.paymentMode) {
+      return jsonError("paymentMode is required when marking PAID");
+    }
 
     const next = await (prisma as any).storeSettlement.update({
       where: { id },
@@ -59,7 +66,8 @@ export async function POST(
               paidAt: new Date(),
               paidByAdminId: auth.user.id,
               referenceNo: body.referenceNo?.trim() || null,
-              paymentMode: body.paymentMode?.trim() || "BANK_TRANSFER",
+              paymentMode: body.paymentMode,
+              paymentProofUrl: body.paymentProofUrl?.trim() || null,
             }
           : {}),
         ...(to === "FAILED" ? { paidAt: null } : {}),
@@ -73,6 +81,7 @@ export async function POST(
         status: next.status,
         referenceNo: next.referenceNo ?? null,
         paymentMode: next.paymentMode ?? null,
+        paymentProofUrl: next.paymentProofUrl ?? null,
         approvedAt: next.approvedAt ?? null,
         paidAt: next.paidAt ?? null,
         netPayable: dec(next.netPayable),

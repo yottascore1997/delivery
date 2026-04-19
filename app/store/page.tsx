@@ -54,6 +54,7 @@ type SettlementRow = {
   blendedCommissionPct?: number | null;
   paymentMode?: string | null;
   referenceNo?: string | null;
+  paymentProofUrl?: string | null;
   notes?: string | null;
   createdAt: string;
   approvedAt?: string | null;
@@ -1702,7 +1703,18 @@ export default function StorePanelPage() {
                         <span>Orders: {s.ordersCount}</span>
                         <span>Gross: ₹{s.grossAmount}</span>
                         <span>Net: ₹{s.netPayable}</span>
+                        {s.paymentMode ? <span>Mode: {s.paymentMode}</span> : null}
                         {s.referenceNo ? <span>Ref: {s.referenceNo}</span> : null}
+                        {s.paymentProofUrl ? (
+                          <a
+                            href={s.paymentProofUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-semibold text-violet-700 underline"
+                          >
+                            Payment proof
+                          </a>
+                        ) : null}
                       </div>
                     </div>
                   ))}
