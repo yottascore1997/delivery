@@ -683,11 +683,20 @@ export default function AdminPage() {
   }, [catalogNotice]);
 
   useEffect(() => {
-    if (tab !== "stores") return;
+    if (tab !== "stores" && tab !== "productAudit") return;
     if (!auditStoreId) return;
     void loadAuditProducts(auditStoreId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, auditStoreId]);
+
+  /** Approved stores load async; re-fetch audit when list arrives while on Product Audit tab. */
+  useEffect(() => {
+    if (tab !== "productAudit") return;
+    if (!auditStoreId) return;
+    if (!approvedStores.some((s) => s.id === auditStoreId)) return;
+    void loadAuditProducts(auditStoreId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [approvedStores, tab, auditStoreId]);
 
   useEffect(() => {
     if (!msg?.trim()) return;
@@ -993,6 +1002,9 @@ export default function AdminPage() {
     if (!res.ok || !res.data) {
       setAuditProducts([]);
       setAuditSummary(null);
+      if (tab === "productAudit") {
+        setMsg(res.error || "Product audit load failed — check login / API.");
+      }
       return;
     }
     setAuditProducts(res.data.products ?? []);
