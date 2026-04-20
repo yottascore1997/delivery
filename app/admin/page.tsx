@@ -376,6 +376,9 @@ export default function AdminPage() {
   const [recentOrders, setRecentOrders] = useState<AdminOrderRow[]>([]);
   const [orderQuery, setOrderQuery] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState("ALL");
+  const [orderRiderDraft, setOrderRiderDraft] = useState<Record<string, string>>({});
+  const [orderActionDraft, setOrderActionDraft] = useState<Record<string, string>>({});
+  const [selectedOrder, setSelectedOrder] = useState<AdminOrderRow | null>(null);
   const [listRequests, setListRequests] = useState<AdminListRequestRow[]>([]);
   const [deliveryUsers, setDeliveryUsers] = useState<
     { id: string; name: string; phone: string }[]
@@ -1107,6 +1110,21 @@ export default function AdminPage() {
     await refresh();
   }
 
+  async function assignOrderRider(orderId: string) {
+    const deliveryBoyId = (orderRiderDraft[orderId] ?? "").trim();
+    if (!deliveryBoyId) {
+      setMsg("Please select rider first.");
+      return;
+    }
+    setMsg(null);
+    const res = await api("/api/delivery/assign", {
+      method: "POST",
+      body: JSON.stringify({ orderId, deliveryBoyId }),
+    });
+    setMsg(res.ok ? "Rider assigned successfully." : res.error || t("adminMsgError"));
+    if (res.ok) await refresh();
+  }
+
   async function updateOrderStatus(orderId: string, status: string) {
     setMsg(null);
     const res = await api("/api/orders/update-status", {
@@ -1131,8 +1149,52 @@ export default function AdminPage() {
     }
   }
 
-  function downloadInvoice(orderId: string) {
-    window.open(`/api/orders/store/${encodeURIComponent(orderId)}/invoice`, "_blank", "noopener,noreferrer");
+  async function downloadInvoice(orderId: string) {
+    const token = getToken();
+    if (!token) {
+      setMsg("Session expired. Please login again.");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/orders/store/${encodeURIComponent(orderId)}/invoice`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        setMsg(txt || "Could not download bill.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `speedza-order-${orderId.slice(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setMsg("Bill downloaded.");
+    } catch {
+      setMsg("Could not download bill.");
+    }
+  }
+
+  async function applyOrderAction(order: AdminOrderRow) {
+    const action = orderActionDraft[order.id] || "";
+    if (!action) return;
+    if (action === "ASSIGN_RIDER") {
+      await assignOrderRider(order.id);
+      return;
+    }
+    if (action === "OUT_FOR_DELIVERY") {
+      if (!order.delivery) {
+        setMsg("Assign rider first, then mark OUT_FOR_DELIVERY.");
+        return;
+      }
+      await updateOrderStatus(order.id, "OUT_FOR_DELIVERY");
+      return;
+    }
+    await updateOrderStatus(order.id, action);
   }
 
   async function updateListRequestStatus(id: string, status: string) {
@@ -1981,10 +2043,10 @@ export default function AdminPage() {
 
           <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1280px] text-left text-sm">
+              <table className="w-full min-w-[1380px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-500">
-                    <th className="pb-3 pr-3">Order + Items</th>
+                    <th className="pb-3 pr-3">Order</th>
                     <th className="pb-3 pr-3">Store</th>
                     <th className="pb-3 pr-3">Customer</th>
                     <th className="pb-3 pr-3">Address</th>
@@ -2002,43 +2064,13 @@ export default function AdminPage() {
                         <p className="font-mono text-xs font-semibold text-zinc-700">#{o.id.slice(0, 10)}…</p>
                         <p className="mt-1 text-xs text-zinc-500">{o.itemsCount ?? 0} items</p>
                         <p className="text-xs font-semibold text-zinc-800">₹{Math.round(o.totalAmount * 100) / 100}</p>
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          <button
-                            type="button"
-                            className="rounded-md border border-zinc-200 px-2 py-1 text-[10px] font-black text-zinc-700 hover:bg-zinc-50"
-                            onClick={() => void copyText("Order ID", o.id)}
-                          >
-                            Copy ID
-                          </button>
-                          <button
-                            type="button"
-                            className="rounded-md border border-zinc-200 px-2 py-1 text-[10px] font-black text-zinc-700 hover:bg-zinc-50"
-                            onClick={() => downloadInvoice(o.id)}
-                          >
-                            Bill PDF
-                          </button>
-                        </div>
-                        {o.items?.length ? (
-                          <div className="mt-2 space-y-1 rounded-xl border border-zinc-200 bg-zinc-50 p-2">
-                            {o.items.slice(0, 4).map((it) => (
-                              <div key={`${o.id}-${it.product.id}`} className="text-[11px] text-zinc-700">
-                                <span className="font-semibold">{it.quantity}x </span>
-                                <span>{it.product.name}</span>
-                                <span className="text-zinc-500"> ({it.product.unitLabel || "unit"})</span>
-                                <span className="ml-1 font-semibold text-zinc-800">
-                                  ₹{Math.round(it.lineTotal * 100) / 100}
-                                </span>
-                              </div>
-                            ))}
-                            {o.items.length > 4 ? (
-                              <p className="text-[10px] font-semibold text-zinc-500">
-                                +{o.items.length - 4} more items
-                              </p>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <p className="mt-2 text-[11px] text-zinc-400">Item details unavailable</p>
-                        )}
+                        <button
+                          type="button"
+                          className="mt-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-black text-violet-700 hover:bg-violet-100"
+                          onClick={() => setSelectedOrder(o)}
+                        >
+                          View details
+                        </button>
                       </td>
                       <td className="py-3 pr-3">
                         <p className="font-semibold text-zinc-900">{o.store.name}</p>
@@ -2047,13 +2079,6 @@ export default function AdminPage() {
                       <td className="py-3 pr-3">
                         <p className="font-semibold text-zinc-900">{o.user?.name || "Customer"}</p>
                         <p className="text-xs text-zinc-600">{o.user?.phone ?? "—"}</p>
-                        <button
-                          type="button"
-                          className="mt-1 rounded-md border border-zinc-200 px-2 py-1 text-[10px] font-black text-zinc-700 hover:bg-zinc-50"
-                          onClick={() => void copyText("Customer phone", o.user?.phone)}
-                        >
-                          Copy phone
-                        </button>
                       </td>
                       <td className="py-3 pr-3">
                         <p className="max-w-[260px] text-xs text-zinc-700">{o.deliveryAddress || "No delivery address"}</p>
@@ -2063,25 +2088,39 @@ export default function AdminPage() {
                           <>
                             <p className="font-semibold text-zinc-900">{o.delivery.deliveryBoy.name}</p>
                             <p className="text-xs text-zinc-600">{o.delivery.deliveryBoy.phone}</p>
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              <button
-                                type="button"
-                                className="rounded-md border border-zinc-200 px-2 py-1 text-[10px] font-black text-zinc-700 hover:bg-zinc-50"
-                                onClick={() => void copyText("Rider ID", o.delivery?.deliveryBoy?.id)}
-                              >
-                                Copy rider ID
-                              </button>
-                              <button
-                                type="button"
-                                className="rounded-md border border-zinc-200 px-2 py-1 text-[10px] font-black text-zinc-700 hover:bg-zinc-50"
-                                onClick={() => void copyText("Rider phone", o.delivery?.deliveryBoy?.phone)}
-                              >
-                                Copy rider phone
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              className="mt-1 rounded-md border border-zinc-200 px-2 py-1 text-[10px] font-black text-zinc-700 hover:bg-zinc-50"
+                              onClick={() => void copyText("Rider ID", o.delivery?.deliveryBoy?.id)}
+                            >
+                              Copy rider ID
+                            </button>
                           </>
                         ) : (
-                          <p className="text-xs font-semibold text-zinc-500">Not assigned</p>
+                          <div className="space-y-1.5">
+                            <p className="text-xs font-semibold text-zinc-500">Not assigned</p>
+                            <select
+                              className="ui-input !py-1.5 text-xs"
+                              value={orderRiderDraft[o.id] ?? ""}
+                              onChange={(e) =>
+                                setOrderRiderDraft((prev) => ({ ...prev, [o.id]: e.target.value }))
+                              }
+                            >
+                              <option value="">Select rider</option>
+                              {deliveryUsers.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                  {d.name} ({d.phone})
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700 hover:bg-emerald-100"
+                              onClick={() => void assignOrderRider(o.id)}
+                            >
+                              Assign rider
+                            </button>
+                          </div>
                         )}
                       </td>
                       <td className="py-3 pr-3">
@@ -2107,34 +2146,41 @@ export default function AdminPage() {
                         {new Date(o.createdAt).toLocaleString()}
                       </td>
                       <td className="py-3 text-right">
-                        <div className="flex flex-wrap justify-end gap-1.5">
-                          {o.status === "PLACED" ? (
-                            <button
-                              type="button"
-                              className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700"
-                              onClick={() => void updateOrderStatus(o.id, "PREPARING")}
-                            >
-                              Take over
-                            </button>
-                          ) : o.status === "PREPARING" ? (
-                            <button
-                              type="button"
-                              className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-700"
-                              onClick={() => void updateOrderStatus(o.id, "READY")}
-                            >
-                              Mark READY
-                            </button>
-                          ) : o.status === "READY" ? (
-                            <span className="px-2 py-1 text-xs font-semibold text-zinc-500">Assign rider in Riders tab</span>
-                          ) : (
-                            <span className="px-2 py-1 text-xs font-semibold text-zinc-400">—</span>
-                          )}
+                        <div className="flex min-w-[280px] flex-wrap justify-end gap-1.5">
+                          <select
+                            className="ui-input !w-[170px] !py-1.5 text-xs"
+                            value={orderActionDraft[o.id] ?? ""}
+                            onChange={(e) =>
+                              setOrderActionDraft((prev) => ({ ...prev, [o.id]: e.target.value }))
+                            }
+                          >
+                            <option value="">Quick action</option>
+                            <option value="PREPARING">Mark PREPARING</option>
+                            <option value="READY">Mark READY</option>
+                            <option value="OUT_FOR_DELIVERY">Mark OUT_FOR_DELIVERY</option>
+                            <option value="CANCELLED">Cancel order</option>
+                            <option value="ASSIGN_RIDER">Assign selected rider</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-zinc-200 bg-zinc-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-zinc-700"
+                            onClick={() => void applyOrderAction(o)}
+                          >
+                            Apply
+                          </button>
                           <button
                             type="button"
                             className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
-                            onClick={() => downloadInvoice(o.id)}
+                            onClick={() => void downloadInvoice(o.id)}
                           >
                             Download bill
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 hover:bg-violet-100"
+                            onClick={() => setSelectedOrder(o)}
+                          >
+                            View
                           </button>
                         </div>
                       </td>
@@ -2153,6 +2199,94 @@ export default function AdminPage() {
           </section>
         </div>
       )}
+      {selectedOrder ? (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-zinc-950/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-violet-600">Order detail view</p>
+                <h3 className="font-display text-xl font-bold text-zinc-900">
+                  #{selectedOrder.id.slice(0, 12)}…
+                </h3>
+                <p className="mt-1 text-sm text-zinc-600">
+                  {selectedOrder.store.name} · {selectedOrder.user?.name || selectedOrder.user?.phone || "Customer"}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-xl border border-zinc-300 px-3 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                onClick={() => setSelectedOrder(null)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">Amount</p>
+                <p className="mt-1 text-lg font-black text-zinc-900">
+                  ₹{Math.round(selectedOrder.totalAmount * 100) / 100}
+                </p>
+              </div>
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">Status</p>
+                <p className="mt-1 text-sm font-bold text-zinc-800">{selectedOrder.status.replace(/_/g, " ")}</p>
+              </div>
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">Payment</p>
+                <p className="mt-1 text-sm font-bold text-zinc-800">{selectedOrder.paymentType || "COD"}</p>
+              </div>
+            </div>
+            <div className="mt-4 rounded-2xl border border-zinc-200">
+              <div className="border-b border-zinc-200 px-4 py-3">
+                <h4 className="text-sm font-black text-zinc-900">Products in this order</h4>
+              </div>
+              <div className="divide-y divide-zinc-100">
+                {selectedOrder.items?.length ? (
+                  selectedOrder.items.map((it) => (
+                    <div key={`${selectedOrder.id}-${it.product.id}`} className="flex items-center justify-between px-4 py-2.5">
+                      <p className="text-sm text-zinc-800">
+                        <span className="font-semibold">{it.quantity}x</span> {it.product.name}
+                        <span className="text-xs text-zinc-500"> ({it.product.unitLabel || "unit"})</span>
+                      </p>
+                      <p className="text-sm font-bold text-zinc-900">₹{Math.round(it.lineTotal * 100) / 100}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="px-4 py-6 text-center text-sm text-zinc-500">No item details available.</p>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
+              <p>
+                <span className="font-black text-zinc-900">Delivery address:</span>{" "}
+                {selectedOrder.deliveryAddress || "No address"}
+              </p>
+              <p className="mt-1">
+                <span className="font-black text-zinc-900">Rider:</span>{" "}
+                {selectedOrder.delivery?.deliveryBoy
+                  ? `${selectedOrder.delivery.deliveryBoy.name} (${selectedOrder.delivery.deliveryBoy.phone})`
+                  : "Not assigned"}
+              </p>
+            </div>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-zinc-300 px-4 py-2 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                onClick={() => void copyText("Order ID", selectedOrder.id)}
+              >
+                Copy order ID
+              </button>
+              <button
+                type="button"
+                className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-black text-white hover:bg-zinc-800"
+                onClick={() => void downloadInvoice(selectedOrder.id)}
+              >
+                Download bill
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {tab === "stores" && (
         <div className="space-y-8">
