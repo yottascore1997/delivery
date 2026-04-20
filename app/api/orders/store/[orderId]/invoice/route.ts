@@ -10,22 +10,24 @@ export async function OPTIONS() {
   return emptyOptions();
 }
 
-/** PDF bill for store owner: Speedza branding only (no store name). */
+/** PDF bill for store owner/admin: Speedza branding only (no store name). */
 export async function GET(
   request: Request,
   { params }: { params: { orderId: string } },
 ) {
-  const auth = await requireAuth(request, [UserRole.STORE_OWNER]);
+  const auth = await requireAuth(request, [UserRole.STORE_OWNER, UserRole.ADMIN]);
   if ("error" in auth) return auth.error;
 
   const { orderId } = params;
   if (!orderId?.trim()) return jsonError("Missing order id", 400);
 
+  const orderWhere =
+    auth.user.role === UserRole.ADMIN
+      ? { id: orderId }
+      : { id: orderId, store: { ownerId: auth.user.id } };
+
   const order = await prisma.order.findFirst({
-    where: {
-      id: orderId,
-      store: { ownerId: auth.user.id },
-    },
+    where: orderWhere,
     include: {
       user: { select: { name: true, phone: true } },
       items: {

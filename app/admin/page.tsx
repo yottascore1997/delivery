@@ -25,9 +25,26 @@ type AdminOrderRow = {
   storeRejected?: boolean;
   totalAmount: number;
   createdAt: string;
-  store: { name: string };
+  paymentType?: string;
+  deliveryAddress?: string;
+  deliveryLat?: number;
+  deliveryLng?: number;
+  itemsCount?: number;
+  items?: {
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    product: { id: string; name: string; unitLabel?: string | null };
+  }[];
+  store: { name: string; address?: string };
   user: { phone: string; name?: string | null };
-  delivery: unknown;
+  delivery:
+    | {
+        id: string;
+        status: string;
+        deliveryBoy?: { id: string; name: string; phone: string } | null;
+      }
+    | null;
 };
 type AdminListRequestRow = {
   id: string;
@@ -115,6 +132,7 @@ type AdminSettlementRow = {
 
 type AdminTab =
   | "overview"
+  | "orders"
   | "stores"
   | "productAudit"
   | "users"
@@ -356,6 +374,8 @@ export default function AdminPage() {
   const [newStoreStatus, setNewStoreStatus] = useState<StoreStatusValue>("PENDING");
   const [readyOrders, setReadyOrders] = useState<AdminOrderRow[]>([]);
   const [recentOrders, setRecentOrders] = useState<AdminOrderRow[]>([]);
+  const [orderQuery, setOrderQuery] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("ALL");
   const [listRequests, setListRequests] = useState<AdminListRequestRow[]>([]);
   const [deliveryUsers, setDeliveryUsers] = useState<
     { id: string; name: string; phone: string }[]
@@ -1097,6 +1117,24 @@ export default function AdminPage() {
     await refresh();
   }
 
+  async function copyText(label: string, value?: string | null) {
+    const clean = (value ?? "").trim();
+    if (!clean) {
+      setMsg(`${label} unavailable`);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(clean);
+      setMsg(`${label} copied`);
+    } catch {
+      setMsg(`Could not copy ${label.toLowerCase()}`);
+    }
+  }
+
+  function downloadInvoice(orderId: string) {
+    window.open(`/api/orders/store/${encodeURIComponent(orderId)}/invoice`, "_blank", "noopener,noreferrer");
+  }
+
   async function updateListRequestStatus(id: string, status: string) {
     setMsg(null);
     const res = await api("/api/admin/list-requests", {
@@ -1513,6 +1551,8 @@ export default function AdminPage() {
   const breadcrumb =
     tab === "overview"
       ? t("adminBreadcrumbOverview")
+      : tab === "orders"
+        ? "Orders"
       : tab === "stores"
         ? t("adminBreadcrumbStores")
         : tab === "productAudit"
@@ -1535,6 +1575,27 @@ export default function AdminPage() {
     : null;
   const selectedMain = masterCatalog?.mains.find((m) => m.id === pickMainId);
   const selectedSub = selectedMain?.subcategories.find((s) => s.id === pickSubId);
+  const filteredAdminOrders = recentOrders.filter((o) => {
+    if (orderStatusFilter !== "ALL" && o.status !== orderStatusFilter) return false;
+    const q = orderQuery.trim().toLowerCase();
+    if (!q) return true;
+    const hay = [
+      o.id,
+      o.store?.name ?? "",
+      o.user?.name ?? "",
+      o.user?.phone ?? "",
+      o.deliveryAddress ?? "",
+      o.delivery?.deliveryBoy?.name ?? "",
+      o.delivery?.deliveryBoy?.phone ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+    return hay.includes(q);
+  });
+  const orderStatusCounts = recentOrders.reduce<Record<string, number>>((acc, o) => {
+    acc[o.status] = (acc[o.status] ?? 0) + 1;
+    return acc;
+  }, {});
   const filteredAuditProducts = auditProducts.filter((p) => {
     const q = auditQuery.trim().toLowerCase();
     if (!q) return true;
@@ -1553,6 +1614,11 @@ export default function AdminPage() {
           id: "overview",
           label: t("adminNavOverview"),
           icon: <IconAdminDash />,
+        },
+        {
+          id: "orders",
+          label: "Orders",
+          icon: <IconAdminOrders />,
         },
         {
           id: "stores",
@@ -1860,6 +1926,231 @@ export default function AdminPage() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {tab === "orders" && (
+        <div className="space-y-8">
+          <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-display text-xl font-bold text-zinc-900">Orders control center</h2>
+                <p className="mt-1 text-sm text-zinc-600">
+                  Saare orders ka detailed view: customer, store, rider, address aur quick actions.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  ["Total", recentOrders.length],
+                  ["Ready", orderStatusCounts.READY ?? 0],
+                  ["Out", orderStatusCounts.OUT_FOR_DELIVERY ?? 0],
+                  ["Delivered", orderStatusCounts.DELIVERED ?? 0],
+                ].map(([label, value]) => (
+                  <div
+                    key={String(label)}
+                    className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-center"
+                  >
+                    <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">{label}</p>
+                    <p className="text-lg font-black text-zinc-900">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <input
+                className="ui-input sm:col-span-2"
+                placeholder="Search by order id, store, customer, rider or address"
+                value={orderQuery}
+                onChange={(e) => setOrderQuery(e.target.value)}
+              />
+              <select
+                className="ui-input"
+                value={orderStatusFilter}
+                onChange={(e) => setOrderStatusFilter(e.target.value)}
+              >
+                <option value="ALL">All status</option>
+                <option value="PLACED">PLACED</option>
+                <option value="PREPARING">PREPARING</option>
+                <option value="READY">READY</option>
+                <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
+                <option value="DELIVERED">DELIVERED</option>
+                <option value="CANCELLED">CANCELLED</option>
+              </select>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1280px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-500">
+                    <th className="pb-3 pr-3">Order + Items</th>
+                    <th className="pb-3 pr-3">Store</th>
+                    <th className="pb-3 pr-3">Customer</th>
+                    <th className="pb-3 pr-3">Address</th>
+                    <th className="pb-3 pr-3">Rider</th>
+                    <th className="pb-3 pr-3">Payment</th>
+                    <th className="pb-3 pr-3">Status</th>
+                    <th className="pb-3 pr-3">Created</th>
+                    <th className="pb-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {filteredAdminOrders.map((o) => (
+                    <tr key={o.id}>
+                      <td className="py-3 pr-3">
+                        <p className="font-mono text-xs font-semibold text-zinc-700">#{o.id.slice(0, 10)}…</p>
+                        <p className="mt-1 text-xs text-zinc-500">{o.itemsCount ?? 0} items</p>
+                        <p className="text-xs font-semibold text-zinc-800">₹{Math.round(o.totalAmount * 100) / 100}</p>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          <button
+                            type="button"
+                            className="rounded-md border border-zinc-200 px-2 py-1 text-[10px] font-black text-zinc-700 hover:bg-zinc-50"
+                            onClick={() => void copyText("Order ID", o.id)}
+                          >
+                            Copy ID
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-md border border-zinc-200 px-2 py-1 text-[10px] font-black text-zinc-700 hover:bg-zinc-50"
+                            onClick={() => downloadInvoice(o.id)}
+                          >
+                            Bill PDF
+                          </button>
+                        </div>
+                        {o.items?.length ? (
+                          <div className="mt-2 space-y-1 rounded-xl border border-zinc-200 bg-zinc-50 p-2">
+                            {o.items.slice(0, 4).map((it) => (
+                              <div key={`${o.id}-${it.product.id}`} className="text-[11px] text-zinc-700">
+                                <span className="font-semibold">{it.quantity}x </span>
+                                <span>{it.product.name}</span>
+                                <span className="text-zinc-500"> ({it.product.unitLabel || "unit"})</span>
+                                <span className="ml-1 font-semibold text-zinc-800">
+                                  ₹{Math.round(it.lineTotal * 100) / 100}
+                                </span>
+                              </div>
+                            ))}
+                            {o.items.length > 4 ? (
+                              <p className="text-[10px] font-semibold text-zinc-500">
+                                +{o.items.length - 4} more items
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-[11px] text-zinc-400">Item details unavailable</p>
+                        )}
+                      </td>
+                      <td className="py-3 pr-3">
+                        <p className="font-semibold text-zinc-900">{o.store.name}</p>
+                        <p className="mt-1 max-w-[220px] text-xs text-zinc-500">{o.store.address ?? "No store address"}</p>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <p className="font-semibold text-zinc-900">{o.user?.name || "Customer"}</p>
+                        <p className="text-xs text-zinc-600">{o.user?.phone ?? "—"}</p>
+                        <button
+                          type="button"
+                          className="mt-1 rounded-md border border-zinc-200 px-2 py-1 text-[10px] font-black text-zinc-700 hover:bg-zinc-50"
+                          onClick={() => void copyText("Customer phone", o.user?.phone)}
+                        >
+                          Copy phone
+                        </button>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <p className="max-w-[260px] text-xs text-zinc-700">{o.deliveryAddress || "No delivery address"}</p>
+                      </td>
+                      <td className="py-3 pr-3">
+                        {o.delivery?.deliveryBoy ? (
+                          <>
+                            <p className="font-semibold text-zinc-900">{o.delivery.deliveryBoy.name}</p>
+                            <p className="text-xs text-zinc-600">{o.delivery.deliveryBoy.phone}</p>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              <button
+                                type="button"
+                                className="rounded-md border border-zinc-200 px-2 py-1 text-[10px] font-black text-zinc-700 hover:bg-zinc-50"
+                                onClick={() => void copyText("Rider ID", o.delivery?.deliveryBoy?.id)}
+                              >
+                                Copy rider ID
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-md border border-zinc-200 px-2 py-1 text-[10px] font-black text-zinc-700 hover:bg-zinc-50"
+                                onClick={() => void copyText("Rider phone", o.delivery?.deliveryBoy?.phone)}
+                              >
+                                Copy rider phone
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-xs font-semibold text-zinc-500">Not assigned</p>
+                        )}
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span className="inline-flex rounded-full bg-zinc-100 px-2 py-1 text-xs font-bold text-zinc-700">
+                          {o.paymentType || "COD"}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${adminOrderStatusStyle(o.status)}`}
+                          >
+                            {o.status.replace(/_/g, " ")}
+                          </span>
+                          {o.storeRejected ? (
+                            <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-rose-800">
+                              Store rejected
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="py-3 pr-3 text-xs text-zinc-600">
+                        {new Date(o.createdAt).toLocaleString()}
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="flex flex-wrap justify-end gap-1.5">
+                          {o.status === "PLACED" ? (
+                            <button
+                              type="button"
+                              className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700"
+                              onClick={() => void updateOrderStatus(o.id, "PREPARING")}
+                            >
+                              Take over
+                            </button>
+                          ) : o.status === "PREPARING" ? (
+                            <button
+                              type="button"
+                              className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-700"
+                              onClick={() => void updateOrderStatus(o.id, "READY")}
+                            >
+                              Mark READY
+                            </button>
+                          ) : o.status === "READY" ? (
+                            <span className="px-2 py-1 text-xs font-semibold text-zinc-500">Assign rider in Riders tab</span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs font-semibold text-zinc-400">—</span>
+                          )}
+                          <button
+                            type="button"
+                            className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
+                            onClick={() => downloadInvoice(o.id)}
+                          >
+                            Download bill
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredAdminOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-8 text-center text-sm text-zinc-500">
+                        No orders found for selected filter/search.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       )}
 
@@ -3350,6 +3641,15 @@ function IconAdminDash() {
   return (
     <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
+    </svg>
+  );
+}
+
+function IconAdminOrders() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <path d="M8 9h8M8 13h8M8 17h5" />
     </svg>
   );
 }
