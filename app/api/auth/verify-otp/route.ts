@@ -9,7 +9,13 @@ import { normalizePhone10 } from "@/lib/phone";
 const bodySchema = z.object({
   phone: z.string().min(8).max(20),
   code: z.string().min(4).max(10),
+  name: z.string().min(1).max(120).optional(),
+  registerAsStorePartner: z.boolean().optional(),
 });
+
+// Temporary Play review login. Set DEMO_WEB_OTP_LOGIN=false after review to require real OTP again.
+const DEMO_WEB_OTP_LOGIN = true;
+const DEMO_WEB_OTP_CODE = process.env.DEMO_WEB_OTP_CODE?.trim() || "123456";
 
 export async function OPTIONS() {
   return emptyOptions();
@@ -24,13 +30,49 @@ export async function POST(request: Request) {
     }
     const code = body.code.trim();
 
-    const ok = await verifyOtp(phone, code);
+    const isDemoOtp = DEMO_WEB_OTP_LOGIN && code === DEMO_WEB_OTP_CODE;
+    const ok = isDemoOtp || (await verifyOtp(phone, code));
     if (!ok) return jsonError("Invalid or expired OTP", 401);
 
-    const user = await prisma.user.findUnique({ where: { phone } });
+    const existing = await prisma.user.findUnique({ where: { phone } });
+    const asPartner = body.registerAsStorePartner === true;
+
+    let user = existing;
+    if (!user && isDemoOtp) {
+      user = await prisma.user.create({
+        data: {
+          phone,
+          name: body.name?.trim() || (asPartner ? "Demo Store Partner" : "Demo Customer"),
+          role: asPartner ? UserRole.STORE_OWNER : UserRole.CUSTOMER,
+        },
+      });
+    } else if (user && isDemoOtp && asPartner) {
+      if (user.role === UserRole.ADMIN || user.role === UserRole.DELIVERY) {
+        return jsonError(
+          "This phone is used for a different account type. Use the matching login link.",
+          403,
+        );
+      }
+      if (user.role === UserRole.CUSTOMER) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            role: UserRole.STORE_OWNER,
+            ...(body.name?.trim() ? { name: body.name.trim() } : {}),
+          },
+        });
+      } else if (body.name?.trim()) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { name: body.name.trim() },
+        });
+      }
+    }
+
     if (!user) return jsonError("User not found", 404);
 
     const needsProfile =
+      !isDemoOtp &&
       user.role === UserRole.CUSTOMER && user.name.trim() === "Customer";
 
     const token = signToken(user);

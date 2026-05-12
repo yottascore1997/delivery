@@ -32,6 +32,11 @@ function normalizeLoginPhone10(raw: string): string {
   return d.length >= 10 ? d.slice(-10) : d;
 }
 
+// Temporary Play review login: keep this on while Firebase/SMS OTP is blocking review.
+// Set to false to restore the real Firebase phone OTP path below.
+const DEMO_WEB_OTP_LOGIN = true;
+const DEMO_WEB_OTP_CODE = "123456";
+
 function readNext(raw: string | null): (typeof ALLOWED_NEXT)[number] | null {
   if (!raw) return null;
   return ALLOWED_NEXT.includes(raw as (typeof ALLOWED_NEXT)[number])
@@ -139,6 +144,14 @@ function LoginForm() {
         return;
       }
 
+      if (DEMO_WEB_OTP_LOGIN) {
+        setFbConfirm(null);
+        setOtp("");
+        setMsg(`Demo OTP enabled. Use ${DEMO_WEB_OTP_CODE}.`);
+        setStep(2);
+        return;
+      }
+
       const auth = getFirebaseAuth();
       const digits = phone.replace(/\D/g, "");
       const e164 = digits.startsWith("91") ? `+${digits}` : `+91${digits}`;
@@ -243,29 +256,50 @@ function LoginForm() {
         error?: string;
       };
 
-      if (!fbConfirm) {
-        setMsg(t("loginErrSendOtpAgain"));
-        return;
+      if (DEMO_WEB_OTP_LOGIN) {
+        const demoRes = await api<{
+          token: string;
+          needsProfile?: boolean;
+          user: { id: string; name: string; phone: string; role: string; imageUrl?: string | null };
+        }>("/api/auth/verify-otp", {
+          method: "POST",
+          body: JSON.stringify(
+            isStorePartner
+              ? {
+                  phone,
+                  code: otp,
+                  name: storePartnerName.trim(),
+                  registerAsStorePartner: true,
+                }
+              : { phone, code: otp },
+          ),
+        });
+        res = demoRes;
+      } else {
+        if (!fbConfirm) {
+          setMsg(t("loginErrSendOtpAgain"));
+          return;
+        }
+        const cred = await fbConfirm.confirm(otp);
+        const idToken = await cred.user.getIdToken();
+        const fbRes = await api<{
+          token: string;
+          needsProfile?: boolean;
+          user: { id: string; name: string; phone: string; role: string; imageUrl?: string | null };
+        }>("/api/auth/firebase", {
+          method: "POST",
+          body: JSON.stringify(
+            isStorePartner
+              ? {
+                  idToken,
+                  name: storePartnerName.trim(),
+                  registerAsStorePartner: true,
+                }
+              : { idToken },
+          ),
+        });
+        res = fbRes;
       }
-      const cred = await fbConfirm.confirm(otp);
-      const idToken = await cred.user.getIdToken();
-      const fbRes = await api<{
-        token: string;
-        needsProfile?: boolean;
-        user: { id: string; name: string; phone: string; role: string; imageUrl?: string | null };
-      }>("/api/auth/firebase", {
-        method: "POST",
-        body: JSON.stringify(
-          isStorePartner
-            ? {
-                idToken,
-                name: storePartnerName.trim(),
-                registerAsStorePartner: true,
-              }
-            : { idToken },
-        ),
-      });
-      res = fbRes;
 
       if (!res.ok || !res.data) {
         setMsg(res.error || t("loginErrVerifyFailed"));
