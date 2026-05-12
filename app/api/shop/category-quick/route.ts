@@ -42,6 +42,8 @@ function localCategoryKeywords(vertical: string): string[] {
   if (vertical === "fruits-vegetables") return ["fruit", "vegetable", "sabzi", "phal"];
   if (vertical === "electronics") return ["electronic", "tech", "mobile", "accessor"];
   if (vertical === "food") return ["food", "beverage", "restaurant", "meal"];
+  if (vertical === "fashion") return ["fashion", "apparel", "clothing", "wear", "dress"];
+  if (vertical === "footwear") return ["footwear", "shoe", "sandal", "slipper", "boot"];
   return [vertical];
 }
 

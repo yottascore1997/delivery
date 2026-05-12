@@ -69,7 +69,13 @@ export async function api<T = unknown>(
   if (init?.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const res = await fetch(path, { ...init, headers });
+  const res = await fetch(path, {
+    ...init,
+    headers,
+    // Store/product availability is time-sensitive (e.g. opening hours).
+    // Force fresh responses unless caller explicitly overrides cache mode.
+    cache: init?.cache ?? "no-store",
+  });
   const text = await res.text();
   let json: unknown = null;
   try {

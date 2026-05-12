@@ -25,9 +25,39 @@ type AdminOrderRow = {
   storeRejected?: boolean;
   totalAmount: number;
   createdAt: string;
-  store: { name: string };
+  paymentType?: string;
+  deliveryAddress?: string;
+  deliveryLat?: number;
+  deliveryLng?: number;
+  itemsCount?: number;
+  items?: {
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    product: { id: string; name: string; unitLabel?: string | null };
+  }[];
+  store: { name: string; address?: string };
   user: { phone: string; name?: string | null };
-  delivery: unknown;
+  delivery:
+    | {
+        id: string;
+        status: string;
+        deliveryBoy?: { id: string; name: string; phone: string } | null;
+      }
+    | null;
+};
+type AdminListRequestRow = {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhone: string;
+  imageUrl: string;
+  note: string;
+  address: string;
+  status: string;
+  adminNote: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type UserRoleValue = "CUSTOMER" | "STORE_OWNER" | "DELIVERY" | "ADMIN";
@@ -54,9 +84,57 @@ type AdminStoreRow = {
   createdAt: string;
 };
 
+type AdminStoreProductRow = {
+  id: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  mrp: number | null;
+  price: number;
+  stock: number;
+  isActive: boolean;
+  unitLabel?: string | null;
+  commissionPercent?: number | null;
+  effectiveCommissionPercent: number;
+  createdAt: string;
+};
+
+type AdminStoreProductSummary = {
+  platformDefault: number;
+  deliveredGross: number;
+  deliveredPlatformCommission: number;
+  deliveredEstimatedStoreNet: number;
+};
+
+type AdminSettlementRow = {
+  id: string;
+  storeId: string;
+  storeName: string;
+  periodStart: string;
+  periodEnd: string;
+  status: "DRAFT" | "APPROVED" | "PAID" | "FAILED";
+  grossAmount: number;
+  platformCommission: number;
+  refundAdjustment: number;
+  bonusAdjustment: number;
+  manualAdjustment: number;
+  netPayable: number;
+  ordersCount: number;
+  blendedCommissionPct?: number | null;
+  paymentMode?: string | null;
+  referenceNo?: string | null;
+  paymentProofUrl?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  approvedAt?: string | null;
+  paidAt?: string | null;
+};
+
 type AdminTab =
   | "overview"
+  | "orders"
   | "stores"
+  | "productAudit"
   | "users"
   | "riders"
   | "finance"
@@ -71,6 +149,10 @@ function scrollToEl(el: HTMLElement | null) {
       el.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   });
+}
+
+function toDateInput(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
 
 type MasterCatalog = {
@@ -263,6 +345,15 @@ export default function AdminPage() {
   >([]);
   const [approvedStores, setApprovedStores] = useState<AdminStoreRow[]>([]);
   const [allStores, setAllStores] = useState<AdminStoreRow[]>([]);
+  const [auditStoreId, setAuditStoreId] = useState("");
+  const [auditProducts, setAuditProducts] = useState<AdminStoreProductRow[]>([]);
+  const [auditSummary, setAuditSummary] = useState<AdminStoreProductSummary | null>(null);
+  const [auditPriceDraft, setAuditPriceDraft] = useState<Record<string, string>>({});
+  const [auditMrpDraft, setAuditMrpDraft] = useState<Record<string, string>>({});
+  const [auditStockDraft, setAuditStockDraft] = useState<Record<string, string>>({});
+  const [auditCommissionDraft, setAuditCommissionDraft] = useState<Record<string, string>>({});
+  const [auditActiveDraft, setAuditActiveDraft] = useState<Record<string, boolean>>({});
+  const [auditQuery, setAuditQuery] = useState("");
   const [storeDraft, setStoreDraft] = useState<
     Record<string, { name: string; status: StoreStatusValue; shopVertical: string }>
   >({});
@@ -283,10 +374,30 @@ export default function AdminPage() {
   const [newStoreStatus, setNewStoreStatus] = useState<StoreStatusValue>("PENDING");
   const [readyOrders, setReadyOrders] = useState<AdminOrderRow[]>([]);
   const [recentOrders, setRecentOrders] = useState<AdminOrderRow[]>([]);
+  const [orderQuery, setOrderQuery] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("ALL");
+  const [orderRiderDraft, setOrderRiderDraft] = useState<Record<string, string>>({});
+  const [orderActionDraft, setOrderActionDraft] = useState<Record<string, string>>({});
+  const [selectedOrder, setSelectedOrder] = useState<AdminOrderRow | null>(null);
+  const [listRequests, setListRequests] = useState<AdminListRequestRow[]>([]);
   const [deliveryUsers, setDeliveryUsers] = useState<
     { id: string; name: string; phone: string }[]
   >([]);
   const [commission, setCommission] = useState("10");
+  const [settlements, setSettlements] = useState<AdminSettlementRow[]>([]);
+  const [settlementStoreId, setSettlementStoreId] = useState("");
+  const [settlementPeriodStart, setSettlementPeriodStart] = useState("");
+  const [settlementPeriodEnd, setSettlementPeriodEnd] = useState("");
+  const [settlementRefundAdj, setSettlementRefundAdj] = useState("0");
+  const [settlementBonusAdj, setSettlementBonusAdj] = useState("0");
+  const [settlementManualAdj, setSettlementManualAdj] = useState("0");
+  const [settlementNotes, setSettlementNotes] = useState("");
+  const [settlementReferenceDraft, setSettlementReferenceDraft] = useState<Record<string, string>>({});
+  const [settlementPaymentModeDraft, setSettlementPaymentModeDraft] = useState<Record<string, "CASH" | "CHEQUE" | "ONLINE">>({});
+  const [settlementProofDraft, setSettlementProofDraft] = useState<Record<string, string>>({});
+  const [uploadingSettlementProofId, setUploadingSettlementProofId] = useState<string | null>(null);
+  const settlementProofInputRef = useRef<HTMLInputElement>(null);
+  const settlementProofTargetIdRef = useRef<string | null>(null);
   const [todaysMatchBannerUrl, setTodaysMatchBannerUrl] = useState<string | null>(
     null,
   );
@@ -318,6 +429,7 @@ export default function AdminPage() {
   const [newProdFile2, setNewProdFile2] = useState<File | null>(null);
   const [uploadingImage2, setUploadingImage2] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [catalogNotice, setCatalogNotice] = useState<CatalogNotice | null>(null);
   const [catalogImgStorage, setCatalogImgStorage] = useState<{
     cloudinary: boolean;
@@ -346,6 +458,8 @@ export default function AdminPage() {
     );
     if (stApproved.ok && stApproved.data) {
       setApprovedStores(stApproved.data.stores);
+      setSettlementStoreId((prev) => prev || stApproved.data!.stores[0]?.id || "");
+      setAuditStoreId((prev) => prev || stApproved.data!.stores[0]?.id || "");
       setStoreCommissionDraft((prev) => {
         const next = { ...prev };
         for (const sRow of stApproved.data!.stores) {
@@ -385,6 +499,11 @@ export default function AdminPage() {
     );
     if (orRecent.ok && orRecent.data) setRecentOrders(orRecent.data.orders);
 
+    const lr = await api<{ requests: AdminListRequestRow[] }>(
+      "/api/admin/list-requests?limit=60",
+    );
+    if (lr.ok && lr.data?.requests) setListRequests(lr.data.requests);
+
     const du = await api<{ users: typeof deliveryUsers }>(
       "/api/admin/users?role=DELIVERY",
     );
@@ -392,6 +511,35 @@ export default function AdminPage() {
 
     const c = await api<{ commissionPercent: number }>("/api/admin/commission");
     if (c.ok && c.data) setCommission(String(c.data.commissionPercent));
+
+    const setRes = await api<{ settlements: AdminSettlementRow[] }>(
+      "/api/admin/settlements?limit=120",
+    );
+    if (setRes.ok && setRes.data?.settlements) {
+      setSettlements(setRes.data.settlements);
+      setSettlementReferenceDraft((prev) => {
+        const next = { ...prev };
+        for (const s of setRes.data!.settlements) {
+          if (next[s.id] === undefined) next[s.id] = s.referenceNo ?? "";
+        }
+        return next;
+      });
+      setSettlementPaymentModeDraft((prev) => {
+        const next = { ...prev };
+        for (const s of setRes.data!.settlements) {
+          const mode = (s.paymentMode ?? "ONLINE") as "CASH" | "CHEQUE" | "ONLINE";
+          if (next[s.id] === undefined) next[s.id] = mode;
+        }
+        return next;
+      });
+      setSettlementProofDraft((prev) => {
+        const next = { ...prev };
+        for (const s of setRes.data!.settlements) {
+          if (next[s.id] === undefined) next[s.id] = s.paymentProofUrl ?? "";
+        }
+        return next;
+      });
+    }
 
     const usersPath =
       userRoleFilter === "ALL"
@@ -524,6 +672,16 @@ export default function AdminPage() {
   }, [router]);
 
   useEffect(() => {
+    if (settlementPeriodStart && settlementPeriodEnd) return;
+    const now = new Date();
+    const periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const periodStart = new Date(periodEnd);
+    periodStart.setDate(periodStart.getDate() - 7);
+    setSettlementPeriodStart(toDateInput(periodStart));
+    setSettlementPeriodEnd(toDateInput(periodEnd));
+  }, [settlementPeriodStart, settlementPeriodEnd]);
+
+  useEffect(() => {
     if (tab !== "catalog") setCatalogNotice(null);
   }, [tab]);
 
@@ -546,6 +704,29 @@ export default function AdminPage() {
     const t = window.setTimeout(() => setCatalogNotice(null), 8000);
     return () => window.clearTimeout(t);
   }, [catalogNotice]);
+
+  useEffect(() => {
+    if (tab !== "stores" && tab !== "productAudit") return;
+    if (!auditStoreId) return;
+    void loadAuditProducts(auditStoreId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, auditStoreId]);
+
+  /** Approved stores load async; re-fetch audit when list arrives while on Product Audit tab. */
+  useEffect(() => {
+    if (tab !== "productAudit") return;
+    if (!auditStoreId) return;
+    if (!approvedStores.some((s) => s.id === auditStoreId)) return;
+    void loadAuditProducts(auditStoreId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [approvedStores, tab, auditStoreId]);
+
+  useEffect(() => {
+    if (!msg?.trim()) return;
+    setToastMsg(msg.trim());
+    const t = window.setTimeout(() => setToastMsg(null), 4200);
+    return () => window.clearTimeout(t);
+  }, [msg]);
 
   async function setStoreStatus(id: string, status: "APPROVED" | "REJECTED") {
     setMsg(null);
@@ -582,6 +763,115 @@ export default function AdminPage() {
     });
     setMsg(res.ok ? "Store commission saved ✓" : res.error || t("adminMsgError"));
     await refresh();
+  }
+
+  async function generateSettlement() {
+    setMsg(null);
+    if (!settlementStoreId) {
+      setMsg("Pick a store first.");
+      return;
+    }
+    if (!settlementPeriodStart || !settlementPeriodEnd) {
+      setMsg("Select settlement period start and end.");
+      return;
+    }
+    const res = await api<{ settlement: AdminSettlementRow }>("/api/admin/settlements", {
+      method: "POST",
+      body: JSON.stringify({
+        storeId: settlementStoreId,
+        periodStart: new Date(settlementPeriodStart).toISOString(),
+        periodEnd: new Date(settlementPeriodEnd).toISOString(),
+        refundAdjustment: Number(settlementRefundAdj || "0"),
+        bonusAdjustment: Number(settlementBonusAdj || "0"),
+        manualAdjustment: Number(settlementManualAdj || "0"),
+        notes: settlementNotes.trim(),
+      }),
+    });
+    setMsg(res.ok ? "Settlement draft generated ✓" : res.error || "Could not generate settlement");
+    if (res.ok) {
+      setSettlementRefundAdj("0");
+      setSettlementBonusAdj("0");
+      setSettlementManualAdj("0");
+      setSettlementNotes("");
+      await refresh();
+    }
+  }
+
+  async function updateSettlementStatus(
+    settlementId: string,
+    status: "APPROVED" | "PAID" | "FAILED",
+  ) {
+    setMsg(null);
+    const payload: {
+      status: "APPROVED" | "PAID" | "FAILED";
+      referenceNo?: string;
+      paymentMode?: "CASH" | "CHEQUE" | "ONLINE";
+      paymentProofUrl?: string;
+      notes?: string;
+    } = { status };
+    if (status === "PAID") {
+      const ref = (settlementReferenceDraft[settlementId] ?? "").trim();
+      const mode = settlementPaymentModeDraft[settlementId] ?? "ONLINE";
+      const proof = (settlementProofDraft[settlementId] ?? "").trim();
+      if (!ref) {
+        setMsg("Reference is required to mark settlement as paid.");
+        return;
+      }
+      if (!proof) {
+        setMsg("Payment screenshot/proof upload required before marking paid.");
+        return;
+      }
+      payload.referenceNo = ref;
+      payload.paymentMode = mode;
+      payload.paymentProofUrl = proof;
+    }
+    const res = await api<{ settlement: AdminSettlementRow }>(
+      `/api/admin/settlements/${encodeURIComponent(settlementId)}/status`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+    setMsg(res.ok ? `Settlement moved to ${status}.` : res.error || "Could not update settlement");
+    if (res.ok) await refresh();
+  }
+
+  async function uploadSettlementProof(settlementId: string, file: File) {
+    const token = getToken();
+    if (!token) {
+      setMsg("Please log in again.");
+      return;
+    }
+    setUploadingSettlementProofId(settlementId);
+    setMsg(null);
+    const form = new FormData();
+    form.append("file", file);
+    const up = await fetch("/api/admin/upload-image", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const raw = (await up.json().catch(() => null)) as { imageUrl?: string; error?: string } | null;
+    setUploadingSettlementProofId(null);
+    if (!up.ok) {
+      setMsg(raw?.error || "Payment proof upload failed");
+      return;
+    }
+    const imageUrl = raw?.imageUrl?.trim();
+    if (!imageUrl) {
+      setMsg("Upload did not return image URL");
+      return;
+    }
+    setSettlementProofDraft((m) => ({ ...m, [settlementId]: imageUrl }));
+    setMsg("Payment proof uploaded ✓");
+  }
+
+  function onSettlementProofFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    const id = settlementProofTargetIdRef.current;
+    if (!file || !id) return;
+    void uploadSettlementProof(id, file);
   }
 
   async function createDelivery() {
@@ -722,6 +1012,91 @@ export default function AdminPage() {
     if (res.ok) await refresh();
   }
 
+  async function loadAuditProducts(storeId: string) {
+    if (!storeId) {
+      setAuditProducts([]);
+      setAuditSummary(null);
+      return;
+    }
+    const res = await api<{
+      products: AdminStoreProductRow[];
+      commissionSummary: AdminStoreProductSummary;
+    }>(`/api/admin/store-products?storeId=${encodeURIComponent(storeId)}`);
+    if (!res.ok || !res.data) {
+      setAuditProducts([]);
+      setAuditSummary(null);
+      if (tab === "productAudit") {
+        setMsg(res.error || "Product audit load failed — check login / API.");
+      }
+      return;
+    }
+    setAuditProducts(res.data.products ?? []);
+    setAuditSummary(res.data.commissionSummary ?? null);
+    setAuditPriceDraft((prev) => {
+      const next = { ...prev };
+      for (const p of res.data!.products ?? []) if (next[p.id] === undefined) next[p.id] = String(p.price);
+      return next;
+    });
+    setAuditMrpDraft((prev) => {
+      const next = { ...prev };
+      for (const p of res.data!.products ?? []) if (next[p.id] === undefined) next[p.id] = p.mrp != null ? String(p.mrp) : "";
+      return next;
+    });
+    setAuditStockDraft((prev) => {
+      const next = { ...prev };
+      for (const p of res.data!.products ?? []) if (next[p.id] === undefined) next[p.id] = String(p.stock);
+      return next;
+    });
+    setAuditCommissionDraft((prev) => {
+      const next = { ...prev };
+      for (const p of res.data!.products ?? []) if (next[p.id] === undefined) next[p.id] = typeof p.commissionPercent === "number" ? String(p.commissionPercent) : "";
+      return next;
+    });
+    setAuditActiveDraft((prev) => {
+      const next = { ...prev };
+      for (const p of res.data!.products ?? []) if (next[p.id] === undefined) next[p.id] = p.isActive;
+      return next;
+    });
+  }
+
+  async function saveAuditProduct(productId: string) {
+    const price = Number(auditPriceDraft[productId] ?? "");
+    const stock = Number(auditStockDraft[productId] ?? "");
+    const mrpRaw = (auditMrpDraft[productId] ?? "").trim();
+    const commRaw = (auditCommissionDraft[productId] ?? "").trim();
+    if (!Number.isFinite(price) || price <= 0) {
+      setMsg("Valid selling price required.");
+      return;
+    }
+    if (!Number.isFinite(stock) || stock < 0) {
+      setMsg("Valid stock required.");
+      return;
+    }
+    const mrp = mrpRaw === "" ? null : Number(mrpRaw);
+    if (mrp != null && (!Number.isFinite(mrp) || mrp <= 0)) {
+      setMsg("MRP must be positive or empty.");
+      return;
+    }
+    const commissionPercent = commRaw === "" ? null : Number(commRaw);
+    if (commissionPercent != null && (!Number.isFinite(commissionPercent) || commissionPercent < 0 || commissionPercent > 100)) {
+      setMsg("Commission must be 0-100 or empty.");
+      return;
+    }
+    const res = await api("/api/products/update", {
+      method: "PATCH",
+      body: JSON.stringify({
+        productId,
+        price,
+        stock: Math.round(stock),
+        ...(mrp != null ? { mrp } : {}),
+        commissionPercent,
+        isActive: auditActiveDraft[productId] ?? true,
+      }),
+    });
+    setMsg(res.ok ? "Product saved ✓" : res.error || "Could not save product");
+    if (res.ok && auditStoreId) await loadAuditProducts(auditStoreId);
+  }
+
   async function assign() {
     setMsg(null);
     const res = await api("/api/delivery/assign", {
@@ -735,6 +1110,21 @@ export default function AdminPage() {
     await refresh();
   }
 
+  async function assignOrderRider(orderId: string) {
+    const deliveryBoyId = (orderRiderDraft[orderId] ?? "").trim();
+    if (!deliveryBoyId) {
+      setMsg("Please select rider first.");
+      return;
+    }
+    setMsg(null);
+    const res = await api("/api/delivery/assign", {
+      method: "POST",
+      body: JSON.stringify({ orderId, deliveryBoyId }),
+    });
+    setMsg(res.ok ? "Rider assigned successfully." : res.error || t("adminMsgError"));
+    if (res.ok) await refresh();
+  }
+
   async function updateOrderStatus(orderId: string, status: string) {
     setMsg(null);
     const res = await api("/api/orders/update-status", {
@@ -742,6 +1132,78 @@ export default function AdminPage() {
       body: JSON.stringify({ orderId, status }),
     });
     setMsg(res.ok ? "Order status updated" : res.error || t("adminMsgError"));
+    await refresh();
+  }
+
+  async function copyText(label: string, value?: string | null) {
+    const clean = (value ?? "").trim();
+    if (!clean) {
+      setMsg(`${label} unavailable`);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(clean);
+      setMsg(`${label} copied`);
+    } catch {
+      setMsg(`Could not copy ${label.toLowerCase()}`);
+    }
+  }
+
+  async function downloadInvoice(orderId: string) {
+    const token = getToken();
+    if (!token) {
+      setMsg("Session expired. Please login again.");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/orders/store/${encodeURIComponent(orderId)}/invoice`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        setMsg(txt || "Could not download bill.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `speedza-order-${orderId.slice(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setMsg("Bill downloaded.");
+    } catch {
+      setMsg("Could not download bill.");
+    }
+  }
+
+  async function applyOrderAction(order: AdminOrderRow) {
+    const action = orderActionDraft[order.id] || "";
+    if (!action) return;
+    if (action === "ASSIGN_RIDER") {
+      await assignOrderRider(order.id);
+      return;
+    }
+    if (action === "OUT_FOR_DELIVERY") {
+      if (!order.delivery) {
+        setMsg("Assign rider first, then mark OUT_FOR_DELIVERY.");
+        return;
+      }
+      await updateOrderStatus(order.id, "OUT_FOR_DELIVERY");
+      return;
+    }
+    await updateOrderStatus(order.id, action);
+  }
+
+  async function updateListRequestStatus(id: string, status: string) {
+    setMsg(null);
+    const res = await api("/api/admin/list-requests", {
+      method: "PATCH",
+      body: JSON.stringify({ id, status }),
+    });
+    setMsg(res.ok ? "List request updated" : res.error || t("adminMsgError"));
     await refresh();
   }
 
@@ -1151,8 +1613,12 @@ export default function AdminPage() {
   const breadcrumb =
     tab === "overview"
       ? t("adminBreadcrumbOverview")
+      : tab === "orders"
+        ? "Orders"
       : tab === "stores"
         ? t("adminBreadcrumbStores")
+        : tab === "productAudit"
+          ? "Product Audit"
         : tab === "users"
           ? "Users"
         : tab === "riders"
@@ -1171,6 +1637,32 @@ export default function AdminPage() {
     : null;
   const selectedMain = masterCatalog?.mains.find((m) => m.id === pickMainId);
   const selectedSub = selectedMain?.subcategories.find((s) => s.id === pickSubId);
+  const filteredAdminOrders = recentOrders.filter((o) => {
+    if (orderStatusFilter !== "ALL" && o.status !== orderStatusFilter) return false;
+    const q = orderQuery.trim().toLowerCase();
+    if (!q) return true;
+    const hay = [
+      o.id,
+      o.store?.name ?? "",
+      o.user?.name ?? "",
+      o.user?.phone ?? "",
+      o.deliveryAddress ?? "",
+      o.delivery?.deliveryBoy?.name ?? "",
+      o.delivery?.deliveryBoy?.phone ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+    return hay.includes(q);
+  });
+  const orderStatusCounts = recentOrders.reduce<Record<string, number>>((acc, o) => {
+    acc[o.status] = (acc[o.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  const filteredAuditProducts = auditProducts.filter((p) => {
+    const q = auditQuery.trim().toLowerCase();
+    if (!q) return true;
+    return p.name.toLowerCase().includes(q) || p.categoryName.toLowerCase().includes(q);
+  });
 
   return (
     <DashboardShell
@@ -1186,9 +1678,19 @@ export default function AdminPage() {
           icon: <IconAdminDash />,
         },
         {
+          id: "orders",
+          label: "Orders",
+          icon: <IconAdminOrders />,
+        },
+        {
           id: "stores",
           label: t("adminNavStores"),
           icon: <IconAdminStore />,
+        },
+        {
+          id: "productAudit",
+          label: "Product Audit",
+          icon: <IconAdminCatalog />,
         },
         {
           id: "users",
@@ -1222,6 +1724,11 @@ export default function AdminPage() {
           {msg}
         </div>
       )}
+      {toastMsg ? (
+        <div className="pointer-events-none fixed bottom-5 right-5 z-[200] max-w-sm rounded-2xl border border-zinc-200 bg-zinc-900/95 px-4 py-3 text-sm font-semibold text-white shadow-2xl">
+          {toastMsg}
+        </div>
+      ) : null}
 
       {tab === "overview" && (
         <div className="space-y-8">
@@ -1302,6 +1809,93 @@ export default function AdminPage() {
             ) : (
               <p className="mt-2 text-sm text-zinc-500">{t("adminTodaysMatchNone")}</p>
             )}
+          </section>
+
+          <section className="rounded-3xl border border-emerald-200/80 bg-white p-6 shadow-xl shadow-emerald-100/40">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-display text-lg font-bold text-zinc-900">
+                Photo list requests
+              </h3>
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                {listRequests.filter((r) => r.status !== "DELIVERED" && r.status !== "REJECTED").length} active
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-zinc-600">
+              Customer uploaded grocery lists. Review and mark delivery status.
+            </p>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-xs font-bold uppercase tracking-wide text-zinc-400">
+                    <th className="pb-3 pr-3">Photo</th>
+                    <th className="pb-3 pr-3">Customer</th>
+                    <th className="pb-3 pr-3">Address / note</th>
+                    <th className="pb-3 pr-3">Created</th>
+                    <th className="pb-3 pr-3">Status</th>
+                    <th className="pb-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listRequests.slice(0, 15).map((r) => (
+                    <tr key={r.id} className="border-b border-zinc-100 align-top last:border-0">
+                      <td className="py-3 pr-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={r.imageUrl}
+                          alt=""
+                          className="h-16 w-16 rounded-xl border border-zinc-200 object-cover"
+                        />
+                      </td>
+                      <td className="py-3 pr-3">
+                        <p className="font-semibold text-zinc-900">{r.userName || "Customer"}</p>
+                        <p className="text-xs text-zinc-500">{r.userPhone}</p>
+                        <p className="mt-1 font-mono text-[10px] text-zinc-400">#{r.id.slice(0, 8)}</p>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <p className="max-w-xs text-xs text-zinc-700">{r.address || "No address"}</p>
+                        {r.note ? <p className="mt-1 max-w-xs text-xs text-zinc-500">Note: {r.note}</p> : null}
+                      </td>
+                      <td className="py-3 pr-3 text-xs text-zinc-600">
+                        {new Date(r.createdAt).toLocaleString()}
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ${listRequestStatusStyle(r.status)}`}>
+                          {r.status.replace(/_/g, " ")}
+                        </span>
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void updateListRequestStatus(r.id, "IN_REVIEW")}
+                            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-700"
+                          >
+                            Review
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void updateListRequestStatus(r.id, "OUT_FOR_DELIVERY")}
+                            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700"
+                          >
+                            Out
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void updateListRequestStatus(r.id, "DELIVERED")}
+                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700"
+                          >
+                            Delivered
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {listRequests.length === 0 ? (
+                <p className="py-6 text-center text-sm text-zinc-500">No photo list requests yet.</p>
+              ) : null}
+            </div>
           </section>
 
           <AdminCharts
@@ -1396,6 +1990,303 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {tab === "orders" && (
+        <div className="space-y-8">
+          <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-display text-xl font-bold text-zinc-900">Orders control center</h2>
+                <p className="mt-1 text-sm text-zinc-600">
+                  Saare orders ka detailed view: customer, store, rider, address aur quick actions.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  ["Total", recentOrders.length],
+                  ["Ready", orderStatusCounts.READY ?? 0],
+                  ["Out", orderStatusCounts.OUT_FOR_DELIVERY ?? 0],
+                  ["Delivered", orderStatusCounts.DELIVERED ?? 0],
+                ].map(([label, value]) => (
+                  <div
+                    key={String(label)}
+                    className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-center"
+                  >
+                    <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">{label}</p>
+                    <p className="text-lg font-black text-zinc-900">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <input
+                className="ui-input sm:col-span-2"
+                placeholder="Search by order id, store, customer, rider or address"
+                value={orderQuery}
+                onChange={(e) => setOrderQuery(e.target.value)}
+              />
+              <select
+                className="ui-input"
+                value={orderStatusFilter}
+                onChange={(e) => setOrderStatusFilter(e.target.value)}
+              >
+                <option value="ALL">All status</option>
+                <option value="PLACED">PLACED</option>
+                <option value="PREPARING">PREPARING</option>
+                <option value="READY">READY</option>
+                <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
+                <option value="DELIVERED">DELIVERED</option>
+                <option value="CANCELLED">CANCELLED</option>
+              </select>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1380px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-500">
+                    <th className="pb-3 pr-3">Order</th>
+                    <th className="pb-3 pr-3">Store</th>
+                    <th className="pb-3 pr-3">Customer</th>
+                    <th className="pb-3 pr-3">Address</th>
+                    <th className="pb-3 pr-3">Rider</th>
+                    <th className="pb-3 pr-3">Payment</th>
+                    <th className="pb-3 pr-3">Status</th>
+                    <th className="pb-3 pr-3">Created</th>
+                    <th className="pb-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {filteredAdminOrders.map((o) => (
+                    <tr key={o.id}>
+                      <td className="py-3 pr-3">
+                        <p className="font-mono text-xs font-semibold text-zinc-700">#{o.id.slice(0, 10)}…</p>
+                        <p className="mt-1 text-xs text-zinc-500">{o.itemsCount ?? 0} items</p>
+                        <p className="text-xs font-semibold text-zinc-800">₹{Math.round(o.totalAmount * 100) / 100}</p>
+                        <button
+                          type="button"
+                          className="mt-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-black text-violet-700 hover:bg-violet-100"
+                          onClick={() => setSelectedOrder(o)}
+                        >
+                          View details
+                        </button>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <p className="font-semibold text-zinc-900">{o.store.name}</p>
+                        <p className="mt-1 max-w-[220px] text-xs text-zinc-500">{o.store.address ?? "No store address"}</p>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <p className="font-semibold text-zinc-900">{o.user?.name || "Customer"}</p>
+                        <p className="text-xs text-zinc-600">{o.user?.phone ?? "—"}</p>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <p className="max-w-[260px] text-xs text-zinc-700">{o.deliveryAddress || "No delivery address"}</p>
+                      </td>
+                      <td className="py-3 pr-3">
+                        {o.delivery?.deliveryBoy ? (
+                          <>
+                            <p className="font-semibold text-zinc-900">{o.delivery.deliveryBoy.name}</p>
+                            <p className="text-xs text-zinc-600">{o.delivery.deliveryBoy.phone}</p>
+                            <button
+                              type="button"
+                              className="mt-1 rounded-md border border-zinc-200 px-2 py-1 text-[10px] font-black text-zinc-700 hover:bg-zinc-50"
+                              onClick={() => void copyText("Rider ID", o.delivery?.deliveryBoy?.id)}
+                            >
+                              Copy rider ID
+                            </button>
+                          </>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <p className="text-xs font-semibold text-zinc-500">Not assigned</p>
+                            <select
+                              className="ui-input !py-1.5 text-xs"
+                              value={orderRiderDraft[o.id] ?? ""}
+                              onChange={(e) =>
+                                setOrderRiderDraft((prev) => ({ ...prev, [o.id]: e.target.value }))
+                              }
+                            >
+                              <option value="">Select rider</option>
+                              {deliveryUsers.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                  {d.name} ({d.phone})
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700 hover:bg-emerald-100"
+                              onClick={() => void assignOrderRider(o.id)}
+                            >
+                              Assign rider
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span className="inline-flex rounded-full bg-zinc-100 px-2 py-1 text-xs font-bold text-zinc-700">
+                          {o.paymentType || "COD"}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${adminOrderStatusStyle(o.status)}`}
+                          >
+                            {o.status.replace(/_/g, " ")}
+                          </span>
+                          {o.storeRejected ? (
+                            <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-rose-800">
+                              Store rejected
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="py-3 pr-3 text-xs text-zinc-600">
+                        {new Date(o.createdAt).toLocaleString()}
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="flex min-w-[280px] flex-wrap justify-end gap-1.5">
+                          <select
+                            className="ui-input !w-[170px] !py-1.5 text-xs"
+                            value={orderActionDraft[o.id] ?? ""}
+                            onChange={(e) =>
+                              setOrderActionDraft((prev) => ({ ...prev, [o.id]: e.target.value }))
+                            }
+                          >
+                            <option value="">Quick action</option>
+                            <option value="PREPARING">Mark PREPARING</option>
+                            <option value="READY">Mark READY</option>
+                            <option value="OUT_FOR_DELIVERY">Mark OUT_FOR_DELIVERY</option>
+                            <option value="CANCELLED">Cancel order</option>
+                            <option value="ASSIGN_RIDER">Assign selected rider</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-zinc-200 bg-zinc-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-zinc-700"
+                            onClick={() => void applyOrderAction(o)}
+                          >
+                            Apply
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
+                            onClick={() => void downloadInvoice(o.id)}
+                          >
+                            Download bill
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 hover:bg-violet-100"
+                            onClick={() => setSelectedOrder(o)}
+                          >
+                            View
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredAdminOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-8 text-center text-sm text-zinc-500">
+                        No orders found for selected filter/search.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      )}
+      {selectedOrder ? (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-zinc-950/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-violet-600">Order detail view</p>
+                <h3 className="font-display text-xl font-bold text-zinc-900">
+                  #{selectedOrder.id.slice(0, 12)}…
+                </h3>
+                <p className="mt-1 text-sm text-zinc-600">
+                  {selectedOrder.store.name} · {selectedOrder.user?.name || selectedOrder.user?.phone || "Customer"}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-xl border border-zinc-300 px-3 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                onClick={() => setSelectedOrder(null)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">Amount</p>
+                <p className="mt-1 text-lg font-black text-zinc-900">
+                  ₹{Math.round(selectedOrder.totalAmount * 100) / 100}
+                </p>
+              </div>
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">Status</p>
+                <p className="mt-1 text-sm font-bold text-zinc-800">{selectedOrder.status.replace(/_/g, " ")}</p>
+              </div>
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">Payment</p>
+                <p className="mt-1 text-sm font-bold text-zinc-800">{selectedOrder.paymentType || "COD"}</p>
+              </div>
+            </div>
+            <div className="mt-4 rounded-2xl border border-zinc-200">
+              <div className="border-b border-zinc-200 px-4 py-3">
+                <h4 className="text-sm font-black text-zinc-900">Products in this order</h4>
+              </div>
+              <div className="divide-y divide-zinc-100">
+                {selectedOrder.items?.length ? (
+                  selectedOrder.items.map((it) => (
+                    <div key={`${selectedOrder.id}-${it.product.id}`} className="flex items-center justify-between px-4 py-2.5">
+                      <p className="text-sm text-zinc-800">
+                        <span className="font-semibold">{it.quantity}x</span> {it.product.name}
+                        <span className="text-xs text-zinc-500"> ({it.product.unitLabel || "unit"})</span>
+                      </p>
+                      <p className="text-sm font-bold text-zinc-900">₹{Math.round(it.lineTotal * 100) / 100}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="px-4 py-6 text-center text-sm text-zinc-500">No item details available.</p>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
+              <p>
+                <span className="font-black text-zinc-900">Delivery address:</span>{" "}
+                {selectedOrder.deliveryAddress || "No address"}
+              </p>
+              <p className="mt-1">
+                <span className="font-black text-zinc-900">Rider:</span>{" "}
+                {selectedOrder.delivery?.deliveryBoy
+                  ? `${selectedOrder.delivery.deliveryBoy.name} (${selectedOrder.delivery.deliveryBoy.phone})`
+                  : "Not assigned"}
+              </p>
+            </div>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-zinc-300 px-4 py-2 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                onClick={() => void copyText("Order ID", selectedOrder.id)}
+              >
+                Copy order ID
+              </button>
+              <button
+                type="button"
+                className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-black text-white hover:bg-zinc-800"
+                onClick={() => void downloadInvoice(selectedOrder.id)}
+              >
+                Download bill
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {tab === "stores" && (
         <div className="space-y-8">
@@ -1616,7 +2507,146 @@ export default function AdminPage() {
               </table>
             </div>
           </section>
+
         </div>
+      )}
+
+      {tab === "productAudit" && (
+        <section className="rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/50 to-white p-6 shadow-xl">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="font-display text-lg font-bold text-zinc-900">Store product audit & manage</h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Admin can view all products, effective commission, stock, price and active state.
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <select
+                className="ui-input min-w-[240px]"
+                value={auditStoreId}
+                onChange={(e) => setAuditStoreId(e.target.value)}
+              >
+                <option value="">Select store</option>
+                {approvedStores.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="ui-input min-w-[220px]"
+                placeholder="Search product/category"
+                value={auditQuery}
+                onChange={(e) => setAuditQuery(e.target.value)}
+              />
+            </div>
+          </div>
+          {auditSummary ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-zinc-200 bg-white p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">Delivered gross</p>
+                <p className="mt-1 text-xl font-black text-zinc-900">₹{auditSummary.deliveredGross}</p>
+              </div>
+              <div className="rounded-2xl border border-rose-200 bg-white p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">Platform commission</p>
+                <p className="mt-1 text-xl font-black text-rose-700">₹{auditSummary.deliveredPlatformCommission}</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-200 bg-white p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">Store estimated net</p>
+                <p className="mt-1 text-xl font-black text-emerald-700">₹{auditSummary.deliveredEstimatedStoreNet}</p>
+              </div>
+            </div>
+          ) : null}
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[1220px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-400">
+                  <th className="pb-3 pr-3">Product</th>
+                  <th className="pb-3 pr-3">Category</th>
+                  <th className="pb-3 pr-3">MRP</th>
+                  <th className="pb-3 pr-3">Price</th>
+                  <th className="pb-3 pr-3">Stock</th>
+                  <th className="pb-3 pr-3">Product %</th>
+                  <th className="pb-3 pr-3">Effective %</th>
+                  <th className="pb-3 pr-3">Active</th>
+                  <th className="pb-3 text-right">Manage</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {filteredAuditProducts.map((p) => (
+                  <tr key={p.id} className="bg-white">
+                    <td className="py-3 pr-3">
+                      <p className="font-semibold text-zinc-900">{p.name}</p>
+                      <p className="text-[10px] font-mono text-zinc-500">{p.id.slice(0, 10)}…</p>
+                    </td>
+                    <td className="py-3 pr-3 text-zinc-700">{p.categoryName}</td>
+                    <td className="py-3 pr-3">
+                      <input
+                        className="ui-input !py-2 w-24"
+                        value={auditMrpDraft[p.id] ?? ""}
+                        onChange={(e) => setAuditMrpDraft((m) => ({ ...m, [p.id]: e.target.value }))}
+                        placeholder="MRP"
+                      />
+                    </td>
+                    <td className="py-3 pr-3">
+                      <input
+                        className="ui-input !py-2 w-24"
+                        value={auditPriceDraft[p.id] ?? String(p.price)}
+                        onChange={(e) => setAuditPriceDraft((m) => ({ ...m, [p.id]: e.target.value }))}
+                      />
+                    </td>
+                    <td className="py-3 pr-3">
+                      <input
+                        className="ui-input !py-2 w-20"
+                        value={auditStockDraft[p.id] ?? String(p.stock)}
+                        onChange={(e) => setAuditStockDraft((m) => ({ ...m, [p.id]: e.target.value }))}
+                      />
+                    </td>
+                    <td className="py-3 pr-3">
+                      <input
+                        className="ui-input !py-2 w-20"
+                        value={auditCommissionDraft[p.id] ?? ""}
+                        onChange={(e) => setAuditCommissionDraft((m) => ({ ...m, [p.id]: e.target.value }))}
+                        placeholder="default"
+                      />
+                    </td>
+                    <td className="py-3 pr-3 font-semibold text-zinc-700">
+                      {p.effectiveCommissionPercent}%
+                    </td>
+                    <td className="py-3 pr-3">
+                      <label className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-700">
+                        <input
+                          type="checkbox"
+                          checked={auditActiveDraft[p.id] ?? p.isActive}
+                          onChange={(e) =>
+                            setAuditActiveDraft((m) => ({ ...m, [p.id]: e.target.checked }))
+                          }
+                        />
+                        {auditActiveDraft[p.id] ?? p.isActive ? "Active" : "Inactive"}
+                      </label>
+                    </td>
+                    <td className="py-3 text-right">
+                      <button
+                        type="button"
+                        className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-black text-white hover:bg-zinc-800"
+                        onClick={() => void saveAuditProduct(p.id)}
+                      >
+                        Save
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filteredAuditProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-sm text-zinc-500">
+                      {auditStoreId ? "No products found for this store." : "Select a store to audit products."}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
 
       {tab === "users" && (
@@ -1937,6 +2967,256 @@ export default function AdminPage() {
               </button>
             </section>
           </div>
+
+          <section className="rounded-3xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50/40 to-white p-6 shadow-xl">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-lg font-bold text-zinc-900">
+                Store settlements (admin-controlled)
+              </h2>
+              <p className="text-xs font-semibold text-zinc-600">
+                Flow: DRAFT → APPROVED → PAID
+              </p>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div>
+                <label className="ui-label">Store</label>
+                <select
+                  className="ui-input"
+                  value={settlementStoreId}
+                  onChange={(e) => setSettlementStoreId(e.target.value)}
+                >
+                  <option value="">Select store</option>
+                  {approvedStores.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="ui-label">Period start</label>
+                <input
+                  type="date"
+                  className="ui-input"
+                  value={settlementPeriodStart}
+                  onChange={(e) => setSettlementPeriodStart(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="ui-label">Period end (exclusive)</label>
+                <input
+                  type="date"
+                  className="ui-input"
+                  value={settlementPeriodEnd}
+                  onChange={(e) => setSettlementPeriodEnd(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="ui-label">Refund adjustment (−)</label>
+                <input
+                  className="ui-input"
+                  inputMode="decimal"
+                  value={settlementRefundAdj}
+                  onChange={(e) => setSettlementRefundAdj(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="ui-label">Bonus (+)</label>
+                <input
+                  className="ui-input"
+                  inputMode="decimal"
+                  value={settlementBonusAdj}
+                  onChange={(e) => setSettlementBonusAdj(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="ui-label">Manual (+/−)</label>
+                <input
+                  className="ui-input"
+                  inputMode="decimal"
+                  value={settlementManualAdj}
+                  onChange={(e) => setSettlementManualAdj(e.target.value)}
+                />
+              </div>
+              <div className="md:col-span-3">
+                <label className="ui-label">Notes (optional)</label>
+                <input
+                  className="ui-input"
+                  value={settlementNotes}
+                  onChange={(e) => setSettlementNotes(e.target.value)}
+                  placeholder="Reason, references, payout notes"
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void generateSettlement()}
+              className="ui-btn-primary mt-4 !rounded-2xl"
+            >
+              Generate draft settlement
+            </button>
+
+            <div className="mt-5 overflow-x-auto">
+              <input
+                ref={settlementProofInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={onSettlementProofFileChange}
+              />
+              <table className="w-full min-w-[1040px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-400">
+                    <th className="pb-3 pr-3">Store / Period</th>
+                    <th className="pb-3 pr-3">Orders</th>
+                    <th className="pb-3 pr-3">Gross</th>
+                    <th className="pb-3 pr-3">Platform</th>
+                    <th className="pb-3 pr-3">Adjustments</th>
+                    <th className="pb-3 pr-3">Net</th>
+                    <th className="pb-3 pr-3">Status</th>
+                    <th className="pb-3 pr-3">Payment details</th>
+                    <th className="pb-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {settlements.map((s) => (
+                    <tr key={s.id} className="bg-white">
+                      <td className="py-3 pr-3">
+                        <p className="font-semibold text-zinc-900">{s.storeName}</p>
+                        <p className="text-xs text-zinc-500">
+                          {new Date(s.periodStart).toLocaleDateString()} →{" "}
+                          {new Date(s.periodEnd).toLocaleDateString()}
+                        </p>
+                        {s.referenceNo ? (
+                          <p className="text-[11px] font-semibold text-emerald-700">
+                            Ref: {s.referenceNo}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="py-3 pr-3 font-semibold text-zinc-800">{s.ordersCount}</td>
+                      <td className="py-3 pr-3 font-semibold text-zinc-900">₹{s.grossAmount}</td>
+                      <td className="py-3 pr-3 text-rose-700">
+                        ₹{s.platformCommission}
+                        {typeof s.blendedCommissionPct === "number" ? (
+                          <p className="text-[11px] text-zinc-500">~{s.blendedCommissionPct}%</p>
+                        ) : null}
+                      </td>
+                      <td className="py-3 pr-3 text-xs text-zinc-600">
+                        <p>-₹{s.refundAdjustment}</p>
+                        <p>+₹{s.bonusAdjustment}</p>
+                        <p>{s.manualAdjustment >= 0 ? "+" : ""}₹{s.manualAdjustment}</p>
+                      </td>
+                      <td className="py-3 pr-3 font-black text-emerald-700">₹{s.netPayable}</td>
+                      <td className="py-3 pr-3">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-black ${
+                            s.status === "PAID"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : s.status === "APPROVED"
+                                ? "bg-sky-100 text-sky-800"
+                                : s.status === "FAILED"
+                                  ? "bg-rose-100 text-rose-800"
+                                  : "bg-amber-100 text-amber-900"
+                          }`}
+                        >
+                          {s.status}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <div className="space-y-1.5">
+                          <select
+                            className="ui-input !py-1.5 text-xs"
+                            value={settlementPaymentModeDraft[s.id] ?? "ONLINE"}
+                            onChange={(e) =>
+                              setSettlementPaymentModeDraft((m) => ({
+                                ...m,
+                                [s.id]: e.target.value as "CASH" | "CHEQUE" | "ONLINE",
+                              }))
+                            }
+                            disabled={s.status === "PAID"}
+                          >
+                            <option value="ONLINE">Online transfer</option>
+                            <option value="CHEQUE">Cheque</option>
+                            <option value="CASH">Cash</option>
+                          </select>
+                          <input
+                            className="ui-input !py-1.5 text-xs"
+                            placeholder="Reference / cheque no / UTR"
+                            value={settlementReferenceDraft[s.id] ?? ""}
+                            onChange={(e) =>
+                              setSettlementReferenceDraft((m) => ({ ...m, [s.id]: e.target.value }))
+                            }
+                            disabled={s.status === "PAID"}
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-bold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
+                              disabled={uploadingSettlementProofId === s.id || s.status === "PAID"}
+                              onClick={() => {
+                                settlementProofTargetIdRef.current = s.id;
+                                settlementProofInputRef.current?.click();
+                              }}
+                            >
+                              {uploadingSettlementProofId === s.id ? "Uploading…" : "Upload proof"}
+                            </button>
+                            {settlementProofDraft[s.id] ? (
+                              <a
+                                href={settlementProofDraft[s.id]}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] font-bold text-violet-700 underline"
+                              >
+                                View proof
+                              </a>
+                            ) : null}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          {s.status === "DRAFT" || s.status === "FAILED" ? (
+                            <button
+                              type="button"
+                              className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-black text-white hover:bg-zinc-800"
+                              onClick={() => void updateSettlementStatus(s.id, "APPROVED")}
+                            >
+                              Approve
+                            </button>
+                          ) : null}
+                          {s.status === "APPROVED" ? (
+                            <button
+                              type="button"
+                              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700"
+                              onClick={() => void updateSettlementStatus(s.id, "PAID")}
+                            >
+                              Mark paid
+                            </button>
+                          ) : null}
+                          {s.status !== "PAID" && s.status !== "FAILED" ? (
+                            <button
+                              type="button"
+                              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-100"
+                              onClick={() => void updateSettlementStatus(s.id, "FAILED")}
+                            >
+                              Fail
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {settlements.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-8 text-center text-sm text-zinc-500">
+                        No settlements yet.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
           <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2479,10 +3759,31 @@ function adminOrderStatusStyle(s: string) {
   return m[s] ?? "bg-zinc-100 text-zinc-800";
 }
 
+function listRequestStatusStyle(s: string) {
+  const m: Record<string, string> = {
+    NEW: "bg-amber-100 text-amber-900",
+    IN_REVIEW: "bg-sky-100 text-sky-900",
+    CONFIRMED: "bg-violet-100 text-violet-900",
+    OUT_FOR_DELIVERY: "bg-orange-100 text-orange-900",
+    DELIVERED: "bg-emerald-100 text-emerald-900",
+    REJECTED: "bg-rose-100 text-rose-900",
+  };
+  return m[s] ?? "bg-zinc-100 text-zinc-800";
+}
+
 function IconAdminDash() {
   return (
     <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
+    </svg>
+  );
+}
+
+function IconAdminOrders() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <path d="M8 9h8M8 13h8M8 17h5" />
     </svg>
   );
 }

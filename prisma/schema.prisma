@@ -43,6 +43,13 @@ enum DeliveryStatus {
   DELIVERED
 }
 
+enum SettlementStatus {
+  DRAFT
+  APPROVED
+  PAID
+  FAILED
+}
+
 model User {
   id        String   @id @default(cuid())
   name      String
@@ -63,15 +70,15 @@ model User {
 }
 
 model UserAddress {
-  id         String   @id @default(cuid())
-  userId     String
-  label      String   @default("Home") @db.VarChar(32)
-  address    String   @db.Text
-  latitude   Float
-  longitude  Float
-  isDefault  Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  label     String   @default("Home") @db.VarChar(32)
+  address   String   @db.Text
+  latitude  Float
+  longitude Float
+  isDefault Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -94,31 +101,32 @@ model OtpCode {
 }
 
 model Store {
-  id           String      @id @default(cuid())
-  name         String
-  ownerId      String
-  address      String      @db.Text
-  latitude     Float
-  longitude    Float
-  status       StoreStatus @default(PENDING)
+  id                  String      @id @default(cuid())
+  name                String
+  ownerId             String
+  address             String      @db.Text
+  latitude            Float
+  longitude           Float
+  status              StoreStatus @default(PENDING)
   /// Shop browse category: grocery | fruits-vegetables | food | electronics
-  shopVertical String      @default("food") @db.VarChar(32)
+  shopVertical        String      @default("food") @db.VarChar(32)
   /// Optional per-store commission override (percent). If null, platform default applies.
-  commissionPercent Float?
-  imageUrl     String?     @db.VarChar(2048)
+  commissionPercent   Float?
+  imageUrl            String?     @db.VarChar(2048)
   /// Second listing photo (registration requires at least 2 images: imageUrl + imageUrl2).
-  imageUrl2    String?     @db.VarChar(2048)
+  imageUrl2           String?     @db.VarChar(2048)
   /// When true, customers only see the store as open between openingTime–closingTime (Asia/Kolkata).
-  openingHoursEnabled Boolean   @default(false)
-  openingTime         String?   @db.VarChar(5)
-  closingTime         String?   @db.VarChar(5)
-  createdAt    DateTime    @default(now())
+  openingHoursEnabled Boolean     @default(false)
+  openingTime         String?     @db.VarChar(5)
+  closingTime         String?     @db.VarChar(5)
+  createdAt           DateTime    @default(now())
 
-  owner      User         @relation("StoreOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  categories Category[]
-  products   Product[]
-  orders     Order[]
+  owner         User              @relation("StoreOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  categories    Category[]
+  products      Product[]
+  orders        Order[]
   subscriptions Subscription[]
+  settlements   StoreSettlement[]
 
   @@index([ownerId])
   @@index([status])
@@ -151,91 +159,92 @@ model MasterMainCategory {
 
 /// Platform-wide master subcategory (template)
 model MasterCategory {
-  id         String  @id @default(cuid())
+  id             String  @id @default(cuid())
   mainCategoryId String
-  name       String  @db.VarChar(120)
-  imageUrl   String? @db.VarChar(2048)
-  sortOrder  Int     @default(0)
+  name           String  @db.VarChar(120)
+  imageUrl       String? @db.VarChar(2048)
+  sortOrder      Int     @default(0)
 
   mainCategory MasterMainCategory @relation(fields: [mainCategoryId], references: [id], onDelete: Cascade)
-  products   MasterProduct[]
+  products     MasterProduct[]
 
-  @@index([mainCategoryId, sortOrder])
   @@unique([mainCategoryId, name])
+  @@index([mainCategoryId, sortOrder])
 }
 
 /// Platform-wide master product (template)
 model MasterProduct {
-  id              String  @id @default(cuid())
+  id               String  @id @default(cuid())
   masterCategoryId String
-  name            String  @db.VarChar(200)
-  description     String  @db.Text
-  imageUrl        String? @db.VarChar(2048)
-  imageUrl2       String? @db.VarChar(2048)
-  unitLabel       String? @db.VarChar(40)
-  sortOrder       Int     @default(0)
+  name             String  @db.VarChar(200)
+  description      String  @db.Text
+  imageUrl         String? @db.VarChar(2048)
+  imageUrl2        String? @db.VarChar(2048)
+  unitLabel        String? @db.VarChar(40)
+  sortOrder        Int     @default(0)
 
   masterCategory MasterCategory @relation(fields: [masterCategoryId], references: [id], onDelete: Cascade)
   storeProducts  Product[]
 
-  @@index([masterCategoryId, sortOrder])
   @@unique([masterCategoryId, name])
+  @@index([masterCategoryId, sortOrder])
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  storeId     String
-  categoryId  String
-  masterProductId String?
-  name        String
-  description String   @db.Text
+  id                String   @id @default(cuid())
+  storeId           String
+  categoryId        String
+  masterProductId   String?
+  name              String
+  description       String   @db.Text
   /// Maximum retail / list price (customer sees discount vs `price`).
-  mrp         Decimal? @db.Decimal(10, 2)
+  mrp               Decimal? @db.Decimal(10, 2)
   /// Selling price (what customer pays).
-  price       Decimal  @db.Decimal(10, 2)
+  price             Decimal  @db.Decimal(10, 2)
   /// Optional % of line revenue to platform for this SKU; if null, store then platform default applies.
   commissionPercent Float?
-  stock       Int      @default(0)
-  imageUrl    String?  @db.VarChar(2048)
-  imageUrl2   String?  @db.VarChar(2048)
+  stock             Int      @default(0)
+  imageUrl          String?  @db.VarChar(2048)
+  imageUrl2         String?  @db.VarChar(2048)
   /// Pack / unit shown to customers (e.g. 500 g, 1 kg, 1 L, 1 pc) — copied from master on import
-  unitLabel   String?  @db.VarChar(40)
+  unitLabel         String?  @db.VarChar(40)
   /// Same id on all SKUs that appear as one product with pack options (e.g. Atta 3 kg + 5 kg).
-  variantGroupId String? @db.VarChar(36)
+  variantGroupId    String?  @db.VarChar(36)
   /// Shown on pack selector, e.g. "3 kg", "5 kg bag".
-  variantLabel   String? @db.VarChar(40)
-  variantSort    Int     @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  variantLabel      String?  @db.VarChar(40)
+  variantSort       Int      @default(0)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
 
-  store    Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  category Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  store         Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category      Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   masterProduct MasterProduct? @relation(fields: [masterProductId], references: [id], onDelete: SetNull)
-  items    OrderItem[]
+  items         OrderItem[]
 
+  @@unique([storeId, masterProductId])
   @@index([storeId])
   @@index([categoryId])
   @@index([masterProductId])
   @@index([storeId, variantGroupId])
-  @@unique([storeId, masterProductId])
 }
 
 model Order {
-  id          String      @id @default(cuid())
-  userId      String
-  storeId     String
-  totalAmount Decimal     @db.Decimal(10, 2)
-  status      OrderStatus @default(PLACED)
-  paymentType PaymentType @default(COD)
-  deliveryAddress String  @db.Text
+  id              String      @id @default(cuid())
+  userId          String
+  storeId         String
+  totalAmount     Decimal     @db.Decimal(10, 2)
+  status          OrderStatus @default(PLACED)
+  paymentType     PaymentType @default(COD)
+  deliveryAddress String      @db.Text
   deliveryLat     Float
   deliveryLng     Float
-  createdAt   DateTime    @default(now())
+  createdAt       DateTime    @default(now())
 
-  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  store   Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  items   OrderItem[]
-  delivery Delivery?
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store         Store                 @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  items         OrderItem[]
+  delivery      Delivery?
+  settlementMap StoreSettlementOrder?
 
   @@index([userId])
   @@index([storeId])
@@ -258,18 +267,65 @@ model OrderItem {
 }
 
 model Delivery {
-  id             String         @id @default(cuid())
-  orderId        String         @unique
-  deliveryBoyId  String
-  status         DeliveryStatus @default(ASSIGNED)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id            String         @id @default(cuid())
+  orderId       String         @unique
+  deliveryBoyId String
+  status        DeliveryStatus @default(ASSIGNED)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   deliveryBoy User  @relation("DeliveryBoy", fields: [deliveryBoyId], references: [id], onDelete: Cascade)
 
   @@index([deliveryBoyId])
   @@index([status])
+}
+
+model StoreSettlement {
+  id                   String           @id @default(cuid())
+  storeId              String
+  periodStart          DateTime
+  periodEnd            DateTime
+  status               SettlementStatus @default(DRAFT)
+  grossAmount          Decimal          @db.Decimal(12, 2)
+  platformCommission   Decimal          @db.Decimal(12, 2)
+  refundAdjustment     Decimal          @default(0) @db.Decimal(12, 2)
+  bonusAdjustment      Decimal          @default(0) @db.Decimal(12, 2)
+  manualAdjustment     Decimal          @default(0) @db.Decimal(12, 2)
+  netPayable           Decimal          @db.Decimal(12, 2)
+  ordersCount          Int              @default(0)
+  blendedCommissionPct Float?
+  currency             String           @default("INR") @db.VarChar(8)
+  paymentMode          String?          @db.VarChar(32)
+  referenceNo          String?          @db.VarChar(128)
+  paymentProofUrl      String?          @db.VarChar(2048)
+  notes                String?          @db.Text
+  createdByAdminId     String?
+  approvedByAdminId    String?
+  paidByAdminId        String?
+  approvedAt           DateTime?
+  paidAt               DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  store  Store                  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orders StoreSettlementOrder[]
+
+  @@index([storeId, status])
+  @@index([periodStart, periodEnd])
+  @@index([createdAt])
+}
+
+model StoreSettlementOrder {
+  id           String   @id @default(cuid())
+  settlementId String
+  orderId      String   @unique
+  createdAt    DateTime @default(now())
+
+  settlement StoreSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  order      Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([settlementId])
 }
 
 model Subscription {

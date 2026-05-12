@@ -3,6 +3,8 @@ export const SHOP_VERTICAL_SLUGS = [
   "fruits-vegetables",
   "food",
   "electronics",
+  "fashion",
+  "footwear",
 ] as const;
 
 export type ShopVerticalSlug = (typeof SHOP_VERTICAL_SLUGS)[number];
@@ -16,4 +18,6 @@ export const SHOP_VERTICAL_LABELS: Record<ShopVerticalSlug, string> = {
   "fruits-vegetables": "Fruits & Vegetables",
   food: "Food",
   electronics: "Electronics",
+  fashion: "Fashion store",
+  footwear: "Footwear",
 };

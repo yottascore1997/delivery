@@ -29,12 +29,25 @@ export async function GET(request: Request) {
       take: limit,
       skip: offset,
       include: {
-        store: { select: { id: true, name: true } },
+        store: { select: { id: true, name: true, address: true } },
         user: { select: { id: true, name: true, phone: true } },
         delivery: {
           include: {
             deliveryBoy: { select: { id: true, name: true, phone: true } },
           },
+        },
+        items: {
+          select: {
+            quantity: true,
+            price: true,
+            product: {
+              select: { id: true, name: true, unitLabel: true },
+            },
+          },
+          orderBy: { id: "asc" },
+        },
+        _count: {
+          select: { items: true },
         },
       },
     }),
@@ -58,6 +71,21 @@ export async function GET(request: Request) {
       storeRejected: flagged.has(o.id),
       totalAmount: dec(o.totalAmount),
       createdAt: o.createdAt,
+      paymentType: o.paymentType,
+      deliveryAddress: o.deliveryAddress,
+      deliveryLat: o.deliveryLat,
+      deliveryLng: o.deliveryLng,
+      itemsCount: o._count.items,
+      items: o.items.map((it) => ({
+        quantity: it.quantity,
+        unitPrice: dec(it.price),
+        lineTotal: Math.round(dec(it.price) * it.quantity * 100) / 100,
+        product: {
+          id: it.product.id,
+          name: it.product.name,
+          unitLabel: it.product.unitLabel,
+        },
+      })),
       store: o.store,
       user: o.user,
       delivery: o.delivery,

@@ -39,9 +39,45 @@ type OrderRow = {
   items?: { quantity: number; product: { name: string } }[];
 };
 
+type SettlementRow = {
+  id: string;
+  periodStart: string;
+  periodEnd: string;
+  status: "DRAFT" | "APPROVED" | "PAID" | "FAILED";
+  grossAmount: number;
+  platformCommission: number;
+  refundAdjustment: number;
+  bonusAdjustment: number;
+  manualAdjustment: number;
+  netPayable: number;
+  ordersCount: number;
+  blendedCommissionPct?: number | null;
+  paymentMode?: string | null;
+  referenceNo?: string | null;
+  paymentProofUrl?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  approvedAt?: string | null;
+  paidAt?: string | null;
+};
+
 const LOW_STOCK_THRESHOLD = 8;
 
-const UNIT_LABEL_PRESETS = ["250 g", "500 g", "1 kg", "1 L", "1 pc", "1 pack", "6 pcs", "12 pcs"];
+const SIZE_PRESETS = ["XS", "S", "M", "L", "XL", "XXL"] as const;
+const UNIT_LABEL_PRESETS = [
+  ...SIZE_PRESETS,
+  "250 g",
+  "500 g",
+  "1 kg",
+  "1 L",
+  "1 pc",
+  "1 pack",
+  "6 pcs",
+  "12 pcs",
+];
+/** Placeholder when master catalog does not suggest a unit */
+const UNIT_PACK_SIZE_PLACEHOLDER = "e.g. 500 g, 1 pc, M, XL";
+const UNIT_PACK_SIZE_HINT = "Quick picks: XS, S, M, L, XL, XXL — or grocery-style (500 g, 1 pc…)";
 
 function statusBadgeLight(status: string) {
   const map: Record<string, string> = {
@@ -111,6 +147,8 @@ export default function StorePanelPage() {
     thisMonth: EarningsSlice;
     allTime: EarningsSlice;
   } | null>(null);
+  const [settlements, setSettlements] = useState<SettlementRow[]>([]);
+  const [pendingSettlementAmount, setPendingSettlementAmount] = useState(0);
   const [plans, setPlans] = useState<
     { id: string; name: string; price: number }[]
   >([]);
@@ -368,6 +406,18 @@ export default function StorePanelPage() {
       } else setEarnings(null);
     } else setEarnings(null);
 
+    const st = await api<{
+      settlements: SettlementRow[];
+      pendingAmount: number;
+    }>(`/api/store/settlements?storeId=${id}&limit=12`);
+    if (st.ok && st.data) {
+      setSettlements(st.data.settlements ?? []);
+      setPendingSettlementAmount(st.data.pendingAmount ?? 0);
+    } else {
+      setSettlements([]);
+      setPendingSettlementAmount(0);
+    }
+
     const pl = await api<{ plans: typeof plans }>("/api/subscription-plans");
     if (pl.ok && pl.data) setPlans(pl.data.plans);
 
@@ -573,6 +623,8 @@ export default function StorePanelPage() {
         setCatalog(null);
         setOrders([]);
         setEarnings(null);
+        setSettlements([]);
+        setPendingSettlementAmount(0);
       }
     }
   }
@@ -670,7 +722,7 @@ export default function StorePanelPage() {
       for (const r of pPackRows) {
         if (!r.variantLabel.trim() && !r.price.trim() && !r.mrp.trim() && !r.stock.trim()) continue;
         if (!r.variantLabel.trim()) {
-          const m = "Each pack row needs a label (e.g. 3 kg).";
+          const m = "Each pack row needs a label (e.g. 3 kg, S, M, XL).";
           setMsg(m);
           pushToast("error", m);
           return;
@@ -1602,6 +1654,77 @@ export default function StorePanelPage() {
                   </div>
                 </div>
               )}
+
+              <div className="rounded-3xl border border-emerald-200/60 bg-gradient-to-b from-emerald-50/70 to-white p-5 shadow-sm sm:p-6">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-emerald-800">
+                      Settlement visibility
+                    </h3>
+                    <p className="mt-1.5 text-[11px] font-medium leading-snug text-emerald-900/80">
+                      Admin approves & marks paid. You can track every payout with status + reference.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-right">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                      Pending settlement
+                    </p>
+                    <p className="font-display mt-1 text-lg font-black text-emerald-700">
+                      ₹{pendingSettlementAmount}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-2.5">
+                  {settlements.slice(0, 6).map((s) => (
+                    <div
+                      key={s.id}
+                      className="rounded-2xl border border-emerald-100 bg-white/90 px-3.5 py-3 shadow-sm"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-semibold text-zinc-700">
+                          {new Date(s.periodStart).toLocaleDateString()} →{" "}
+                          {new Date(s.periodEnd).toLocaleDateString()}
+                        </p>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
+                            s.status === "PAID"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : s.status === "APPROVED"
+                                ? "bg-sky-100 text-sky-800"
+                                : s.status === "FAILED"
+                                  ? "bg-rose-100 text-rose-800"
+                                  : "bg-amber-100 text-amber-900"
+                          }`}
+                        >
+                          {s.status}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-zinc-600">
+                        <span>Orders: {s.ordersCount}</span>
+                        <span>Gross: ₹{s.grossAmount}</span>
+                        <span>Net: ₹{s.netPayable}</span>
+                        {s.paymentMode ? <span>Mode: {s.paymentMode}</span> : null}
+                        {s.referenceNo ? <span>Ref: {s.referenceNo}</span> : null}
+                        {s.paymentProofUrl ? (
+                          <a
+                            href={s.paymentProofUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-semibold text-violet-700 underline"
+                          >
+                            Payment proof
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                  {settlements.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-zinc-300 bg-white px-3 py-3 text-xs font-semibold text-zinc-500">
+                      No settlements yet. Admin can generate draft from the Finance tab.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -2198,7 +2321,7 @@ export default function StorePanelPage() {
                     checked={pMultiPack}
                     onChange={(e) => setPMultiPack(e.target.checked)}
                   />
-                  Multiple pack sizes (one listing — customer picks e.g. 3 kg / 5 kg)
+                  Multiple pack sizes (one listing — customer picks e.g. 3 kg / 5 kg or XS / S / M…)
                 </label>
                 {pMultiPack ? (
                   <div className="mt-3 overflow-hidden rounded-xl border border-violet-200 bg-violet-50/40">
@@ -2209,8 +2332,8 @@ export default function StorePanelPage() {
                       <table className="w-full min-w-[520px] text-left text-xs">
                         <thead className="text-[10px] font-black uppercase text-zinc-500">
                           <tr>
-                            <th className="px-2 py-2">Pack label</th>
-                            <th className="px-2 py-2">Unit (opt.)</th>
+                            <th className="px-2 py-2">Pack / size label</th>
+                            <th className="px-2 py-2">Unit / size (opt.)</th>
                             <th className="px-2 py-2">MRP</th>
                             <th className="px-2 py-2">Price</th>
                             <th className="px-2 py-2">Stock</th>
@@ -2222,7 +2345,7 @@ export default function StorePanelPage() {
                               <td className="p-1.5">
                                 <input
                                   className="ui-input !py-1.5 !text-xs"
-                                  placeholder="3 kg"
+                                  placeholder="S, M, or 3 kg"
                                   value={row.variantLabel}
                                   onChange={(e) =>
                                     setPPackRows((rows) =>
@@ -2236,7 +2359,7 @@ export default function StorePanelPage() {
                               <td className="p-1.5">
                                 <input
                                   className="ui-input !py-1.5 !text-xs"
-                                  placeholder="3 kg pack"
+                                  placeholder="M, 1 pc, 500 g"
                                   list="store-unit-presets"
                                   value={row.unitLabel}
                                   onChange={(e) =>
@@ -2371,15 +2494,16 @@ export default function StorePanelPage() {
                       Per-product platform share on this item’s sales. If empty, Admin store % or platform default applies.
                     </p>
                     <div>
-                      <label className="ui-label">Unit / pack (customer)</label>
+                      <label className="ui-label">Unit / pack / size (customer)</label>
                       <input
                         className="ui-input !py-2"
                         list="store-unit-presets"
-                        placeholder="e.g. 500 g, 1 pc"
+                        placeholder={UNIT_PACK_SIZE_PLACEHOLDER}
                         maxLength={40}
                         value={pUnitLabel}
                         onChange={(e) => setPUnitLabel(e.target.value)}
                       />
+                      <p className="mt-1 text-[11px] font-semibold text-zinc-500">{UNIT_PACK_SIZE_HINT}</p>
                     </div>
                   </>
                 ) : (
@@ -2545,7 +2669,7 @@ export default function StorePanelPage() {
                         <thead className="border-b border-zinc-100 text-[11px] font-black uppercase tracking-wide text-zinc-400">
                           <tr>
                             <th className="px-4 py-3">Product</th>
-                            <th className="px-4 py-3">Unit</th>
+                            <th className="px-4 py-3">Unit / size</th>
                             <th className="px-4 py-3">Customer price (₹)</th>
                           </tr>
                         </thead>
@@ -2736,14 +2860,16 @@ export default function StorePanelPage() {
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
-                                Unit
+                                Unit / size
                               </label>
                               <input
                                 list="store-unit-presets"
                                 maxLength={40}
                                 className="ui-input mt-1 !py-2 text-xs"
                                 placeholder={
-                                  p.unitLabelHint && !p.unitLabel ? p.unitLabelHint : "e.g. 1 kg"
+                                  p.unitLabelHint && !p.unitLabel
+                                    ? p.unitLabelHint
+                                    : UNIT_PACK_SIZE_PLACEHOLDER
                                 }
                                 value={unitDraft[p.id] ?? p.unitLabel ?? ""}
                                 onChange={(e) =>
@@ -2889,7 +3015,7 @@ export default function StorePanelPage() {
                       <tr>
                         <th className="px-4 py-3">Item</th>
                         <th className="px-4 py-3">Category</th>
-                        <th className="px-4 py-3">Unit</th>
+                        <th className="px-4 py-3">Unit / size</th>
                         <th className="px-4 py-3">MRP (₹)</th>
                         <th className="px-4 py-3">Sell (₹)</th>
                         <th className="px-4 py-3">Off</th>
@@ -2963,7 +3089,9 @@ export default function StorePanelPage() {
                                 maxLength={40}
                                 className="ui-input !py-2 text-xs"
                                 placeholder={
-                                  p.unitLabelHint && !p.unitLabel ? p.unitLabelHint : "e.g. 1 kg"
+                                  p.unitLabelHint && !p.unitLabel
+                                    ? p.unitLabelHint
+                                    : UNIT_PACK_SIZE_PLACEHOLDER
                                 }
                                 value={unitDraft[p.id] ?? p.unitLabel ?? ""}
                                 onChange={(e) =>

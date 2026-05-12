@@ -17,6 +17,8 @@ const VERTICALS = [
   { value: "grocery", label: "Grocery" },
   { value: "fruits-vegetables", label: "Fruits & vegetables" },
   { value: "electronics", label: "Electronics" },
+  { value: "fashion", label: "Fashion store" },
+  { value: "footwear", label: "Footwear" },
 ] as const;
 
 export default function StoreOwnerRegisterGatePage() {

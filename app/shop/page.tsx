@@ -257,57 +257,6 @@ export default function ShopStoresPage() {
         </div>
       )}
 
-      {false ? <section id="stores-near-you" className="scroll-mt-36">
-        <ShopTopCategoriesStrip />
-        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200/80 pb-4">
-          <div>
-            <h2 className="shop-section-title font-display mt-2 text-2xl sm:text-3xl">Stores near you</h2>
-            <p className="mt-2 text-sm font-semibold text-slate-500">
-              {stores.length} outlet{stores.length !== 1 ? "s" : ""} · sorted by distance
-            </p>
-            <p className="mt-2 text-sm font-bold text-emerald-700">
-              Free delivery on orders above ₹{FREE_DELIVERY_MIN_SUBTOTAL}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {["Fast delivery", "Verified", "Best offers"].map((chip) => (
-              <span
-                key={chip}
-                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm"
-              >
-                {chip}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {initialLoad && loading ? (
-          <div className="mt-6">
-            <SkeletonStores />
-          </div>
-        ) : (
-          <ul className="mt-6 grid gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-            {stores.map((s) => (
-              <li key={s.id}>
-                <ShopNearbyStoreCard
-                  href={`/shop/${s.id}`}
-                  name={s.name}
-                  address={s.address}
-                  distanceKm={s.distanceKm}
-                  imageUrl={s.imageUrl}
-                  openingHours={s.openingHours}
-                  badgeLabel={
-                    isShopVerticalSlug(s.shopVertical)
-                      ? SHOP_VERTICAL_LABELS[s.shopVertical]
-                      : "Store"
-                  }
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section> : null}
-
       <section className="rounded-3xl bg-gradient-to-r from-white/70 to-slate-50/70 p-5 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -335,21 +284,6 @@ export default function ShopStoresPage() {
           </div>
         </div>
       </section>
-
-      {!initialLoad && !loading && stores.length === 0 && !err && (
-        <div className="shop-card-premium rounded-3xl border border-dashed border-zinc-200 bg-white px-8 py-16 text-center">
-          <p className="font-display text-xl font-bold text-zinc-700">No stores in range</p>
-          <p className="mt-2 text-sm text-zinc-500">
-            Ask your store to get approved on the platform, or check back later.
-          </p>
-          <Link
-            href="/shop"
-            className="shop-btn-primary mt-6 inline-block rounded-full px-8 py-3 text-sm font-black text-white"
-          >
-            Refresh
-          </Link>
-        </div>
-      )}
 
       <ShopCategoryMobileBrandBanner />
     </div>
