@@ -29,6 +29,11 @@ function verticalMainKeys(vertical: string): string[] {
   return [v];
 }
 
+function isFoodVerticalKey(vertical: string): boolean {
+  const v = normalizeCatalogMainKey(vertical);
+  return v === "food" || v === "food-beverages";
+}
+
 /**
  * Home rails pass `mainKey` so each aisle only shows products linked to that master main.
  * (The old `vertical=food` merge + `localMatch` let un-mastered items leak across aisles.)
@@ -99,12 +104,12 @@ export async function GET(request: Request) {
     subMc = { id: mc.id, name: mc.name };
   }
 
-  // Don't restrict stores by shopVertical here. Many stores use a single vertical but still
-  // sell items across categories (and you requested to remove "nearby"/strict gating).
-  const where = { status: "APPROVED" as const };
+  // Keep food browse strict to food stores only; otherwise similarly named grocery categories
+  // (e.g. noodles) leak into food results.
+  const requestedFoodVertical = isFoodVerticalKey(vertical);
 
   const stores = await prisma.store.findMany({
-    where,
+    where: { status: "APPROVED" },
     select: {
       id: true,
       name: true,
@@ -126,6 +131,11 @@ export async function GET(request: Request) {
         distanceKm: dist,
         etaMin: estimateEtaMinutes(dist),
       };
+    })
+    .filter((s) => {
+      if (!requestedFoodVertical) return true;
+      const sv = normalizeCatalogMainKey(s.shopVertical ?? "");
+      return sv === "food" || sv === "food-beverages";
     })
     .sort((a, b) => a.distanceKm - b.distanceKm);
 

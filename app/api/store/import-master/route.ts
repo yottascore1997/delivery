@@ -12,6 +12,7 @@ const bodySchema = z.object({
       z.object({
         masterProductId: z.string(),
         price: z.number().positive(),
+        imageUrl: z.string().url().optional(),
       }),
     )
     .min(1),
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
           masterProductId: mp.id,
           name: mp.name,
           description: mp.description ?? "",
-          imageUrl: mp.imageUrl ?? null,
+          imageUrl: x.imageUrl ?? mp.imageUrl ?? null,
           imageUrl2: (mp as any).imageUrl2 ?? null,
           unitLabel: mp.unitLabel ?? null,
           price: x.price,

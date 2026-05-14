@@ -8,6 +8,7 @@ import { ShopCategoryPromoCarousel } from "@/components/shop/ShopCategoryPromoCa
 import { ShopCategoryMobileBrandBanner } from "@/components/shop/ShopCategoryMobileBrandBanner";
 import { FoodTopStoresSection } from "@/components/shop/FoodTopStoresSection";
 import { FoodHubPromoBanner } from "@/components/shop/FoodHubPromoBanner";
+import { FashionFestSection } from "@/components/shop/FashionFestSection";
 
 type CatalogCategory = {
   id: string;
@@ -79,6 +80,7 @@ export function ShopCategoryHubClient({
   title: string;
 }) {
   const isFood = routeSlug === "food" || catalogMainKey === "food-beverages";
+  const isFashion = routeSlug === "fashion" || catalogMainKey === "fashion";
   const [data, setData] = useState<CatalogRes | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -100,7 +102,7 @@ export function ShopCategoryHubClient({
 
   return (
     <div>
-      <ShopCategoryPromoCarousel slug={routeSlug} />
+      {!isFashion ? <ShopCategoryPromoCarousel slug={routeSlug} /> : null}
 
       {err && (
         <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-900">
@@ -113,6 +115,10 @@ export function ShopCategoryHubClient({
           <FoodHubPromoBanner />
           <FoodTopStoresSection />
         </div>
+      ) : null}
+
+      {isFashion ? (
+        <FashionFestSection routeSlug={routeSlug} categories={categories} />
       ) : null}
 
       <section aria-labelledby="subcat-heading" className="mb-8">

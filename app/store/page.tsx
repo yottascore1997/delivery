@@ -212,6 +212,7 @@ export default function StorePanelPage() {
   const [masterMainKey, setMasterMainKey] = useState<string>("grocery");
   const [masterCatId, setMasterCatId] = useState<string>("");
   const [importPrices, setImportPrices] = useState<Record<string, string>>({});
+  const [importImages, setImportImages] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
   const [stockDraft, setStockDraft] = useState<Record<string, string>>({});
   const [unitDraft, setUnitDraft] = useState<Record<string, string>>({});
@@ -915,9 +916,10 @@ export default function StorePanelPage() {
         const price = Number(raw);
         if (!raw) return null;
         if (!Number.isFinite(price) || price <= 0) return null;
-        return { masterProductId: p.id, price };
+        const imageUrl = (importImages[p.id] ?? "").trim();
+        return { masterProductId: p.id, price, imageUrl: imageUrl || undefined };
       })
-      .filter(Boolean) as { masterProductId: string; price: number }[];
+      .filter(Boolean) as { masterProductId: string; price: number; imageUrl?: string }[];
     if (!products.length) {
       setMsg("Enter at least one price");
       return;
@@ -2666,6 +2668,7 @@ export default function StorePanelPage() {
                           <tr>
                             <th className="px-4 py-3">Product</th>
                             <th className="px-4 py-3">Unit / size</th>
+                            <th className="px-4 py-3">Image (optional)</th>
                             <th className="px-4 py-3">Customer price (₹)</th>
                           </tr>
                         </thead>
@@ -2677,6 +2680,35 @@ export default function StorePanelPage() {
                               </td>
                               <td className="px-4 py-3 text-zinc-500">
                                 {p.unitLabel ?? "—"}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    className="block w-full text-xs"
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      e.target.value = "";
+                                      if (!file) return;
+                                      setMsg(null);
+                                      const up = await uploadStoreCatalogImage(file);
+                                      if (up.ok) {
+                                        setImportImages((m) => ({ ...m, [p.id]: up.imageUrl }));
+                                      } else {
+                                        setMsg(up.error);
+                                      }
+                                    }}
+                                  />
+                                  {(importImages[p.id] || p.imageUrl) ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={importImages[p.id] || (p.imageUrl ?? "")}
+                                      alt=""
+                                      className="h-10 w-10 rounded-md border border-zinc-200 object-cover"
+                                    />
+                                  ) : null}
+                                </div>
                               </td>
                               <td className="px-4 py-3">
                                 <input
