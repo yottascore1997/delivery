@@ -2155,30 +2155,32 @@ export default function StorePanelPage() {
                 Upload from your computer — shows on top of your public shop page (full width).
               </p>
               <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-4">
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     disabled={coverUploading}
-                    className="block w-full text-xs sm:w-auto"
+                    className="block w-full text-xs sm:min-w-0 sm:flex-1"
                     onChange={(e) => void onPickStoreCover(e)}
                   />
-                  <button
-                    type="button"
-                    disabled={coverUploading}
-                    onClick={() => void saveStoreCover()}
-                    className="rounded-xl bg-[#e23744] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#c81d2e] disabled:opacity-60"
-                  >
-                    {coverUploading ? "Uploading…" : "Save cover"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={coverUploading}
-                    onClick={() => setStoreCoverUrl("")}
-                    className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-800 hover:bg-zinc-50 disabled:opacity-60"
-                  >
-                    Clear
-                  </button>
+                  <div className="flex flex-wrap items-center justify-end gap-3 sm:shrink-0">
+                    <button
+                      type="button"
+                      disabled={coverUploading}
+                      onClick={() => void saveStoreCover()}
+                      className="rounded-xl bg-[#e23744] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#c81d2e] disabled:opacity-60"
+                    >
+                      {coverUploading ? "Uploading…" : "Save cover"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={coverUploading}
+                      onClick={() => setStoreCoverUrl("")}
+                      className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-800 hover:bg-zinc-50 disabled:opacity-60"
+                    >
+                      Clear
+                    </button>
+                  </div>
                 </div>
                 {storeCoverUrl?.trim() ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -2232,13 +2234,15 @@ export default function StorePanelPage() {
                   />
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => void saveOpeningHours()}
-                className="mt-4 rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-bold text-white hover:bg-zinc-800"
-              >
-                Save hours
-              </button>
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => void saveOpeningHours()}
+                  className="rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-bold text-white hover:bg-zinc-800"
+                >
+                  Save hours
+                </button>
+              </div>
             </div>
           ) : null}
           <div className="grid gap-6 lg:grid-cols-2">
@@ -3010,11 +3014,11 @@ export default function StorePanelPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex flex-wrap items-center justify-end gap-2">
                             <button
                               type="button"
                               onClick={() => void saveProductEdits(p)}
-                              className="ui-btn-primary w-full !rounded-xl !py-3 !text-xs sm:flex-1"
+                              className="ui-btn-primary w-full !rounded-xl !py-3 !text-xs sm:w-auto sm:min-w-[140px]"
                             >
                               Save changes
                             </button>
@@ -3037,7 +3041,7 @@ export default function StorePanelPage() {
             {/* Desktop: premium table list */}
             <div className="mt-4 hidden md:block">
               <div className="overflow-hidden rounded-2xl border border-zinc-200">
-                <div className="max-h-[620px] overflow-auto">
+                <div className="max-h-[720px] overflow-auto">
                   <table className="w-full min-w-[1280px] text-left text-sm">
                     <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-zinc-200 text-[11px] font-black uppercase tracking-wide text-zinc-400">
                       <tr>
@@ -3225,7 +3229,7 @@ export default function StorePanelPage() {
                               </button>
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <div className="inline-flex items-center gap-2">
+                              <div className="flex w-full flex-wrap items-center justify-end gap-2">
                                 <button
                                   type="button"
                                   onClick={() => void saveProductEdits(p)}
@@ -3530,7 +3534,7 @@ export default function StorePanelPage() {
                 <div className="bg-zinc-50 px-4 py-3 text-xs font-black uppercase tracking-wide text-zinc-500">
                   Items
                 </div>
-                <div className="max-h-[240px] overflow-auto">
+                <div className="max-h-[520px] overflow-auto">
                   <table className="w-full min-w-[520px] text-left text-sm">
                     <thead className="border-b border-zinc-100 text-[11px] font-black uppercase tracking-wide text-zinc-400">
                       <tr>

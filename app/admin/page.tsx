@@ -3595,7 +3595,7 @@ export default function AdminPage() {
                         <td className="py-3 pr-3 font-mono text-xs text-zinc-500">{m.key}</td>
                         <td className="py-3 pr-3 text-zinc-600">{m.subcategories.length}</td>
                         <td className="py-3 text-right">
-                          <div className="inline-flex gap-2">
+                          <div className="flex w-full flex-wrap items-center justify-end gap-2">
                             <button
                               type="button"
                               className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-700"
