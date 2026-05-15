@@ -13,9 +13,9 @@ const bodySchema = z.object({
   registerAsStorePartner: z.boolean().optional(),
 });
 
-// Temporary Play review login. Set DEMO_WEB_OTP_LOGIN=false after review to require real OTP again.
-const DEMO_WEB_OTP_LOGIN = true;
-const DEMO_WEB_OTP_CODE = process.env.DEMO_WEB_OTP_CODE?.trim() || "123456";
+/** Only this 10-digit number accepts a fixed bypass code (no SMS). All other numbers must pass real `verifyOtp`. */
+const DUMMY_OTP_PHONE10 = "9420413822";
+const DUMMY_OTP_CODE = process.env.DUMMY_OTP_CODE?.trim() || "123456";
 
 export async function OPTIONS() {
   return emptyOptions();
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     }
     const code = body.code.trim();
 
-    const isDemoOtp = DEMO_WEB_OTP_LOGIN && code === DEMO_WEB_OTP_CODE;
+    const isDemoOtp = phone === DUMMY_OTP_PHONE10 && code === DUMMY_OTP_CODE;
     const ok = isDemoOtp || (await verifyOtp(phone, code));
     if (!ok) return jsonError("Invalid or expired OTP", 401);
 

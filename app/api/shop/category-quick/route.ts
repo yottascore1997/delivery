@@ -74,7 +74,6 @@ export async function GET(request: Request) {
   const mainKeyRaw = (searchParams.get("mainKey") ?? "").trim();
   const lat = Number(searchParams.get("lat"));
   const lng = Number(searchParams.get("lng"));
-  const radiusKm = Number(searchParams.get("radiusKm") ?? "25");
   const maxProducts = Math.min(Number(searchParams.get("limit") ?? "40"), 80);
   const masterCategoryIdRaw = (searchParams.get("masterCategoryId") ?? "").trim();
 

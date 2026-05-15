@@ -9,14 +9,25 @@ export async function OPTIONS() {
   return emptyOptions();
 }
 
-/** Approved stores within radius: open (by store hours) first, then by distance. Pagination: limit & offset. */
+function normalizeShopVertical(raw: string | null | undefined): string {
+  return (raw ?? "").trim().toLowerCase().replace(/_/g, "-").replace(/\s+/g, "-");
+}
+
+/** Same idea as shop category-quick: food + food-beverages + food-* admin labels. */
+function isFoodFamilyVertical(raw: string | null | undefined): boolean {
+  const v = normalizeShopVertical(raw);
+  if (!v) return false;
+  if (v === "food" || v === "food-beverages") return true;
+  const head = v.split("-")[0] ?? "";
+  return head === "food";
+}
+
+/** Approved stores (all): open first, then by distance. Pagination: limit & offset. */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const lat = Number(searchParams.get("lat"));
     const lng = Number(searchParams.get("lng"));
-    const radiusKmRaw = Number(searchParams.get("radiusKm") ?? "8");
-    const radiusKm = Number.isFinite(radiusKmRaw) && radiusKmRaw > 0 ? radiusKmRaw : 8;
     const limit = Math.min(Number(searchParams.get("limit") ?? "20"), 50);
     const offset = Math.max(Number(searchParams.get("offset") ?? "0"), 0);
     const verticalRaw = searchParams.get("vertical");
@@ -25,8 +36,6 @@ export async function GET(request: Request) {
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return jsonError("lat and lng required");
     }
-
-    void vertical;
 
     // Select only columns this route needs so production DBs missing newer Prisma fields still work.
     const where = { status: "APPROVED" as const };
@@ -65,7 +74,6 @@ export async function GET(request: Request) {
       .filter(
         (row) =>
           Number.isFinite(row.distanceKm) &&
-          row.distanceKm <= radiusKm &&
           Number.isFinite(row.latitude) &&
           Number.isFinite(row.longitude),
       )
@@ -76,11 +84,19 @@ export async function GET(request: Request) {
         return a.distanceKm - b.distanceKm;
       });
 
-    const page = withDist.slice(offset, offset + limit);
+    let ranked = withDist;
+    if (vertical === "food") {
+      ranked = withDist.filter((row) => isFoodFamilyVertical(row.shopVertical));
+    } else if (vertical) {
+      const want = normalizeShopVertical(vertical);
+      ranked = withDist.filter((row) => normalizeShopVertical(row.shopVertical) === want);
+    }
+
+    const page = ranked.slice(offset, offset + limit);
 
     return jsonOk({
       stores: page,
-      total: withDist.length,
+      total: ranked.length,
       limit,
       offset,
     });

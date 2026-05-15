@@ -32,10 +32,13 @@ function normalizeLoginPhone10(raw: string): string {
   return d.length >= 10 ? d.slice(-10) : d;
 }
 
-// Temporary Play review login: keep this on while Firebase/SMS OTP is blocking review.
-// Set to false to restore the real Firebase phone OTP path below.
-const DEMO_WEB_OTP_LOGIN = true;
-const DEMO_WEB_OTP_CODE = "123456";
+/** Only this number uses `/api/auth/verify-otp` with fixed code; all others use Firebase → `/api/auth/firebase`. */
+const DUMMY_OTP_PHONE10 = "9420413822";
+const DUMMY_OTP_CODE = "123456";
+
+function isDummyOtpPhone10(raw: string) {
+  return normalizeLoginPhone10(raw) === DUMMY_OTP_PHONE10;
+}
 
 function readNext(raw: string | null): (typeof ALLOWED_NEXT)[number] | null {
   if (!raw) return null;
@@ -144,10 +147,10 @@ function LoginForm() {
         return;
       }
 
-      if (DEMO_WEB_OTP_LOGIN) {
+      if (isDummyOtpPhone10(phone)) {
         setFbConfirm(null);
         setOtp("");
-        setMsg(`Demo OTP enabled. Use ${DEMO_WEB_OTP_CODE}.`);
+        setMsg(`Test login for ${DUMMY_OTP_PHONE10}: use OTP ${DUMMY_OTP_CODE}.`);
         setStep(2);
         return;
       }
@@ -256,7 +259,7 @@ function LoginForm() {
         error?: string;
       };
 
-      if (DEMO_WEB_OTP_LOGIN) {
+      if (isDummyOtpPhone10(phone)) {
         const demoRes = await api<{
           token: string;
           needsProfile?: boolean;
