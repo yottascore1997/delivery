@@ -26,20 +26,31 @@ export async function GET(request: Request) {
   if ("error" in auth) return auth.error;
 
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(Number(searchParams.get("limit") ?? "80"), 200);
+  const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? "15"), 1), 200);
+  const offset = Math.max(Number(searchParams.get("offset") ?? "0"), 0);
 
-  const rows = await prisma.platformSetting.findMany({
-    where: { key: { startsWith: "list_request_" } },
-    orderBy: { key: "desc" },
-    take: limit,
-  });
+  const [total, rows] = await Promise.all([
+    prisma.platformSetting.count({
+      where: { key: { startsWith: "list_request_" } },
+    }),
+    prisma.platformSetting.findMany({
+      where: { key: { startsWith: "list_request_" } },
+    }),
+  ]);
 
-  const requests = rows
+  const sorted = rows
     .map(parseListRequestSetting)
     .filter((r): r is ListRequestRecord => Boolean(r))
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
 
-  return jsonOk({ requests });
+  let activeNonTerminal = 0;
+  for (const r of sorted) {
+    if (r.status !== "DELIVERED" && r.status !== "REJECTED") activeNonTerminal += 1;
+  }
+
+  const requests = sorted.slice(offset, offset + limit);
+
+  return jsonOk({ requests, total, activeNonTerminal, limit, offset });
 }
 
 /** Admin: update list request status/note */

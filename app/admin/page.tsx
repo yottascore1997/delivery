@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
+import { AdminTablePagination } from "@/components/dashboard/AdminTablePagination";
 import { AdminCharts } from "@/components/dashboard/AdminCharts";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -141,6 +142,10 @@ type AdminTab =
   | "catalog";
 
 type CatalogNotice = { text: string; tone: "success" | "error" };
+
+const ADMIN_TABLE_PAGE = 10;
+const LIST_REQ_PAGE_SIZE = 10;
+const CATALOG_TABLE_PAGE = 10;
 
 function scrollToEl(el: HTMLElement | null) {
   if (!el) return;
@@ -335,6 +340,77 @@ function PendingCatalogImagePreview({
   );
 }
 
+function ListRequestPhotoCell({ row }: { row: AdminListRequestRow }) {
+  const [origin, setOrigin] = useState("");
+  const [broken, setBroken] = useState(false);
+  useEffect(() => {
+    setOrigin(typeof window !== "undefined" ? window.location.origin : "");
+  }, []);
+  useEffect(() => {
+    setBroken(false);
+  }, [row.imageUrl]);
+  const src = resolvedMasterImageSrc(row.imageUrl, origin) || row.imageUrl.trim() || "";
+
+  async function downloadPhoto() {
+    if (!src) return;
+    const safeName = `list-request-${row.id.replace(/[^\w.-]+/g, "_").slice(0, 40)}.jpg`;
+    try {
+      const res = await fetch(src);
+      if (!res.ok) throw new Error("fetch failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = safeName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(src, "_blank", "noopener,noreferrer");
+    }
+  }
+
+  if (!src) {
+    return (
+      <div className="text-[10px] font-bold text-zinc-400">No image URL</div>
+    );
+  }
+
+  return (
+    <div className="flex max-w-[140px] flex-col gap-2">
+      {!broken ? (
+        // eslint-disable-next-line @next/next/no-img-element -- admin list-request URL
+        <img
+          src={src}
+          alt=""
+          className="h-16 w-16 rounded-xl border border-zinc-200 object-cover"
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-[9px] font-bold text-amber-800">
+          Load fail
+        </div>
+      )}
+      <div className="flex flex-wrap gap-1">
+        <a
+          href={src}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-md border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-black text-violet-800 hover:bg-violet-100"
+        >
+          View
+        </a>
+        <button
+          type="button"
+          onClick={() => void downloadPhoto()}
+          className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-[10px] font-black text-zinc-800 hover:bg-zinc-50"
+        >
+          Download
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const { t } = useLocale();
@@ -380,6 +456,28 @@ export default function AdminPage() {
   const [orderActionDraft, setOrderActionDraft] = useState<Record<string, string>>({});
   const [selectedOrder, setSelectedOrder] = useState<AdminOrderRow | null>(null);
   const [listRequests, setListRequests] = useState<AdminListRequestRow[]>([]);
+  const [listRequestsPage, setListRequestsPage] = useState(0);
+  const [listRequestsTotal, setListRequestsTotal] = useState(0);
+  const [listRequestsActiveCount, setListRequestsActiveCount] = useState(0);
+  const [overviewInvoicesPage, setOverviewInvoicesPage] = useState(0);
+  const [ordersTablePage, setOrdersTablePage] = useState(0);
+  const [recentOrdersTotal, setRecentOrdersTotal] = useState(0);
+  const [pendingStoresPage, setPendingStoresPage] = useState(0);
+  const [pendingStoresTotal, setPendingStoresTotal] = useState(0);
+  const [allStoresPage, setAllStoresPage] = useState(0);
+  const [allStoresTotal, setAllStoresTotal] = useState(0);
+  const [usersPage, setUsersPage] = useState(0);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [settlementsPage, setSettlementsPage] = useState(0);
+  const [settlementsTotal, setSettlementsTotal] = useState(0);
+  const [readyOrdersPage, setReadyOrdersPage] = useState(0);
+  const [readyOrdersTotal, setReadyOrdersTotal] = useState(0);
+  const [financeApprovedPage, setFinanceApprovedPage] = useState(0);
+  const [auditProductsPage, setAuditProductsPage] = useState(0);
+  const [auditProductsTotal, setAuditProductsTotal] = useState(0);
+  const [catalogMainPage, setCatalogMainPage] = useState(0);
+  const [catalogSubPage, setCatalogSubPage] = useState(0);
+  const [catalogProdPage, setCatalogProdPage] = useState(0);
   const [deliveryUsers, setDeliveryUsers] = useState<
     { id: string; name: string; phone: string }[]
   >([]);
@@ -443,15 +541,38 @@ export default function AdminPage() {
   const prodPhotoTargetIdRef = useRef<string | null>(null);
   const [uploadingSubPhotoId, setUploadingSubPhotoId] = useState<string | null>(null);
   const [uploadingProdPhotoId, setUploadingProdPhotoId] = useState<string | null>(null);
+  const skipPaginatedRefreshOnce = useRef(true);
+  const skipListReqPageFetchOnce = useRef(true);
+
+  async function fetchListRequests() {
+    const offset = listRequestsPage * LIST_REQ_PAGE_SIZE;
+    const lr = await api<{
+      requests: AdminListRequestRow[];
+      total: number;
+      activeNonTerminal?: number;
+    }>(`/api/admin/list-requests?limit=${LIST_REQ_PAGE_SIZE}&offset=${offset}`);
+    if (lr.ok && lr.data) {
+      setListRequests(lr.data.requests ?? []);
+      setListRequestsTotal(typeof lr.data.total === "number" ? lr.data.total : 0);
+      setListRequestsActiveCount(
+        typeof lr.data.activeNonTerminal === "number" ? lr.data.activeNonTerminal : 0,
+      );
+    }
+  }
 
   async function refresh() {
     const s = await api<Stats>("/api/admin/stats");
     if (s.ok && s.data) setStats(s.data);
 
-    const st = await api<{ stores: typeof pendingStores }>(
-      "/api/admin/stores?status=PENDING",
+    const st = await api<{ stores: typeof pendingStores; total?: number }>(
+      `/api/admin/stores?status=PENDING&limit=${ADMIN_TABLE_PAGE}&offset=${pendingStoresPage * ADMIN_TABLE_PAGE}`,
     );
-    if (st.ok && st.data) setPendingStores(st.data.stores);
+    if (st.ok && st.data) {
+      setPendingStores(st.data.stores);
+      setPendingStoresTotal(
+        typeof st.data.total === "number" ? st.data.total : st.data.stores.length,
+      );
+    }
 
     const stApproved = await api<{ stores: typeof approvedStores }>(
       "/api/admin/stores?status=APPROVED&limit=200",
@@ -471,9 +592,12 @@ export default function AdminPage() {
         return next;
       });
     }
-    const stAll = await api<{ stores: AdminStoreRow[] }>("/api/admin/stores?limit=300");
+    const stAll = await api<{ stores: AdminStoreRow[]; total?: number }>(
+      `/api/admin/stores?limit=${ADMIN_TABLE_PAGE}&offset=${allStoresPage * ADMIN_TABLE_PAGE}`,
+    );
     if (stAll.ok && stAll.data) {
       setAllStores(stAll.data.stores);
+      setAllStoresTotal(typeof stAll.data.total === "number" ? stAll.data.total : stAll.data.stores.length);
       setStoreDraft((prev) => {
         const next = { ...prev };
         for (const sRow of stAll.data!.stores) {
@@ -489,20 +613,25 @@ export default function AdminPage() {
       });
     }
 
-    const orReady = await api<{ orders: AdminOrderRow[] }>(
-      "/api/admin/orders?status=READY&limit=80",
+    const orReady = await api<{ orders: AdminOrderRow[]; total?: number }>(
+      `/api/admin/orders?status=READY&limit=${ADMIN_TABLE_PAGE}&offset=${readyOrdersPage * ADMIN_TABLE_PAGE}`,
     );
-    if (orReady.ok && orReady.data) setReadyOrders(orReady.data.orders);
+    if (orReady.ok && orReady.data) {
+      setReadyOrders(orReady.data.orders);
+      setReadyOrdersTotal(
+        typeof orReady.data.total === "number" ? orReady.data.total : orReady.data.orders.length,
+      );
+    }
 
-    const orRecent = await api<{ orders: AdminOrderRow[] }>(
-      "/api/admin/orders?limit=50",
+    const orRecent = await api<{ orders: AdminOrderRow[]; total?: number }>(
+      "/api/admin/orders?limit=100&offset=0",
     );
-    if (orRecent.ok && orRecent.data) setRecentOrders(orRecent.data.orders);
-
-    const lr = await api<{ requests: AdminListRequestRow[] }>(
-      "/api/admin/list-requests?limit=60",
-    );
-    if (lr.ok && lr.data?.requests) setListRequests(lr.data.requests);
+    if (orRecent.ok && orRecent.data) {
+      setRecentOrders(orRecent.data.orders);
+      setRecentOrdersTotal(
+        typeof orRecent.data.total === "number" ? orRecent.data.total : orRecent.data.orders.length,
+      );
+    }
 
     const du = await api<{ users: typeof deliveryUsers }>(
       "/api/admin/users?role=DELIVERY",
@@ -512,11 +641,14 @@ export default function AdminPage() {
     const c = await api<{ commissionPercent: number }>("/api/admin/commission");
     if (c.ok && c.data) setCommission(String(c.data.commissionPercent));
 
-    const setRes = await api<{ settlements: AdminSettlementRow[] }>(
-      "/api/admin/settlements?limit=120",
+    const setRes = await api<{ settlements: AdminSettlementRow[]; total?: number }>(
+      `/api/admin/settlements?limit=${ADMIN_TABLE_PAGE}&offset=${settlementsPage * ADMIN_TABLE_PAGE}`,
     );
     if (setRes.ok && setRes.data?.settlements) {
       setSettlements(setRes.data.settlements);
+      setSettlementsTotal(
+        typeof setRes.data.total === "number" ? setRes.data.total : setRes.data.settlements.length,
+      );
       setSettlementReferenceDraft((prev) => {
         const next = { ...prev };
         for (const s of setRes.data!.settlements) {
@@ -543,11 +675,14 @@ export default function AdminPage() {
 
     const usersPath =
       userRoleFilter === "ALL"
-        ? "/api/admin/users?limit=200"
-        : `/api/admin/users?role=${userRoleFilter}&limit=200`;
-    const usersRes = await api<{ users: AdminUserRow[] }>(usersPath);
+        ? `/api/admin/users?limit=${ADMIN_TABLE_PAGE}&offset=${usersPage * ADMIN_TABLE_PAGE}`
+        : `/api/admin/users?role=${userRoleFilter}&limit=${ADMIN_TABLE_PAGE}&offset=${usersPage * ADMIN_TABLE_PAGE}`;
+    const usersRes = await api<{ users: AdminUserRow[]; total?: number }>(usersPath);
     if (usersRes.ok && usersRes.data) {
       setAdminUsers(usersRes.data.users);
+      setUsersTotal(
+        typeof usersRes.data.total === "number" ? usersRes.data.total : usersRes.data.users.length,
+      );
       setUserNameDraft((prev) => {
         const next = { ...prev };
         for (const u of usersRes.data!.users) {
@@ -570,6 +705,7 @@ export default function AdminPage() {
     if (tm.ok && tm.data) setTodaysMatchBannerUrl(tm.data.imageUrl ?? null);
 
     await loadMasterCatalogIntoState();
+    await fetchListRequests();
   }
 
   async function uploadTodaysMatchBanner(file: File) {
@@ -695,9 +831,51 @@ export default function AdminPage() {
   }, [tab]);
 
   useEffect(() => {
+    setUsersPage(0);
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userRoleFilter]);
+
+  useEffect(() => {
+    if (!getToken() || getUser()?.role !== "ADMIN") return;
+    if (skipPaginatedRefreshOnce.current) {
+      skipPaginatedRefreshOnce.current = false;
+      return;
+    }
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingStoresPage, allStoresPage, settlementsPage, usersPage, readyOrdersPage]);
+
+  useEffect(() => {
+    if (!getToken() || getUser()?.role !== "ADMIN") return;
+    if (skipListReqPageFetchOnce.current) {
+      skipListReqPageFetchOnce.current = false;
+      return;
+    }
+    void fetchListRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listRequestsPage]);
+
+  useEffect(() => {
+    setOrdersTablePage(0);
+  }, [orderQuery, orderStatusFilter]);
+
+  useEffect(() => {
+    setAuditProductsPage(0);
+  }, [auditStoreId, auditQuery]);
+
+  useEffect(() => {
+    setCatalogMainPage(0);
+  }, [masterCatalog?.mains.length]);
+
+  useEffect(() => {
+    setCatalogSubPage(0);
+    setCatalogProdPage(0);
+  }, [pickMainId]);
+
+  useEffect(() => {
+    setCatalogProdPage(0);
+  }, [pickSubId]);
 
   useEffect(() => {
     if (!catalogNotice) return;
@@ -708,18 +886,10 @@ export default function AdminPage() {
   useEffect(() => {
     if (tab !== "stores" && tab !== "productAudit") return;
     if (!auditStoreId) return;
+    if (tab === "productAudit" && !approvedStores.some((s) => s.id === auditStoreId)) return;
     void loadAuditProducts(auditStoreId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, auditStoreId]);
-
-  /** Approved stores load async; re-fetch audit when list arrives while on Product Audit tab. */
-  useEffect(() => {
-    if (tab !== "productAudit") return;
-    if (!auditStoreId) return;
-    if (!approvedStores.some((s) => s.id === auditStoreId)) return;
-    void loadAuditProducts(auditStoreId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [approvedStores, tab, auditStoreId]);
+  }, [tab, auditStoreId, auditProductsPage, auditQuery, approvedStores]);
 
   useEffect(() => {
     if (!msg?.trim()) return;
@@ -1016,15 +1186,22 @@ export default function AdminPage() {
     if (!storeId) {
       setAuditProducts([]);
       setAuditSummary(null);
+      setAuditProductsTotal(0);
       return;
     }
+    const qParam = auditQuery.trim() ? `&q=${encodeURIComponent(auditQuery.trim())}` : "";
+    const offset = auditProductsPage * ADMIN_TABLE_PAGE;
     const res = await api<{
       products: AdminStoreProductRow[];
       commissionSummary: AdminStoreProductSummary;
-    }>(`/api/admin/store-products?storeId=${encodeURIComponent(storeId)}`);
+      productTotal?: number;
+    }>(
+      `/api/admin/store-products?storeId=${encodeURIComponent(storeId)}&limit=${ADMIN_TABLE_PAGE}&offset=${offset}${qParam}`,
+    );
     if (!res.ok || !res.data) {
       setAuditProducts([]);
       setAuditSummary(null);
+      setAuditProductsTotal(0);
       if (tab === "productAudit") {
         setMsg(res.error || "Product audit load failed — check login / API.");
       }
@@ -1032,6 +1209,11 @@ export default function AdminPage() {
     }
     setAuditProducts(res.data.products ?? []);
     setAuditSummary(res.data.commissionSummary ?? null);
+    setAuditProductsTotal(
+      typeof res.data.productTotal === "number"
+        ? res.data.productTotal
+        : res.data.products?.length ?? 0,
+    );
     setAuditPriceDraft((prev) => {
       const next = { ...prev };
       for (const p of res.data!.products ?? []) if (next[p.id] === undefined) next[p.id] = String(p.price);
@@ -1204,7 +1386,7 @@ export default function AdminPage() {
       body: JSON.stringify({ id, status }),
     });
     setMsg(res.ok ? "List request updated" : res.error || t("adminMsgError"));
-    await refresh();
+    if (res.ok) await fetchListRequests();
   }
 
   async function addPlan() {
@@ -1658,11 +1840,39 @@ export default function AdminPage() {
     acc[o.status] = (acc[o.status] ?? 0) + 1;
     return acc;
   }, {});
-  const filteredAuditProducts = auditProducts.filter((p) => {
-    const q = auditQuery.trim().toLowerCase();
-    if (!q) return true;
-    return p.name.toLowerCase().includes(q) || p.categoryName.toLowerCase().includes(q);
-  });
+
+  const pagedAdminOrders = useMemo(() => {
+    const start = ordersTablePage * ADMIN_TABLE_PAGE;
+    return filteredAdminOrders.slice(start, start + ADMIN_TABLE_PAGE);
+  }, [filteredAdminOrders, ordersTablePage]);
+
+  const overviewInvoiceRows = useMemo(() => {
+    const start = overviewInvoicesPage * ADMIN_TABLE_PAGE;
+    return recentOrders.slice(start, start + ADMIN_TABLE_PAGE);
+  }, [recentOrders, overviewInvoicesPage]);
+
+  const pagedFinanceApprovedStores = useMemo(() => {
+    const start = financeApprovedPage * ADMIN_TABLE_PAGE;
+    return approvedStores.slice(start, start + ADMIN_TABLE_PAGE);
+  }, [approvedStores, financeApprovedPage]);
+
+  const pagedCatalogMains = useMemo(() => {
+    const mains = masterCatalog?.mains ?? [];
+    const start = catalogMainPage * CATALOG_TABLE_PAGE;
+    return mains.slice(start, start + CATALOG_TABLE_PAGE);
+  }, [masterCatalog, catalogMainPage]);
+
+  const pagedCatalogSubs = useMemo(() => {
+    const subs = selectedMain?.subcategories ?? [];
+    const start = catalogSubPage * CATALOG_TABLE_PAGE;
+    return subs.slice(start, start + CATALOG_TABLE_PAGE);
+  }, [selectedMain, catalogSubPage]);
+
+  const pagedCatalogProducts = useMemo(() => {
+    const prods = selectedSub?.products ?? [];
+    const start = catalogProdPage * CATALOG_TABLE_PAGE;
+    return prods.slice(start, start + CATALOG_TABLE_PAGE);
+  }, [selectedSub, catalogProdPage]);
 
   return (
     <DashboardShell
@@ -1817,7 +2027,7 @@ export default function AdminPage() {
                 Photo list requests
               </h3>
               <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
-                {listRequests.filter((r) => r.status !== "DELIVERED" && r.status !== "REJECTED").length} active
+                {listRequestsActiveCount} active
               </span>
             </div>
             <p className="mt-1 text-sm text-zinc-600">
@@ -1836,15 +2046,10 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {listRequests.slice(0, 15).map((r) => (
+                  {listRequests.map((r) => (
                     <tr key={r.id} className="border-b border-zinc-100 align-top last:border-0">
                       <td className="py-3 pr-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={r.imageUrl}
-                          alt=""
-                          className="h-16 w-16 rounded-xl border border-zinc-200 object-cover"
-                        />
+                        <ListRequestPhotoCell row={r} />
                       </td>
                       <td className="py-3 pr-3">
                         <p className="font-semibold text-zinc-900">{r.userName || "Customer"}</p>
@@ -1895,6 +2100,12 @@ export default function AdminPage() {
               {listRequests.length === 0 ? (
                 <p className="py-6 text-center text-sm text-zinc-500">No photo list requests yet.</p>
               ) : null}
+              <AdminTablePagination
+                page={listRequestsPage}
+                pageSize={LIST_REQ_PAGE_SIZE}
+                total={listRequestsTotal}
+                onPageChange={setListRequestsPage}
+              />
             </div>
           </section>
 
@@ -1923,7 +2134,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentOrders.slice(0, 10).map((o) => (
+                  {overviewInvoiceRows.map((o) => (
                     <tr key={o.id} className="border-b border-zinc-100 last:border-0">
                       <td className="py-3 pr-3 font-mono text-xs text-zinc-600">
                         {o.id.slice(0, 8)}…
@@ -1981,6 +2192,12 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
+              <AdminTablePagination
+                page={overviewInvoicesPage}
+                pageSize={ADMIN_TABLE_PAGE}
+                total={recentOrders.length}
+                onPageChange={setOverviewInvoicesPage}
+              />
               {recentOrders.length === 0 && (
                 <p className="py-6 text-center text-sm text-zinc-500">
                   {t("adminNoRecentOrders")}
@@ -2003,7 +2220,7 @@ export default function AdminPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {[
-                  ["Total", recentOrders.length],
+                  ["Total", recentOrdersTotal],
                   ["Ready", orderStatusCounts.READY ?? 0],
                   ["Out", orderStatusCounts.OUT_FOR_DELIVERY ?? 0],
                   ["Delivered", orderStatusCounts.DELIVERED ?? 0],
@@ -2058,7 +2275,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {filteredAdminOrders.map((o) => (
+                  {pagedAdminOrders.map((o) => (
                     <tr key={o.id}>
                       <td className="py-3 pr-3">
                         <p className="font-mono text-xs font-semibold text-zinc-700">#{o.id.slice(0, 10)}…</p>
@@ -2195,6 +2412,12 @@ export default function AdminPage() {
                   ) : null}
                 </tbody>
               </table>
+              <AdminTablePagination
+                page={ordersTablePage}
+                pageSize={ADMIN_TABLE_PAGE}
+                total={filteredAdminOrders.length}
+                onPageChange={setOrdersTablePage}
+              />
             </div>
           </section>
         </div>
@@ -2296,7 +2519,7 @@ export default function AdminPage() {
                 {t("adminPending")}
               </h2>
               <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
-                {pendingStores.length} {t("adminWaiting")}
+                {pendingStoresTotal} {t("adminWaiting")}
               </span>
             </div>
             <ul className="mt-5 space-y-3">
@@ -2327,12 +2550,18 @@ export default function AdminPage() {
                   </div>
                 </li>
               ))}
-              {!pendingStores.length && (
+              {!pendingStores.length && pendingStoresTotal === 0 ? (
                 <li className="py-8 text-center text-sm text-zinc-500">
                   {t("adminNoPending")}
                 </li>
-              )}
+              ) : null}
             </ul>
+            <AdminTablePagination
+              page={pendingStoresPage}
+              pageSize={ADMIN_TABLE_PAGE}
+              total={pendingStoresTotal}
+              onPageChange={setPendingStoresPage}
+            />
           </section>
 
           <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
@@ -2399,7 +2628,9 @@ export default function AdminPage() {
           <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-display text-lg font-bold text-zinc-900">Stores CRUD</h2>
-              <span className="text-xs font-semibold text-zinc-500">{allStores.length} total</span>
+              <span className="text-xs font-semibold text-zinc-500">
+                {allStoresTotal} total
+              </span>
             </div>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[1050px] text-left text-sm">
@@ -2505,6 +2736,12 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
+              <AdminTablePagination
+                page={allStoresPage}
+                pageSize={ADMIN_TABLE_PAGE}
+                total={allStoresTotal}
+                onPageChange={setAllStoresPage}
+              />
             </div>
           </section>
 
@@ -2573,7 +2810,7 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {filteredAuditProducts.map((p) => (
+                {auditProducts.map((p) => (
                   <tr key={p.id} className="bg-white">
                     <td className="py-3 pr-3">
                       <p className="font-semibold text-zinc-900">{p.name}</p>
@@ -2636,7 +2873,7 @@ export default function AdminPage() {
                     </td>
                   </tr>
                 ))}
-                {filteredAuditProducts.length === 0 ? (
+                {auditProducts.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-8 text-center text-sm text-zinc-500">
                       {auditStoreId ? "No products found for this store." : "Select a store to audit products."}
@@ -2645,6 +2882,12 @@ export default function AdminPage() {
                 ) : null}
               </tbody>
             </table>
+            <AdminTablePagination
+              page={auditProductsPage}
+              pageSize={ADMIN_TABLE_PAGE}
+              total={auditProductsTotal}
+              onPageChange={setAuditProductsPage}
+            />
           </div>
         </section>
       )}
@@ -2693,7 +2936,9 @@ export default function AdminPage() {
           <section className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xl">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-display text-lg font-bold text-zinc-900">Users CRUD</h2>
-              <select
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-zinc-500">{usersTotal} users</span>
+                <select
                 className="ui-input !w-52"
                 value={userRoleFilter}
                 onChange={(e) => setUserRoleFilter(e.target.value as "ALL" | UserRoleValue)}
@@ -2704,6 +2949,7 @@ export default function AdminPage() {
                 <option value="DELIVERY">DELIVERY</option>
                 <option value="ADMIN">ADMIN</option>
               </select>
+            </div>
             </div>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[900px] text-left text-sm">
@@ -2776,6 +3022,12 @@ export default function AdminPage() {
                   ) : null}
                 </tbody>
               </table>
+              <AdminTablePagination
+                page={usersPage}
+                pageSize={ADMIN_TABLE_PAGE}
+                total={usersTotal}
+                onPageChange={setUsersPage}
+              />
             </div>
           </section>
         </div>
@@ -2832,6 +3084,12 @@ export default function AdminPage() {
                 </li>
               ))}
             </ul>
+            <AdminTablePagination
+              page={readyOrdersPage}
+              pageSize={ADMIN_TABLE_PAGE}
+              total={readyOrdersTotal}
+              onPageChange={setReadyOrdersPage}
+            />
             <div className="mt-4 space-y-3">
               <div>
                 <label className="ui-label">{t("adminOrderId")}</label>
@@ -3206,7 +3464,7 @@ export default function AdminPage() {
                       </td>
                     </tr>
                   ))}
-                  {settlements.length === 0 ? (
+                  {settlements.length === 0 && settlementsTotal === 0 ? (
                     <tr>
                       <td colSpan={9} className="py-8 text-center text-sm text-zinc-500">
                         No settlements yet.
@@ -3215,6 +3473,12 @@ export default function AdminPage() {
                   ) : null}
                 </tbody>
               </table>
+              <AdminTablePagination
+                page={settlementsPage}
+                pageSize={ADMIN_TABLE_PAGE}
+                total={settlementsTotal}
+                onPageChange={setSettlementsPage}
+              />
             </div>
           </section>
 
@@ -3238,7 +3502,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {approvedStores.map((s) => (
+                  {pagedFinanceApprovedStores.map((s) => (
                     <tr key={s.id} className="bg-white">
                       <td className="py-3 pr-3">
                         <p className="font-semibold text-zinc-900">{s.name}</p>
@@ -3281,6 +3545,12 @@ export default function AdminPage() {
                   ) : null}
                 </tbody>
               </table>
+              <AdminTablePagination
+                page={financeApprovedPage}
+                pageSize={ADMIN_TABLE_PAGE}
+                total={approvedStores.length}
+                onPageChange={setFinanceApprovedPage}
+              />
             </div>
           </section>
 
@@ -3589,7 +3859,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {masterCatalog?.mains.map((m) => (
+                    {pagedCatalogMains.map((m) => (
                       <tr key={m.id} className="border-b border-zinc-100 last:border-0">
                         <td className="py-3 pr-3 font-semibold text-zinc-900">{m.name}</td>
                         <td className="py-3 pr-3 font-mono text-xs text-zinc-500">{m.key}</td>
@@ -3619,6 +3889,12 @@ export default function AdminPage() {
                     ))}
                   </tbody>
                 </table>
+                <AdminTablePagination
+                  page={catalogMainPage}
+                  pageSize={CATALOG_TABLE_PAGE}
+                  total={masterCatalog?.mains.length ?? 0}
+                  onPageChange={setCatalogMainPage}
+                />
               </div>
             </div>
 
@@ -3645,7 +3921,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedMain?.subcategories.map((s) => (
+                    {pagedCatalogSubs.map((s) => (
                       <tr key={s.id} className="border-b border-zinc-100 last:border-0">
                         <td className="py-3 pr-3 font-semibold text-zinc-900">{s.name}</td>
                         <td className="py-3 pr-3 text-zinc-600">
@@ -3682,6 +3958,12 @@ export default function AdminPage() {
                     ))}
                   </tbody>
                 </table>
+                <AdminTablePagination
+                  page={catalogSubPage}
+                  pageSize={CATALOG_TABLE_PAGE}
+                  total={selectedMain?.subcategories.length ?? 0}
+                  onPageChange={setCatalogSubPage}
+                />
               </div>
             </div>
           </div>
@@ -3709,7 +3991,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedSub?.products.map((p) => (
+                  {pagedCatalogProducts.map((p) => (
                     <tr key={p.id} className="border-b border-zinc-100 last:border-0">
                       <td className="py-3 pr-3 font-semibold text-zinc-900">{p.name}</td>
                       <td className="py-3 pr-3 text-zinc-600">{p.unitLabel ?? "—"}</td>
@@ -3739,6 +4021,12 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
+              <AdminTablePagination
+                page={catalogProdPage}
+                pageSize={CATALOG_TABLE_PAGE}
+                total={selectedSub?.products.length ?? 0}
+                onPageChange={setCatalogProdPage}
+              />
             </div>
           </div>
         </section>

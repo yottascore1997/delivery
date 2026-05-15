@@ -1,5 +1,5 @@
 import { requireAuth } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { UserRole, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { dec } from "@/lib/serialize";
 import { emptyOptions, jsonError, jsonOk } from "@/lib/api-response";
@@ -19,6 +19,10 @@ export async function GET(request: Request) {
   const storeId = (searchParams.get("storeId") ?? "").trim();
   if (!storeId) return jsonError("storeId required");
 
+  const q = (searchParams.get("q") ?? "").trim();
+  const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? "25"), 1), 200);
+  const offset = Math.max(Number(searchParams.get("offset") ?? "0"), 0);
+
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     select: {
@@ -30,13 +34,30 @@ export async function GET(request: Request) {
   });
   if (!store) return jsonError("Store not found", 404);
 
-  const products = await prisma.product.findMany({
-    where: { storeId },
-    orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
-    include: {
-      category: { select: { id: true, name: true } },
-    },
-  });
+  const productWhere = {
+    storeId,
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { category: { name: { contains: q, mode: "insensitive" as const } } },
+          ],
+        }
+      : {}),
+  } as Prisma.ProductWhereInput;
+
+  const [products, productTotal] = await Promise.all([
+    prisma.product.findMany({
+      where: productWhere,
+      orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
+      take: limit,
+      skip: offset,
+      include: {
+        category: { select: { id: true, name: true } },
+      },
+    }),
+    prisma.product.count({ where: productWhere }),
+  ]);
 
   const deliveredOrders = await prisma.order.findMany({
     where: { storeId, status: "DELIVERED" },
@@ -104,6 +125,9 @@ export async function GET(request: Request) {
       ),
       createdAt: p.createdAt,
     })),
+    productTotal,
+    productLimit: limit,
+    productOffset: offset,
   });
 }
 
