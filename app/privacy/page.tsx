@@ -92,8 +92,12 @@ export default function PrivacyPolicyPage() {
 
           <h2 className="mt-10 text-xl text-ink">5. Your choices</h2>
           <p>
-            You may request access, correction, or deletion of certain personal data where applicable law allows. Contact
-            details should be added here once your support channels are finalised.
+            You may request access, correction, or deletion of certain personal data where applicable law allows. To
+            request deletion of your account and associated data, use our dedicated page:{" "}
+            <Link href="/account-data-deletion" className="font-bold text-fresh-700 hover:text-fresh-800">
+              Account &amp; data deletion
+            </Link>
+            . Support contact details can be added on the Help page once your channels are finalised.
           </p>
 
           <h2 className="mt-10 text-xl text-ink">6. Contact</h2>

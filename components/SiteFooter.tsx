@@ -22,6 +22,9 @@ export function SiteFooter() {
           <Link href="/privacy" className="text-zinc-300 hover:text-white">
             Privacy
           </Link>
+          <Link href="/account-data-deletion" className="text-zinc-300 hover:text-white">
+            Delete account / data
+          </Link>
           <Link href="/login" className="text-zinc-300 hover:text-white">
             Login
           </Link>

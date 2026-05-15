@@ -638,12 +638,15 @@ function LoginForm() {
                             </>
                           )}
                         </p>
-                        <div className="mt-3 flex items-center justify-center gap-4 text-xs font-bold text-[#5c6b65]">
+                        <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-xs font-bold text-[#5c6b65]">
                           <Link href="/shop/help" className="hover:text-[#004d3d]">
                             {t("loginDesktopHelpLink")}
                           </Link>
                           <Link href="/privacy" className="hover:text-[#004d3d]">
                             {t("loginDesktopPrivacyLink")}
+                          </Link>
+                          <Link href="/account-data-deletion" className="hover:text-[#004d3d]">
+                            Data deletion
                           </Link>
                         </div>
                       </div>
@@ -683,12 +686,15 @@ function LoginForm() {
                         >
                           {t("loginChangePhone")}
                         </button>
-                        <div className="mt-3 flex items-center justify-center gap-4 text-xs font-bold text-[#5c6b65]">
+                        <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-xs font-bold text-[#5c6b65]">
                           <Link href="/shop/help" className="hover:text-[#004d3d]">
                             {t("loginDesktopHelpLink")}
                           </Link>
                           <Link href="/privacy" className="hover:text-[#004d3d]">
                             {t("loginDesktopPrivacyLink")}
+                          </Link>
+                          <Link href="/account-data-deletion" className="hover:text-[#004d3d]">
+                            Data deletion
                           </Link>
                         </div>
                       </div>
@@ -968,6 +974,12 @@ function LoginForm() {
                         className="font-semibold text-blue-600 transition hover:text-blue-700"
                       >
                         {t("loginDesktopPrivacyLink")}
+                      </Link>
+                      <Link
+                        href="/account-data-deletion"
+                        className="font-semibold text-blue-600 transition hover:text-blue-700"
+                      >
+                        Data deletion
                       </Link>
                     </span>
                   </div>

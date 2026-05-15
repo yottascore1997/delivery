@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { getAppName } from "@/lib/app-brand";
 import {
@@ -11,7 +12,7 @@ import {
   hasAnySupportChannel,
 } from "@/lib/support-config";
 
-function FaqItem({ q, a }: { q: string; a: string }) {
+function FaqItem({ q, a }: { q: string; a: ReactNode }) {
   return (
     <details className="group rounded-2xl border border-zinc-200/90 bg-white px-4 py-3 shadow-sm open:shadow-md open:ring-1 open:ring-orange-100">
       <summary className="cursor-pointer list-none font-bold text-zinc-900 outline-none [&::-webkit-details-marker]:hidden">
@@ -20,7 +21,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
           <span className="text-zinc-400 transition group-open:rotate-180">▼</span>
         </span>
       </summary>
-      <p className="mt-3 border-t border-zinc-100 pt-3 text-sm font-medium leading-relaxed text-zinc-600">{a}</p>
+      <div className="mt-3 border-t border-zinc-100 pt-3 text-sm font-medium leading-relaxed text-zinc-600">{a}</div>
     </details>
   );
 }
@@ -60,6 +61,18 @@ export default function ShopHelpPage() {
     {
       q: "Do I need an account?",
       a: "Yes — sign in with your mobile number (OTP) as a customer to order and save your address.",
+    },
+    {
+      q: "How do I delete my account and my data?",
+      a: (
+        <>
+          Use the{" "}
+          <Link href="/account-data-deletion" className="font-bold text-fresh-700 underline hover:text-fresh-800">
+            Account &amp; data deletion
+          </Link>{" "}
+          page (no login needed). Enter the same mobile number you use in the app and submit the form.
+        </>
+      ),
     },
   ];
 
@@ -175,6 +188,12 @@ export default function ShopHelpPage() {
             className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-black text-zinc-800"
           >
             Privacy policy
+          </Link>
+          <Link
+            href="/account-data-deletion"
+            className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-black text-rose-900"
+          >
+            Delete account / data
           </Link>
         </div>
       </section>
